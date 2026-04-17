@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-teal: #2A8E9E;
+  --color-brand-teal-dark: #227380;
+  --color-brand-mint: #E9F3F4;
+  --color-brand-navy: #183D39;
+  --color-brand-navy-dark: #122c29;
+  --color-brand-dark: #1D1E20;
+  --font-sans: "Helvetica", "Arial", sans-serif;
+}
+
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+}
