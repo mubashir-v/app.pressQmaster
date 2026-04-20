@@ -116,7 +116,7 @@ export default function QuotationEditorPage() {
   // Custom Size State
   const [customWidth, setCustomWidth] = useState("");
   const [customBreadth, setCustomBreadth] = useState("");
-  const [customUnit, setCustomUnit] = useState("inch");
+  const [customUnit, setCustomUnit] = useState(user.settings?.defaultLengthUnit || "mm");
   const [editingLineId, setEditingLineId] = useState(null); 
   const [selectedLaserOption, setSelectedLaserOption] = useState(null);
 
@@ -762,7 +762,7 @@ export default function QuotationEditorPage() {
       {/* 2. Compact Calculator Bar */}
       <section id="calc-top" className="no-print border-b border-brand-navy/5 bg-white">
           {/* Tabs - Redesigned to be rounded and thematic */}
-          <div className="px-10 py-4 bg-zinc-50/50 flex">
+          <div className="px-6 py-2 bg-zinc-50/50 flex">
              <div className="flex bg-zinc-200/50 p-1 rounded-2xl border border-zinc-200/50">
                 {TABS.map(t => (
                   <button
@@ -1330,9 +1330,9 @@ export default function QuotationEditorPage() {
 
 
       {/* 3. High-Density Preview Area */}
-      <section className="flex-1 bg-[#F1F4F9] p-8">
+      <section className="flex-1 bg-[#F1F4F9] p-4 lg:p-6">
           <div className="w-full h-full bg-white rounded-xl shadow-inner border border-brand-navy/5 overflow-hidden flex flex-col">
-              <div className="flex-1 overflow-y-auto no-scrollbar p-6">
+              <div className="flex-1 overflow-y-auto no-scrollbar p-3 md:p-4">
                  {lineItems.length === 0 ? (
                    <div className="h-full flex items-center justify-center">
                       <div className="text-center opacity-10">
@@ -1344,11 +1344,11 @@ export default function QuotationEditorPage() {
                    <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b-2 border-brand-navy/10">
-                           <th className="py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest pl-4">#</th>
-                           <th className="py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest">Description / Specification</th>
-                           <th className="py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest">Qty</th>
-                           <th className="py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-right pr-4 tracking-tighter">Line Total</th>
-                           <th className="no-print py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-right pr-4 tracking-tighter">Actions</th>
+                            <th className="py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest pl-4">#</th>
+                            <th className="py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-left">Desc / Spec</th>
+                            <th className="py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest">Qty</th>
+                            <th className="py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-right pr-4 tracking-tighter">Total</th>
+                            <th className="no-print py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-right pr-4 tracking-tighter">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-brand-navy/5">
@@ -1356,8 +1356,8 @@ export default function QuotationEditorPage() {
                           const lineTotal = item.chargeComponents?.reduce((acc, c) => acc + (c.amount || 0), 0) || 0;
                           return (
                             <tr key={item.id || item._id} className="group hover:bg-zinc-50 transition-colors">
-                              <td className="py-4 pl-4 text-xs font-black text-brand-navy/20 tabular-nums">{idx + 1}</td>
-                              <td className="py-4">
+                              <td className="py-1.5 pl-4 text-xs font-black text-brand-navy/20 tabular-nums">{idx + 1}</td>
+                              <td className="py-1.5">
                                  <div className="text-xs font-bold text-brand-navy underline decoration-brand-teal/20 offset-4">{item.title}</div>
                                  <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 flex flex-col">
                                     <span>{item.description}</span>

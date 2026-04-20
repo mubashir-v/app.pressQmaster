@@ -24,8 +24,18 @@ export async function getOrganizationScopes() {
   return response.data;
 }
 
-export async function updateOrganizationSettings(payload) {
+export async function updateOrganizationProfile(payload) {
   const response = await apiClient.patch("/v1/organization", payload);
+  return response.data;
+}
+
+export async function getOrganizationSettings() {
+  const response = await apiClient.get("/v1/organization/settings");
+  return response.data;
+}
+
+export async function updateOrganizationSettings(payload) {
+  const response = await apiClient.patch("/v1/organization/settings", payload);
   return response.data;
 }
 

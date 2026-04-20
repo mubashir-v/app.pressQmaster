@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
-import { updateOrganizationSettings, deleteOrganization } from "../../../infrastructure/api/backendService.js";
-import { TextField, PrimaryButton } from "../../components/auth/AuthFormPrimitives.jsx";
-import { MdBusiness, MdShield, MdSave } from "react-icons/md";
+import { updateOrganizationProfile, updateOrganizationSettings, deleteOrganization } from "../../../infrastructure/api/backendService.js";
+import { TextField, PrimaryButton, SelectField } from "../../components/auth/AuthFormPrimitives.jsx";
+import { MdBusiness, MdShield, MdSave, MdSettingsSuggest } from "react-icons/md";
 
 // Reusable Tailwind Toggle Component
 function ToggleSwitch({ enabled, onChange, disabled }) {
@@ -54,6 +54,9 @@ export default function OrganizationSettingsPage() {
   const [postalCode, setPostalCode] = useState(activeOrg.address?.postalCode || "");
   const [country, setCountry] = useState(activeOrg.address?.country || "");
 
+  // UI Preferences state
+  const [defaultLengthUnit, setDefaultLengthUnit] = useState(user.settings?.defaultLengthUnit || "mm");
+
   const canSubmit = name.trim().length > 1;
 
   async function handleDelete() {
@@ -91,15 +94,23 @@ export default function OrganizationSettingsPage() {
          }
       }
 
-      const payload = {
+      const profilePayload = {
          name: name.trim(),
          isActive,
-         // The API contract dictates the address completely replaces the previous one
          address: hasAddressData ? composedAddress : null
       };
 
-      await updateOrganizationSettings(payload);
-      setSuccessMsg("Organization settings securely updated.");
+      const settingsPayload = {
+         defaultLengthUnit
+      };
+
+      // Execute both updates in parallel for atomicity
+      await Promise.all([
+          updateOrganizationProfile(profilePayload),
+          updateOrganizationSettings(settingsPayload)
+      ]);
+
+      setSuccessMsg("Organization profile and UI preferences updated.");
       
       // Auto-refresh the DOM structure in 1.5 seconds mapping contexts to the latest Database state
       setTimeout(() => {
@@ -119,128 +130,140 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl w-full mx-auto p-4 md:p-10 animate-fade-in relative pb-32">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-brand-navy tracking-tight">Organization Profile</h1>
-        <p className="mt-2 text-brand-navy/60">
-          Manage your organization's core details and physical address.
+    <div className="max-w-7xl w-full mx-auto p-4 md:p-6 animate-fade-in relative pb-16">
+      <div className="mb-4">
+        <h1 className="text-xl font-black text-brand-navy tracking-tight">Organization Profile</h1>
+        <p className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-widest mt-0.5">
+          Workspace Identity & Preferences
         </p>
       </div>
 
       {!isOwner && (
-        <div className="mb-8 rounded-xl bg-amber-50 p-4 border border-amber-200 flex gap-4">
-           <MdShield className="w-6 h-6 text-amber-500 flex-shrink-0" />
-           <div>
-              <h3 className="text-sm font-bold text-amber-800">Read-Only Access</h3>
-              <p className="text-sm text-amber-700 mt-1">You hold a `{activeOrg.role}` role locally. Only billing Owners are permitted to make changes to organization settings.</p>
-           </div>
+        <div className="mb-4 rounded-lg bg-amber-50 p-3 border border-amber-200 flex gap-3 items-center">
+           <MdShield className="w-4 h-4 text-amber-500 flex-shrink-0" />
+           <p className="text-[10px] font-bold text-amber-800 uppercase tracking-tight">Read-Only Access: Only Owners can modify settings.</p>
         </div>
       )}
 
-      {errorMsg && (
-         <div className="mb-8 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-600 border border-red-100">
-            {errorMsg}
+      {(errorMsg || successMsg) && (
+         <div className={`mb-4 rounded-lg p-3 text-[10px] font-black uppercase tracking-widest border border-current italic flex items-center gap-2 ${errorMsg ? 'bg-red-50 text-red-600' : 'bg-brand-mint/20 text-brand-teal'}`}>
+            <span>{errorMsg || successMsg}</span>
          </div>
       )}
 
-      {successMsg && (
-         <div className="mb-8 rounded-xl bg-brand-mint/30 p-4 text-sm font-semibold text-brand-teal border border-brand-mint">
-            {successMsg}
-         </div>
-      )}
-
-      <div className="space-y-6">
-          {/* General Information Block */}
-          <section className="bg-white rounded-2xl border border-brand-navy/5 shadow-sm overflow-hidden">
-             <div className="px-6 py-4 border-b border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
-                 <h2 className="font-bold text-brand-navy">General Information</h2>
-             </div>
-             <div className="p-6 md:p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="space-y-6">
-                       <TextField
-                         label="Organization Name"
-                         placeholder="e.g. Acme Printing Press"
-                         value={name}
-                         onChange={(e) => setName(e.target.value)}
-                         disabled={!isOwner || busy}
-                       />
-                       <div>
-                         <label className="block text-sm font-bold text-brand-navy mb-2">Custom URL Handle</label>
-                         <p className="text-sm text-brand-navy/50 bg-zinc-50 p-3 rounded-lg font-mono border border-brand-navy/5">
-                            {activeOrg.slug || "No handle provided"}
-                         </p>
-                       </div>
-                   </div>
-                   
-                   <div className="pt-2">
-                       <label className="flex items-center gap-4 cursor-pointer p-4 border border-brand-navy/5 rounded-xl hover:bg-zinc-50 transition-colors">
-                           <ToggleSwitch enabled={isActive} onChange={setIsActive} disabled={!isOwner || busy} />
-                           <div>
-                              <div className="font-bold text-brand-navy">Organization Status</div>
-                              <div className="text-xs text-brand-navy/50 mt-1">{isActive ? 'Active and accessible to your team.' : 'Paused. Members cannot access this workspace.'}</div>
-                           </div>
-                       </label>
-                   </div>
-                </div>
-             </div>
-          </section>
-
-          {/* Physical Address Block */}
-          <section className="bg-white rounded-2xl border border-brand-navy/5 shadow-sm overflow-hidden">
-             <div className="px-6 py-4 border-b border-brand-navy/5 bg-zinc-50/50">
-                 <h2 className="font-bold text-brand-navy">Physical Address</h2>
-             </div>
-             <div className="p-6 md:p-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="md:col-span-2">
-                         <TextField
-                             label="Address Line 1"
-                             placeholder="Street address, P.O. box, company name, c/o"
-                             value={addressLine1}
-                             onChange={(e) => setAddressLine1(e.target.value)}
-                             disabled={!isOwner || busy}
-                         />
-                     </div>
-                     <div className="md:col-span-2">
-                         <TextField
-                             label="Address Line 2"
-                             placeholder="Apartment, suite, unit, building, floor, etc."
-                             value={addressLine2}
-                             onChange={(e) => setAddressLine2(e.target.value)}
-                             disabled={!isOwner || busy}
-                         />
-                     </div>
-                     <TextField label="City" value={city} onChange={(e) => setCity(e.target.value)} disabled={!isOwner || busy}/>
-                     <TextField label="State / Province" value={region} onChange={(e) => setRegion(e.target.value)} disabled={!isOwner || busy}/>
-                     <TextField label="ZIP / Postal Code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} disabled={!isOwner || busy}/>
-                     <TextField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} disabled={!isOwner || busy}/>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="space-y-4">
+              {/* General Information Block */}
+              <section className="bg-white rounded-xl border border-brand-navy/5 shadow-sm overflow-hidden">
+                 <div className="px-4 py-2 border-b border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
+                     <h2 className="text-[10px] font-black text-brand-navy uppercase tracking-widest">General Information</h2>
                  </div>
-             </div>
-          </section>
-          {/* Danger Zone */}
-          {isOwner && (
-             <section className="bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden mt-8">
-                 <div className="px-6 py-4 border-b border-red-100 bg-red-50/50">
-                     <h2 className="font-bold text-red-700">Danger Zone</h2>
-                 </div>
-                 <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div>
-                        <h3 className="font-semibold text-brand-navy">Delete this organization</h3>
-                        <p className="text-sm text-brand-navy/60 mt-1">
-                           Once you delete an organization, there is no going back. Please be certain.
-                        </p>
+                 <div className="p-4 space-y-4">
+                    <TextField
+                      label="Organization Name"
+                      placeholder="e.g. Acme Printing Press"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={!isOwner || busy}
+                    />
+                    <div className="grid grid-cols-2 gap-4 items-end">
+                        <div className="min-w-0">
+                          <label className="block text-[10px] font-bold text-brand-navy/60 mb-1 uppercase tracking-wider">URL Handle</label>
+                          <div className="text-[10px] font-bold text-brand-navy/40 bg-zinc-50 p-2 rounded-lg border border-brand-navy/5 truncate font-mono">
+                             {activeOrg.slug || "No handle"}
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-3 cursor-pointer p-2 border border-brand-navy/5 rounded-lg hover:bg-zinc-50 transition-colors shrink-0">
+                            <ToggleSwitch enabled={isActive} onChange={setIsActive} disabled={!isOwner || busy} />
+                            <div className="text-[10px] font-bold text-brand-navy uppercase tracking-tight leading-tight">Status</div>
+                        </label>
                     </div>
-                    <button 
-                       onClick={() => setShowDeleteConfirm(true)}
-                       disabled={busy}
-                       className="px-6 py-2.5 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors whitespace-nowrap"
-                    >
-                       Delete Organization
-                    </button>
                  </div>
-             </section>
-          )}
+              </section>
+
+              {/* UI Preferences Block */}
+              <section className="bg-white rounded-xl border border-brand-navy/5 shadow-sm overflow-hidden">
+                 <div className="px-4 py-2 border-b border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
+                     <div className="flex items-center gap-2">
+                        <MdSettingsSuggest className="w-4 h-4 text-brand-teal" />
+                        <h2 className="text-[10px] font-black text-brand-navy uppercase tracking-widest">UI Preferences</h2>
+                     </div>
+                 </div>
+                 <div className="p-4">
+                     <SelectField 
+                       label="Default Length Unit" 
+                       value={defaultLengthUnit} 
+                       onChange={(e) => setDefaultLengthUnit(e.target.value)}
+                       disabled={!isOwner || busy}
+                       options={[
+                          { label: "Millimeters (mm)", value: "mm" },
+                          { label: "Centimeters (cm)", value: "cm" },
+                          { label: "Inches (inch)", value: "inch" }
+                       ]}
+                     />
+                     <p className="mt-2 text-[9px] font-bold text-brand-navy/20 uppercase tracking-widest italic leading-tight">
+                        Used as default for all inventory and calculator forms.
+                     </p>
+                 </div>
+              </section>
+          </div>
+
+          <div className="space-y-4">
+              {/* Physical Address Block */}
+              <section className="bg-white rounded-xl border border-brand-navy/5 shadow-sm overflow-hidden">
+                 <div className="px-4 py-2 border-b border-brand-navy/5 bg-zinc-50/50">
+                     <h2 className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Physical Address</h2>
+                 </div>
+                 <div className="p-4 space-y-4">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div className="md:col-span-2">
+                             <TextField
+                                 label="Address Line 1"
+                                 placeholder="Street address..."
+                                 value={addressLine1}
+                                 onChange={(e) => setAddressLine1(e.target.value)}
+                                 disabled={!isOwner || busy}
+                             />
+                         </div>
+                         <div className="md:col-span-2">
+                             <TextField
+                                 label="Address Line 2"
+                                 placeholder="Suite, unit, etc."
+                                 value={addressLine2}
+                                 onChange={(e) => setAddressLine2(e.target.value)}
+                                 disabled={!isOwner || busy}
+                             />
+                         </div>
+                         <TextField label="City" value={city} onChange={(e) => setCity(e.target.value)} disabled={!isOwner || busy}/>
+                         <TextField label="State / Province" value={region} onChange={(e) => setRegion(e.target.value)} disabled={!isOwner || busy}/>
+                         <TextField label="ZIP Code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} disabled={!isOwner || busy}/>
+                         <TextField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} disabled={!isOwner || busy}/>
+                     </div>
+                 </div>
+              </section>
+
+              {/* Danger Zone */}
+              {isOwner && (
+                 <section className="bg-red-50/30 rounded-xl border border-red-100 shadow-sm overflow-hidden">
+                     <div className="px-4 py-2 border-b border-red-100 bg-red-100/30">
+                         <h2 className="text-[10px] font-black text-red-700 uppercase tracking-widest">Danger Zone</h2>
+                     </div>
+                     <div className="p-4 flex items-center justify-between gap-4">
+                        <div>
+                            <h3 className="text-[10px] font-bold text-brand-navy uppercase">Delete Workspace</h3>
+                            <p className="text-[9px] text-brand-navy/40 mt-0.5">Permenantly obliterate all data.</p>
+                        </div>
+                        <button 
+                           onClick={() => setShowDeleteConfirm(true)}
+                           disabled={busy}
+                           className="px-3 py-1.5 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                        >
+                           Obliterate
+                        </button>
+                     </div>
+                 </section>
+              )}
+          </div>
       </div>
 
       {isOwner && (

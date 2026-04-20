@@ -54,7 +54,7 @@ export default function StocksManagementPage() {
   const [gsm, setGsm] = useState("");
   const [dimLength, setDimLength] = useState("");
   const [dimBreadth, setDimBreadth] = useState("");
-  const [dimUnit, setDimUnit] = useState("mm");
+  const [dimUnit, setDimUnit] = useState(user.settings?.defaultLengthUnit || "mm");
   const [baseQty, setBaseQty] = useState("0");
   const [isActive, setIsActive] = useState(true);
 
@@ -112,7 +112,7 @@ export default function StocksManagementPage() {
     setGsm("");
     setDimLength("");
     setDimBreadth("");
-    setDimUnit("mm");
+    setDimUnit(user.settings?.defaultLengthUnit || "mm");
     setBaseQty("0");
     setIsActive(true);
     setPricingType("SLAB_BASED");

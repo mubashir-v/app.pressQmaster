@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../../infrastructure/firebase/config.js";
-import { getCurrentUser, getOrganizationScopes } from "../../infrastructure/api/backendService.js";
+import { getCurrentUser, getOrganizationScopes, getOrganizationSettings } from "../../infrastructure/api/backendService.js";
 import BrandLogo from "../../presentation/components/logo/BrandLogo.jsx";
 
 // Create the Context
@@ -42,15 +42,21 @@ export const AuthProvider = ({ children }) => {
                }
            }
 
-           // Fetch runtime scopes if we securely bound an active organization context
+           // Fetch runtime scopes and organization-scoped UI settings
            let resolvedScopes = [];
+           let resolvedSettings = null;
+           
            if (activeOrgId && !needsOrgSelection && !(payload.requiresOrganizationSetup || payload.code === "NEEDS_ORGANIZATION_SETUP")) {
                try {
-                  const scopePayload = await getOrganizationScopes();
+                  const [scopePayload, settingsPayload] = await Promise.all([
+                      getOrganizationScopes(),
+                      getOrganizationSettings()
+                  ]);
                   resolvedScopes = scopePayload.scopes || [];
+                  resolvedSettings = settingsPayload.settings || null;
                } catch (scopeError) {
                   const errCode = scopeError.response?.data?.code;
-                  console.error("Failed to fetch organization scopes bounds", scopeError.response?.data || scopeError.message);
+                  console.error("Failed to fetch organization context bounds", scopeError.response?.data || scopeError.message);
                   
                   // Server explicitly rejected their active organization credential mapping
                   if (["MISSING_ORGANIZATION_ID", "INVALID_ORGANIZATION_ID", "NOT_ORGANIZATION_MEMBER"].includes(errCode)) {
@@ -72,8 +78,9 @@ export const AuthProvider = ({ children }) => {
               organizations: payload.organizations,
               sessionCode: payload.code,
               
-              // Load the dynamically computed server-bound scopes
-              scopes: resolvedScopes
+              // Load the dynamically computed server-bound scopes and UI preferences
+              scopes: resolvedScopes,
+              settings: resolvedSettings
            });
         } catch (e) {
            console.error("Backend auth resolution failed. Logging out locally.", e);
