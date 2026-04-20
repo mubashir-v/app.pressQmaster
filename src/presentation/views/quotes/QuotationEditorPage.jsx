@@ -98,6 +98,8 @@ export default function QuotationEditorPage() {
   const [offsetIsBackSideDifferent, setOffsetIsBackSideDifferent] = useState(false);
   const [offsetCopies, setOffsetCopies] = useState("1000"); 
   const [offsetWaste, setOffsetWaste] = useState("0");
+  const [itemTitle, setItemTitle] = useState("");
+
 
   const [offsetSizeOptions, setOffsetSizeOptions] = useState([]);
   const [offsetStockOptions, setOffsetStockOptions] = useState([]);
@@ -217,6 +219,7 @@ export default function QuotationEditorPage() {
      setOffsetPricingOptions([]);
      setSelectedOffsetOption(null);
 
+     setItemTitle("");
      setEditingLineId(null);
    }
 
@@ -259,6 +262,7 @@ export default function QuotationEditorPage() {
          setOffsetCopies(m.offsetCopies?.toString() || "1000");
          setOffsetWaste(m.offsetWaste?.toString() || "0");
        }
+       setItemTitle(m.itemTitle || "");
      }
 
     // Scroll to calculator
@@ -784,6 +788,12 @@ export default function QuotationEditorPage() {
                   {/* Left: Inputs */}
                   <div className="w-full lg:w-[450px] space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
+                          <TextField 
+                            label="Job Title" 
+                            placeholder="e.g. Notice, Poster..." 
+                            value={itemTitle} 
+                            onChange={e => setItemTitle(e.target.value)} 
+                          />
                           <SearchableSelect
                             label="Press Size"
                             options={laserSizeOptions}
@@ -791,6 +801,7 @@ export default function QuotationEditorPage() {
                             placeholder="Search Size Chart..."
                             onChange={e => setLaserSizeId(e.target.value)}
                           />
+
 
                           {laserSizeId === 'custom' && (
                             <div className="p-5 bg-brand-teal/5 h-16 rounded-2xl border border-brand-teal/10 flex items-center gap-4 animate-slide-down">
@@ -994,11 +1005,15 @@ export default function QuotationEditorPage() {
                                     const newLineItem = {
                                       id: editingLineId || Date.now(),
                                       lineKind: "PRINTING",
-                                      title: sizeName,
-                                      description: `LSR • ${laserSides} • ${laserColorMode} • ${selPaper?.name || 'Standard'}`,
+                                      title: itemTitle || sizeName,
+                                      description: `LSR • ${itemTitle ? sizeName + ' • ' : ''}${laserSides} • ${laserColorMode} • ${selPaper?.name || 'Standard'}`,
                                       quantity: Number(laserCopies),
+
+
                                       meta: {
+                                        itemTitle,
                                         laserStockItemId, laserSizeId, customWidth, customBreadth, customUnit,
+
                                         laserSides, laserColorMode, laserCopies,
                                         isOnlyClipCharge, 
                                         printerModelId: opt.printerModelId,
@@ -1051,6 +1066,12 @@ export default function QuotationEditorPage() {
                   {/* Left: Inputs */}
                   <div className="w-full lg:w-[450px] space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
+                          <TextField 
+                            label="Job Title" 
+                            placeholder="e.g. Notice, Poster..." 
+                            value={itemTitle} 
+                            onChange={e => setItemTitle(e.target.value)} 
+                          />
                           <SearchableSelect
                             label="Print Size"
                             options={offsetSizeOptions}
@@ -1058,6 +1079,7 @@ export default function QuotationEditorPage() {
                             placeholder="Search Size Chart..."
                             onChange={e => setOffsetSizeId(e.target.value)}
                           />
+
 
                           {offsetSizeId === 'custom' && (
                             <div className="p-5 bg-brand-teal/5 h-16 rounded-2xl border border-brand-teal/10 flex items-center gap-4 animate-slide-down">
@@ -1272,11 +1294,15 @@ export default function QuotationEditorPage() {
                                      const newLineItem = {
                                        id: editingLineId || Date.now(),
                                        lineKind: "PRINTING",
-                                       title: sizeName,
-                                       description: `OFST • ${offsetSides} • ${offsetColorMode} • ${selPaper?.name || 'Standard'}`,
+                                       title: itemTitle || sizeName,
+                                       description: `OFST • ${itemTitle ? sizeName + ' • ' : ''}${offsetSides} • ${offsetColorMode} • ${selPaper?.name || 'Standard'}`,
                                        quantity: Number(offsetCopies),
+
+
                                        meta: {
+                                         itemTitle,
                                          offsetStockItemId, offsetSizeId, customWidth, customBreadth, customUnit,
+
                                          offsetSides, offsetIsBackSideDifferent, offsetColorMode, offsetCopies, offsetWaste,
                                          printerModelId: opt.printerModelId,
                                          printerModelName: opt.printerModelName,
@@ -1358,10 +1384,16 @@ export default function QuotationEditorPage() {
                             <tr key={item.id || item._id} className="group hover:bg-zinc-50 transition-colors">
                               <td className="py-1.5 pl-4 text-xs font-black text-brand-navy/20 tabular-nums">{idx + 1}</td>
                               <td className="py-1.5">
-                                 <div className="text-xs font-bold text-brand-navy underline decoration-brand-teal/20 offset-4">{item.title}</div>
+                                 <div className="text-xs font-bold text-brand-navy underline decoration-brand-teal/20 offset-4">
+                                    {item.meta?.itemTitle || 'N/A'}
+                                 </div>
+
+
                                  <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 flex flex-col">
                                     <span>{item.description}</span>
                                     {item.chargeComponents?.length > 1 && (
+
+
                                       <div className="flex gap-2 mt-1 lowercase italic font-black text-[9px] text-brand-teal/60">
                                         {item.chargeComponents.map((c, cIdx) => (
                                           <span key={cIdx}>

@@ -18,79 +18,79 @@ export const AuthProvider = ({ children }) => {
     // Listen to Firebase Auth state stream
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setGlobalError(null);
-      
+
       if (firebaseUser) {
         setIsApiResolving(true);
         try {
-           // Verify against the central Database contract
-           const payload = await getCurrentUser();
-           
-           let activeOrgId = localStorage.getItem("printq_active_org_id");
-           let needsOrgSelection = false;
+          // Verify against the central Database contract
+          const payload = await getCurrentUser();
 
-           // Auto-resolve organization if only exactly 1 is provisioned
-           if (payload.organizations && payload.organizations.length === 1) {
-               activeOrgId = payload.organizations[0].organizationId || payload.organizations[0].id;
-               localStorage.setItem("printq_active_org_id", activeOrgId);
-           } else if (payload.organizations && payload.organizations.length > 1) {
-               // Verify the stored key actually maps to one they belong to!
-               const isValid = payload.organizations.map(o => o.organizationId || o.id).includes(activeOrgId);
-               if (!isValid) {
-                   activeOrgId = null;
-                   localStorage.removeItem("printq_active_org_id");
-                   needsOrgSelection = true;
-               }
-           }
+          let activeOrgId = localStorage.getItem("printq_active_org_id");
+          let needsOrgSelection = false;
 
-           // Fetch runtime scopes and organization-scoped UI settings
-           let resolvedScopes = [];
-           let resolvedSettings = null;
-           
-           if (activeOrgId && !needsOrgSelection && !(payload.requiresOrganizationSetup || payload.code === "NEEDS_ORGANIZATION_SETUP")) {
-               try {
-                  const [scopePayload, settingsPayload] = await Promise.all([
-                      getOrganizationScopes(),
-                      getOrganizationSettings()
-                  ]);
-                  resolvedScopes = scopePayload.scopes || [];
-                  resolvedSettings = settingsPayload.settings || null;
-               } catch (scopeError) {
-                  const errCode = scopeError.response?.data?.code;
-                  console.error("Failed to fetch organization context bounds", scopeError.response?.data || scopeError.message);
-                  
-                  // Server explicitly rejected their active organization credential mapping
-                  if (["MISSING_ORGANIZATION_ID", "INVALID_ORGANIZATION_ID", "NOT_ORGANIZATION_MEMBER"].includes(errCode)) {
-                      console.warn("Invalidated Organization ID detected. Purging active session state.");
-                      activeOrgId = null;
-                      localStorage.removeItem("printq_active_org_id");
-                      needsOrgSelection = true; // Auto-triggers ProtectedRoute barrier
-                  }
-               }
-           }
-           
-           // We expect { authenticated: true, code: 'SESSION_OK' | 'NEEDS_ORGANIZATION_SETUP', ... }
-           setUser({
-              ...payload.user, // id, firebaseUid, email, displayName, photoUrl
-              // Double resilience: check both the literal boolean and the root status code
-              requiresOrganizationSetup: payload.requiresOrganizationSetup || payload.code === "NEEDS_ORGANIZATION_SETUP",
-              requiresOrganizationSelection: needsOrgSelection,
-              activeOrganizationId: activeOrgId,
-              organizations: payload.organizations,
-              sessionCode: payload.code,
-              
-              // Load the dynamically computed server-bound scopes and UI preferences
-              scopes: resolvedScopes,
-              settings: resolvedSettings
-           });
+          // Auto-resolve organization if only exactly 1 is provisioned
+          if (payload.organizations && payload.organizations.length === 1) {
+            activeOrgId = payload.organizations[0].organizationId || payload.organizations[0].id;
+            localStorage.setItem("printq_active_org_id", activeOrgId);
+          } else if (payload.organizations && payload.organizations.length > 1) {
+            // Verify the stored key actually maps to one they belong to!
+            const isValid = payload.organizations.map(o => o.organizationId || o.id).includes(activeOrgId);
+            if (!isValid) {
+              activeOrgId = null;
+              localStorage.removeItem("printq_active_org_id");
+              needsOrgSelection = true;
+            }
+          }
+
+          // Fetch runtime scopes and organization-scoped UI settings
+          let resolvedScopes = [];
+          let resolvedSettings = null;
+
+          if (activeOrgId && !needsOrgSelection && !(payload.requiresOrganizationSetup || payload.code === "NEEDS_ORGANIZATION_SETUP")) {
+            try {
+              const [scopePayload, settingsPayload] = await Promise.all([
+                getOrganizationScopes(),
+                getOrganizationSettings()
+              ]);
+              resolvedScopes = scopePayload.scopes || [];
+              resolvedSettings = settingsPayload.settings || null;
+            } catch (scopeError) {
+              const errCode = scopeError.response?.data?.code;
+              console.error("Failed to fetch organization context bounds", scopeError.response?.data || scopeError.message);
+
+              // Server explicitly rejected their active organization credential mapping
+              if (["MISSING_ORGANIZATION_ID", "INVALID_ORGANIZATION_ID", "NOT_ORGANIZATION_MEMBER"].includes(errCode)) {
+                console.warn("Invalidated Organization ID detected. Purging active session state.");
+                activeOrgId = null;
+                localStorage.removeItem("printq_active_org_id");
+                needsOrgSelection = true; // Auto-triggers ProtectedRoute barrier
+              }
+            }
+          }
+
+          // We expect { authenticated: true, code: 'SESSION_OK' | 'NEEDS_ORGANIZATION_SETUP', ... }
+          setUser({
+            ...payload.user, // id, firebaseUid, email, displayName, photoUrl
+            // Double resilience: check both the literal boolean and the root status code
+            requiresOrganizationSetup: payload.requiresOrganizationSetup || payload.code === "NEEDS_ORGANIZATION_SETUP",
+            requiresOrganizationSelection: needsOrgSelection,
+            activeOrganizationId: activeOrgId,
+            organizations: payload.organizations,
+            sessionCode: payload.code,
+
+            // Load the dynamically computed server-bound scopes and UI preferences
+            scopes: resolvedScopes,
+            settings: resolvedSettings
+          });
         } catch (e) {
-           console.error("Backend auth resolution failed. Logging out locally.", e);
-           const errorResponse = e.response?.data?.message || "Our server is experiencing issues. Please try again later.";
-           setGlobalError(`Server Error: ${errorResponse}`);
-           setUser(null);
-           localStorage.removeItem("printq_active_org_id"); // Ensure cache purges dynamically
-           await signOut(auth); // Purge stale firebase session if backend rejects it
+          console.error("Backend auth resolution failed. Logging out locally.", e);
+          const errorResponse = e.response?.data?.message || "Our server is experiencing issues. Please try again later.";
+          setGlobalError(`Server Error: ${errorResponse}`);
+          setUser(null);
+          localStorage.removeItem("printq_active_org_id"); // Ensure cache purges dynamically
+          await signOut(auth); // Purge stale firebase session if backend rejects it
         } finally {
-           setIsApiResolving(false);
+          setIsApiResolving(false);
         }
       } else {
         setUser(null);
@@ -102,15 +102,15 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = () => {
-     // Intentionally left here for older mocking, but Google Login uses the use-case
+    // Intentionally left here for older mocking, but Google Login uses the use-case
   };
 
   const logout = async () => {
     try {
-       await signOut(auth);
-       localStorage.removeItem("printq_active_org_id");
+      await signOut(auth);
+      localStorage.removeItem("printq_active_org_id");
     } catch (e) {
-       console.error("Sign out error", e);
+      console.error("Sign out error", e);
     }
     setUser(null);
   };
@@ -120,8 +120,8 @@ export const AuthProvider = ({ children }) => {
       {(loading || isApiResolving) ? (
         <div className="flex h-screen w-screen flex-col items-center justify-center bg-zinc-50 relative">
           <div className="flex flex-col items-center justify-center animate-pulse drop-shadow-xl">
-             <BrandLogo className="w-16 h-16 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[18px]" />
-             <div className="mt-6 text-sm font-semibold tracking-widest text-brand-teal uppercase">Loading Workspace...</div>
+            <BrandLogo className="w-16 h-16 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[18px]" />
+            <div className="mt-6 text-sm font-semibold tracking-widest text-brand-teal uppercase">Loading Workspace...</div>
           </div>
         </div>
       ) : (
