@@ -25,19 +25,19 @@ export const AuthProvider = ({ children }) => {
            // Verify against the central Database contract
            const payload = await getCurrentUser();
            
-           let activeOrgId = localStorage.getItem("pressmaster_active_org_id");
+           let activeOrgId = localStorage.getItem("printq_active_org_id");
            let needsOrgSelection = false;
 
            // Auto-resolve organization if only exactly 1 is provisioned
            if (payload.organizations && payload.organizations.length === 1) {
                activeOrgId = payload.organizations[0].organizationId || payload.organizations[0].id;
-               localStorage.setItem("pressmaster_active_org_id", activeOrgId);
+               localStorage.setItem("printq_active_org_id", activeOrgId);
            } else if (payload.organizations && payload.organizations.length > 1) {
                // Verify the stored key actually maps to one they belong to!
                const isValid = payload.organizations.map(o => o.organizationId || o.id).includes(activeOrgId);
                if (!isValid) {
                    activeOrgId = null;
-                   localStorage.removeItem("pressmaster_active_org_id");
+                   localStorage.removeItem("printq_active_org_id");
                    needsOrgSelection = true;
                }
            }
@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
                   if (["MISSING_ORGANIZATION_ID", "INVALID_ORGANIZATION_ID", "NOT_ORGANIZATION_MEMBER"].includes(errCode)) {
                       console.warn("Invalidated Organization ID detected. Purging active session state.");
                       activeOrgId = null;
-                      localStorage.removeItem("pressmaster_active_org_id");
+                      localStorage.removeItem("printq_active_org_id");
                       needsOrgSelection = true; // Auto-triggers ProtectedRoute barrier
                   }
                }
@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }) => {
            const errorResponse = e.response?.data?.message || "Our server is experiencing issues. Please try again later.";
            setGlobalError(`Server Error: ${errorResponse}`);
            setUser(null);
-           localStorage.removeItem("pressmaster_active_org_id"); // Ensure cache purges dynamically
+           localStorage.removeItem("printq_active_org_id"); // Ensure cache purges dynamically
            await signOut(auth); // Purge stale firebase session if backend rejects it
         } finally {
            setIsApiResolving(false);
@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
        await signOut(auth);
-       localStorage.removeItem("pressmaster_active_org_id");
+       localStorage.removeItem("printq_active_org_id");
     } catch (e) {
        console.error("Sign out error", e);
     }

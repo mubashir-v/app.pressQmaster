@@ -61,7 +61,7 @@ export default function Sidebar() {
                   <BrandLogo className="w-10 h-10 shadow-sm" />
                </div>
                {!isCollapsed && (
-                  <div className="font-bold text-lg text-brand-navy tracking-tight whitespace-nowrap">Press <span className="text-brand-teal">Master</span></div>
+                  <div className="font-bold text-lg text-brand-navy tracking-tight whitespace-nowrap">print<span className="text-brand-teal">Q</span></div>
                )}
             </div>
             {!isCollapsed && (

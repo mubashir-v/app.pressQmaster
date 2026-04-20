@@ -25,16 +25,16 @@ export default function SignupPage() {
   const { user, globalError } = useAuth();
 
   React.useEffect(() => {
-     if (user) {
-        if (user.requiresOrganizationSetup) {
-           navigate("/onboarding");
-        } else {
-           navigate("/dashboard");
-        }
-     }
-     if (globalError) {
-        setBusy(false);
-     }
+    if (user) {
+      if (user.requiresOrganizationSetup) {
+        navigate("/onboarding");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+    if (globalError) {
+      setBusy(false);
+    }
   }, [user, globalError, navigate]);
 
   async function onGoogle() {
@@ -66,18 +66,18 @@ export default function SignupPage() {
         <Link to="/" className="inline-flex items-center gap-3">
           <BrandLogo className="w-10 h-10 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[12px]" />
           <div className="leading-tight">
-            <div className="text-sm font-bold tracking-wide text-brand-navy">Press Master</div>
+            <div className="text-sm font-bold tracking-wide text-brand-navy">printQ</div>
           </div>
         </Link>
 
 
         <div className="mt-8 rounded-[2rem] border border-brand-navy/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
           <div className="grid gap-4">
-            
+
             {globalError && (
-               <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-100 mb-2">
-                  {globalError}
-               </div>
+              <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-100 mb-2">
+                {globalError}
+              </div>
             )}
 
             <GoogleButton disabled={busy} onClick={onGoogle}>

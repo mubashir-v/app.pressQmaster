@@ -63,7 +63,7 @@ export default function OrganizationSettingsPage() {
           await deleteOrganization();
           
           // Wipe the active tenancy explicitly since the organization is effectively obliterated
-          localStorage.removeItem("pressmaster_active_org_id");
+          localStorage.removeItem("printq_active_org_id");
           window.location.href = "/dashboard";
           
       } catch (e) {
@@ -103,7 +103,7 @@ export default function OrganizationSettingsPage() {
       
       // Auto-refresh the DOM structure in 1.5 seconds mapping contexts to the latest Database state
       setTimeout(() => {
-          localStorage.setItem("pressmaster_active_org_id", activeOrg.organizationId || activeOrg.id);
+          localStorage.setItem("printq_active_org_id", activeOrg.organizationId || activeOrg.id);
           window.location.reload();
       }, 1500);
 

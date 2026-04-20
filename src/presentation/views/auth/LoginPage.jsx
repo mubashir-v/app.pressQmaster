@@ -13,36 +13,36 @@ export default function LoginPage() {
 
   // Synchronize routing securely once the API contract lands the user object
   React.useEffect(() => {
-     if (user) {
-        if (user.requiresOrganizationSetup) {
-           navigate("/onboarding");
-        } else {
-           navigate("/dashboard");
-        }
-     }
-     // Also if there's an error from the backend context, stop spinning
-     if (globalError) {
-        setIsGoogleLoading(false);
-     }
+    if (user) {
+      if (user.requiresOrganizationSetup) {
+        navigate("/onboarding");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+    // Also if there's an error from the backend context, stop spinning
+    if (globalError) {
+      setIsGoogleLoading(false);
+    }
   }, [user, globalError, navigate]);
 
   const handleGoogleLogin = async () => {
     try {
-       setIsGoogleLoading(true);
-       await loginWithGoogle();
-       // We intentionally do NOT set isGoogleLoading(false) here on success!
-       // We wait for the backend API to finish downloading the context over the network,
-       // which will trigger the useEffect above to navigate us away seamlessly.
+      setIsGoogleLoading(true);
+      await loginWithGoogle();
+      // We intentionally do NOT set isGoogleLoading(false) here on success!
+      // We wait for the backend API to finish downloading the context over the network,
+      // which will trigger the useEffect above to navigate us away seamlessly.
     } catch (e) {
-       console.error("Google popup cancelled or failed locally:", e);
-       setIsGoogleLoading(false);
+      console.error("Google popup cancelled or failed locally:", e);
+      setIsGoogleLoading(false);
     }
   };
 
   const handleLogin = (e) => {
-     e.preventDefault();
-     // Left generic email login fallback
-     navigate("/dashboard");
+    e.preventDefault();
+    // Left generic email login fallback
+    navigate("/dashboard");
   };
 
   return (
@@ -51,7 +51,7 @@ export default function LoginPage() {
         <Link to="/" className="inline-flex items-center gap-3">
           <BrandLogo className="w-10 h-10 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[12px]" />
           <div className="leading-tight">
-            <div className="text-lg font-bold tracking-tight text-brand-navy">Press Master</div>
+            <div className="text-lg font-bold tracking-tight text-brand-navy">printQ</div>
           </div>
         </Link>
 
@@ -59,11 +59,11 @@ export default function LoginPage() {
 
         <div className="mt-8 rounded-[2rem] border border-brand-navy/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
           <div className="grid gap-4">
-            
+
             {globalError && (
-               <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-100 mb-2">
-                  {globalError}
-               </div>
+              <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-100 mb-2">
+                {globalError}
+              </div>
             )}
 
             <GoogleButton onClick={handleGoogleLogin} disabled={isGoogleLoading}>

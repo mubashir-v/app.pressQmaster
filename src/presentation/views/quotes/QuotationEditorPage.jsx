@@ -107,7 +107,7 @@ export default function QuotationEditorPage() {
   const [offsetError, setOffsetError] = useState("");
 
   const activeOrg = user?.organizations?.find(o => (o.organizationId || o.id) === user.activeOrganizationId);
-  const activeOrgName = activeOrg?.name || "Pressmaster Client";
+  const activeOrgName = activeOrg?.name || "PrintQ Client";
 
   // Inspection Drawer State
   const [previewingLayoutOption, setPreviewingLayoutOption] = useState(null);
@@ -567,7 +567,7 @@ export default function QuotationEditorPage() {
              <div className="flex items-center gap-4">
                 <BrandLogo className="w-16 h-16 shadow-lg rounded-2xl" />
                 <div className="flex flex-col">
-                   <span className="text-2xl font-black text-brand-navy tracking-tighter uppercase">Pressmaster</span>
+                   <span className="text-2xl font-black text-brand-navy tracking-tighter uppercase">Print&shy;Q</span>
                    <span className="text-sm font-bold text-brand-teal uppercase tracking-widest">{activeOrgName}</span>
                 </div>
              </div>

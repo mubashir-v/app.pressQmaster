@@ -359,7 +359,7 @@ export default function UsersManagementPage() {
 
                       <TextField
                           label="Email Address"
-                          placeholder="operator@pressmaster.net"
+                          placeholder="operator@printq.io"
                           value={inviteEmail}
                           onChange={(e) => setInviteEmail(e.target.value)}
                           disabled={modalMode === "edit" || inviteBusy || !!inviteSuccess}

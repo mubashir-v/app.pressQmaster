@@ -14,16 +14,16 @@ function getInitials(name) {
 
 export default function SelectWorkspacePage() {
   const { user } = useAuth();
-  
+
   if (!user || user.organizations?.length === 0) {
-      // Safety bounds handled normally by ProtectedRoute
-      return null;
+    // Safety bounds handled normally by ProtectedRoute
+    return null;
   }
 
   const handleOrgSelection = (orgId) => {
-      localStorage.setItem("pressmaster_active_org_id", orgId);
-      // Hard reload mounts App, hooks up apiClient interceptors instantly, and routes to /dashboard
-      window.location.href = "/dashboard";
+    localStorage.setItem("printq_active_org_id", orgId);
+    // Hard reload mounts App, hooks up apiClient interceptors instantly, and routes to /dashboard
+    window.location.href = "/dashboard";
   };
 
   return (
@@ -32,7 +32,7 @@ export default function SelectWorkspacePage() {
         <Link to="/" className="inline-flex items-center gap-3">
           <BrandLogo className="w-10 h-10 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[12px]" />
           <div className="leading-tight">
-            <div className="text-lg font-bold tracking-tight text-brand-navy">Press Master</div>
+            <div className="text-lg font-bold tracking-tight text-brand-navy">printQ</div>
           </div>
         </Link>
 
@@ -42,23 +42,23 @@ export default function SelectWorkspacePage() {
         <div className="mt-8 rounded-[2rem] border border-brand-navy/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
           <div className="grid gap-3">
             {user.organizations.map((org, idx) => (
-               <button 
-                  key={org.id || org.organizationId || idx}
-                  onClick={() => handleOrgSelection(org.id || org.organizationId)}
-                  className="w-full p-4 flex items-center gap-4 text-left border border-brand-navy/10 hover:border-brand-teal transition-all rounded-xl hover:shadow-md hover:shadow-brand-teal/10 group bg-white"
-               >
-                  <div className="h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-full bg-brand-navy/5 text-brand-navy group-hover:bg-brand-mint text-lg font-bold tracking-tight transition-colors">
-                     {getInitials(org.organizationName)}
+              <button
+                key={org.id || org.organizationId || idx}
+                onClick={() => handleOrgSelection(org.id || org.organizationId)}
+                className="w-full p-4 flex items-center gap-4 text-left border border-brand-navy/10 hover:border-brand-teal transition-all rounded-xl hover:shadow-md hover:shadow-brand-teal/10 group bg-white"
+              >
+                <div className="h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-full bg-brand-navy/5 text-brand-navy group-hover:bg-brand-mint text-lg font-bold tracking-tight transition-colors">
+                  {getInitials(org.organizationName)}
+                </div>
+                <div>
+                  <div className="font-bold text-brand-navy group-hover:text-brand-teal transition-colors">
+                    {org.organizationName}
                   </div>
-                  <div>
-                     <div className="font-bold text-brand-navy group-hover:text-brand-teal transition-colors">
-                        {org.organizationName}
-                     </div>
-                     <div className="text-xs font-semibold text-brand-navy/50 uppercase tracking-widest mt-0.5">
-                        {org.role} Role
-                     </div>
+                  <div className="text-xs font-semibold text-brand-navy/50 uppercase tracking-widest mt-0.5">
+                    {org.role} Role
                   </div>
-               </button>
+                </div>
+              </button>
             ))}
           </div>
         </div>

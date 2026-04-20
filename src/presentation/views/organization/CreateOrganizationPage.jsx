@@ -26,7 +26,7 @@ export default function CreateOrganizationPage() {
       // Pluck the newly generated ID directly from the backend's response payload
       const newOrgId = result?.organization?.id || result?.id || result?.organizationId;
       if (newOrgId) {
-          localStorage.setItem("pressmaster_active_org_id", newOrgId);
+          localStorage.setItem("printq_active_org_id", newOrgId);
       }
       
       // Force page reload so the AuthContext re-hydrates the latest backend API response

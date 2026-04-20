@@ -15,7 +15,7 @@ export default function Header() {
         <a href="/" className="flex items-center gap-3">
           <BrandLogo className="w-8 h-8 rounded-lg shadow-sm" />
           <div className="leading-tight">
-            <div className="text-lg font-bold text-brand-navy tracking-tight">Press Master</div>
+            <div className="text-lg font-bold text-brand-navy tracking-tight">printQ</div>
           </div>
         </a>
 

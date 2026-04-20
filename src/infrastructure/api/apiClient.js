@@ -30,7 +30,7 @@ apiClient.interceptors.request.use(
 
         // 2. Multi-tenant Header Injection
         // Extract strictly bound target workspace routing identifiers
-        const activeOrgId = localStorage.getItem("pressmaster_active_org_id");
+        const activeOrgId = localStorage.getItem("printq_active_org_id");
         if (activeOrgId) {
            config.headers["X-Organization-Id"] = activeOrgId;
         }
