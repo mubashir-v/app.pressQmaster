@@ -11,7 +11,7 @@ export default function BrandLogo({ className = "w-10 h-10" }) {
       </defs>
       
       {/* Outer sleek rounded container */}
-      <rect width="200" height="200" rx="48" fill="url(#pressGrad)" className="shadow-2xl" />
+      <rect width="200" height="200" rx="48" fill="#2A8E9E" />
       
       {/* Inner graphic: Minimalist offset roller / cascading 'P' for Press */}
       {/* Paper track 1 (Mint) */}

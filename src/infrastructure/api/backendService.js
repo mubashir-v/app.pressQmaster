@@ -218,6 +218,19 @@ export async function getLaserQuoteOptions(payload) {
   return response.data;
 }
 
+export async function getOffsetQuoteOptions(payload) {
+  const response = await apiClient.post("/v1/quotations/offset/options", payload);
+  return response.data;
+}
+
+export async function getOffsetPaperStocks(searchQuery = "", offset = 0, limit = 20) {
+  let url = `/v1/stock/items?offset=${offset}&limit=${limit}&q=${encodeURIComponent(searchQuery)}`;
+  // Note: Assuming there is no specific /offset-paper endpoint yet, so using general stock with optional filter if backend supports it.
+  // If backend supports /v1/stock/items/offset-paper, update here.
+  const response = await apiClient.get(url);
+  return response.data;
+}
+
 
 
 

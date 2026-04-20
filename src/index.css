@@ -18,3 +18,68 @@ body {
 body {
   margin: 0;
 }
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background-color: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Force colors in some browsers */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+
+  /* Reset layout for print */
+  .min-h-screen {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  /* Expand the preview area to full page */
+  section.flex-1 {
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  .rounded-xl, .shadow-inner, .border {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th {
+    border-bottom: 2px solid #183D39 !important;
+    padding-bottom: 8px !important;
+    color: #183D39 !important;
+  }
+
+  td {
+    border-bottom: 1px solid #eee !important;
+    padding: 12px 0 !important;
+  }
+}
+
+.print-only {
+  display: none;
+}

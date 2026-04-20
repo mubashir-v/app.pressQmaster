@@ -2,16 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getQuotation, createQuotation, updateQuotation, getCustomers, createCustomer,
-  getLaserQuoteOptions, getSizeCharts, getStockItems, getLaserPaperStocks
+  getLaserQuoteOptions, getSizeCharts, getStockItems, getLaserPaperStocks,
+  getOffsetQuoteOptions, getOffsetPaperStocks
 } from "../../../infrastructure/api/backendService.js";
 
 
 import BrandLogo from "../../components/logo/BrandLogo.jsx";
-import {
-  MdArrowBack, MdSearch, MdAdd, MdHistory, MdClose, MdCheckCircle,
-  MdPrint, MdComputer, MdDragIndicator, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn,
-  MdOutlineAnalytics, MdWarningAmber, MdDoneAll, MdEdit, MdDeleteOutline
-} from "react-icons/md";
+import { MdAdd, MdClose, MdContentCopy, MdDeleteOutline, MdArrowBack, MdEdit, MdCheckCircle, MdPrint, MdOutlineAnalytics, MdWarningAmber, MdPrint as MdPrintIcon, MdComputer, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn } from "react-icons/md";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 import { TextField, PrimaryButton, SearchableSelect, SelectField } from "../../components/auth/AuthFormPrimitives.jsx";
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
@@ -93,6 +90,25 @@ export default function QuotationEditorPage() {
   const [sizeList, setSizeList] = useState([]);
   const [stockItemList, setStockItemList] = useState([]);
 
+  // --- Offset Calculator State ---
+  const [offsetSizeId, setOffsetSizeId] = useState("");
+  const [offsetStockItemId, setOffsetStockItemId] = useState("");
+  const [offsetColorMode, setOffsetColorMode] = useState("Single");
+  const [offsetSides, setOffsetSides] = useState("SINGLE");
+  const [offsetIsBackSideDifferent, setOffsetIsBackSideDifferent] = useState(false);
+  const [offsetCopies, setOffsetCopies] = useState("1000"); 
+  const [offsetWaste, setOffsetWaste] = useState("0");
+
+  const [offsetSizeOptions, setOffsetSizeOptions] = useState([]);
+  const [offsetStockOptions, setOffsetStockOptions] = useState([]);
+  const [offsetPricingOptions, setOffsetPricingOptions] = useState([]);
+  const [selectedOffsetOption, setSelectedOffsetOption] = useState(null);
+  const [offsetLoading, setOffsetLoading] = useState(false);
+  const [offsetError, setOffsetError] = useState("");
+
+  const activeOrg = user?.organizations?.find(o => (o.organizationId || o.id) === user.activeOrganizationId);
+  const activeOrgName = activeOrg?.name || "Pressmaster Client";
+
   // Inspection Drawer State
   const [previewingLayoutOption, setPreviewingLayoutOption] = useState(null);
 
@@ -173,6 +189,37 @@ export default function QuotationEditorPage() {
      await syncLineItems(newList);
    }
 
+   function resetCalculator() {
+     setLaserStockItemId("");
+     setLaserSizeId("");
+     
+     setOffsetStockItemId("");
+     setOffsetSizeId("");
+     setOffsetWaste("0");
+
+     setCustomWidth("");
+     setCustomBreadth("");
+     
+     setLaserColorMode("COLOR");
+     setLaserSides("SINGLE");
+     setLaserCopies("10");
+
+     setOffsetColorMode("Single");
+     setOffsetSides("SINGLE");
+     setOffsetIsBackSideDifferent(false);
+     setOffsetCopies("1000");
+
+     setIsOnlyClipCharge(false);
+     
+     setLaserPricingOptions([]);
+     setSelectedLaserOption(null);
+     
+     setOffsetPricingOptions([]);
+     setSelectedOffsetOption(null);
+
+     setEditingLineId(null);
+   }
+
    function handleEditLineItem(item) {
      const targetId = item.id || item._id;
      if (!targetId) {
@@ -187,16 +234,31 @@ export default function QuotationEditorPage() {
      if (!m) {
        console.warn("Item meta is missing. Calculator rehydration might be incomplete.", item);
      } else {
-       // Rehydrate calculator state from meta
-       setLaserStockItemId(m.laserStockItemId || "");
-       setLaserSizeId(m.laserSizeId || "");
-       setCustomWidth(m.customWidth || "");
-       setCustomBreadth(m.customBreadth || "");
-       setCustomUnit(m.customUnit || "inch");
-       setLaserSides(m.laserSides || "SINGLE");
-       setLaserColorMode(m.laserColorMode || "COLOR");
-       setLaserCopies(m.laserCopies?.toString() || "1");
-       setIsOnlyClipCharge(m.isOnlyClipCharge ?? false);
+       // Check if it's laser or offset
+       if (m.laserStockItemId !== undefined) {
+         setActiveTab("laser");
+         setLaserStockItemId(m.laserStockItemId || "");
+         setLaserSizeId(m.laserSizeId || "");
+         setCustomWidth(m.customWidth || "");
+         setCustomBreadth(m.customBreadth || "");
+         setCustomUnit(m.customUnit || "inch");
+         setLaserSides(m.laserSides || "SINGLE");
+         setLaserColorMode(m.laserColorMode || "COLOR");
+         setLaserCopies(m.laserCopies?.toString() || "10");
+         setIsOnlyClipCharge(m.isOnlyClipCharge ?? false);
+       } else if (m.offsetStockItemId !== undefined) {
+         setActiveTab("offset");
+         setOffsetStockItemId(m.offsetStockItemId || "");
+         setOffsetSizeId(m.offsetSizeId || "");
+         setCustomWidth(m.customWidth || "");
+         setCustomBreadth(m.customBreadth || "");
+         setCustomUnit(m.customUnit || "inch");
+         setOffsetSides(m.offsetSides || "SINGLE");
+         setOffsetIsBackSideDifferent(m.offsetIsBackSideDifferent ?? false);
+         setOffsetColorMode(m.offsetColorMode || "Single");
+         setOffsetCopies(m.offsetCopies?.toString() || "1000");
+         setOffsetWaste(m.offsetWaste?.toString() || "0");
+       }
      }
 
     // Scroll to calculator
@@ -339,8 +401,35 @@ export default function QuotationEditorPage() {
     if (activeTab === "laser") {
       fetchLaserSizes();
       fetchLaserStocks();
+    } else if (activeTab === "offset") {
+      fetchOffsetSizes();
+      fetchOffsetStocks();
     }
   }, [activeTab]);
+
+  async function fetchOffsetSizes(q = "") {
+    try {
+      const data = await getSizeCharts(q, 0, 20);
+      setSizeList(data.items || []);
+      const options = (data.items || []).map(s => ({
+        label: `${s.name} (${s.width}x${s.breadth}${s.unit})`,
+        value: s.id,
+        raw: s
+      }));
+      setOffsetSizeOptions([...options, { label: "📐 Custom Size...", value: "custom" }]);
+    } catch (e) { console.error(e); }
+  }
+
+  async function fetchOffsetStocks(q = "") {
+    try {
+      const data = await getOffsetPaperStocks(q, 0, 20);
+      setStockItemList(data.items || []);
+      setOffsetStockOptions((data.items || []).map(s => ({
+        label: `${s.name} (${s.unitOfMeasurement || 'Count'})`,
+        value: s.id
+      })));
+    } catch (e) { console.error(e); }
+  }
 
   async function recalculateLaserPricing() {
     if (!laserSizeId || !laserStockItemId || !laserCopies) return;
@@ -389,6 +478,53 @@ export default function QuotationEditorPage() {
     }
   }
 
+  async function recalculateOffsetPricing() {
+    if (!offsetSizeId || !offsetStockItemId || !offsetCopies) return;
+
+    let sizePayload;
+    if (offsetSizeId === 'custom') {
+      if (!customWidth || !customBreadth) return;
+      sizePayload = {
+        width: Number(customWidth),
+        breadth: Number(customBreadth),
+        unit: customUnit
+      };
+    } else {
+      const selectedSize = sizeList.find(s => s.id === offsetSizeId);
+      if (!selectedSize) return;
+      sizePayload = {
+        width: selectedSize.width,
+        breadth: selectedSize.breadth,
+        unit: selectedSize.unit
+      };
+    }
+
+    setOffsetLoading(true);
+    setOffsetError("");
+    try {
+      const payload = {
+        size: sizePayload,
+        colourMode: offsetColorMode,
+        sides: offsetSides,
+        isBackSideDifferent: offsetIsBackSideDifferent,
+        stockItemId: offsetStockItemId,
+        copies: parseInt(offsetCopies) || 0,
+        wasteImpressions: parseInt(offsetWaste) || 0
+      };
+
+      const data = await getOffsetQuoteOptions(payload);
+      setOffsetPricingOptions(data.options || []);
+      if (data.options?.length > 0 && data.options[0].isPrintable !== false) {
+        setSelectedOffsetOption(data.options[0]);
+      }
+    } catch (e) {
+      setOffsetError(e.response?.data?.message || "Pricing not available for this configuration.");
+      setOffsetPricingOptions([]);
+    } finally {
+      setOffsetLoading(false);
+    }
+  }
+
 
   // Effect to trigger calculation
   useEffect(() => {
@@ -398,6 +534,14 @@ export default function QuotationEditorPage() {
       return () => clearTimeout(timer);
     }
   }, [laserSizeId, laserStockItemId, laserColorMode, laserSides, laserCopies, isOnlyClipCharge, activeTab, customWidth, customBreadth, customUnit]);
+
+  useEffect(() => {
+    setSelectedOffsetOption(null);
+    if (activeTab === "offset" && offsetSizeId && offsetStockItemId && offsetCopies) {
+      const timer = setTimeout(recalculateOffsetPricing, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [offsetSizeId, offsetStockItemId, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetCopies, offsetWaste, activeTab, customWidth, customBreadth, customUnit]);
 
 
 
@@ -417,31 +561,83 @@ export default function QuotationEditorPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col items-stretch overflow-x-hidden animate-fade-in select-none">
 
-      {/* 1. Technical Header */}
-      <section className="px-10 py-6 border-b border-brand-navy/5 flex items-center justify-between gap-8 bg-[#FDFDFD]">
-          {/* Left: Move & Identity */}
-          <div className="flex items-center gap-8">
+       {/* Professional Printable Letterhead (Only visible in Print) */}
+       <div className="print-only w-full mb-12">
+          <div className="flex justify-between items-start border-b-4 border-brand-navy pb-8">
+             <div className="flex items-center gap-4">
+                <BrandLogo className="w-16 h-16 shadow-lg rounded-2xl" />
+                <div className="flex flex-col">
+                   <span className="text-2xl font-black text-brand-navy tracking-tighter uppercase">Pressmaster</span>
+                   <span className="text-sm font-bold text-brand-teal uppercase tracking-widest">{activeOrgName}</span>
+                </div>
+             </div>
+             
+             <div className="text-right">
+                <div className="text-3xl font-black text-brand-navy uppercase tracking-tighter mb-1">Quotation</div>
+                <div className="text-[11px] font-black text-brand-navy/40 uppercase tracking-widest">No: {quoteNumber || "DRAFT"}</div>
+                <div className="text-[11px] font-black text-brand-navy/40 uppercase tracking-widest mt-1">Date: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+             </div>
+          </div>
+          
+          <div className="mt-8 grid grid-cols-2 gap-12">
+             <div className="space-y-1">
+                <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">Quoted For:</div>
+                <div className="text-sm font-black text-brand-navy">{selectedCustomer?.name || 'Valued Customer'}</div>
+                {selectedCustomer?.companyName && <div className="text-xs font-bold text-brand-navy/60">{selectedCustomer.companyName}</div>}
+             </div>
+             
+             <div className="text-right space-y-1">
+                <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">Validity:</div>
+                <div className="text-sm font-black text-brand-navy">{validUntil || '---'}</div>
+                <div className="text-xs font-bold text-brand-navy/60">Subject to terms and conditions</div>
+             </div>
+          </div>
+          
+          <div className="mt-8 p-4 bg-zinc-50 rounded-xl border border-zinc-100 flex justify-between items-center">
+             <div className="flex-1">
+                <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest mb-1">Subject:</div>
+                <div className="text-sm font-bold text-brand-navy italic">"{title || 'General Printing Quotation'}"</div>
+             </div>
+             <div className="text-right">
+                <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest mb-1">Grand Total:</div>
+                <div className="text-xl font-black text-brand-navy">{currency} {lineItems.reduce((acc, curr) => acc + (curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0), 0).toLocaleString()}</div>
+             </div>
+          </div>
+       </div>
+
+       {/* 1. Technical Header */}
+       <section className="no-print px-10 py-6 border-b border-brand-navy/5 flex items-center justify-between gap-12 bg-[#FDFDFD]">
+          {/* Left: Move & Identity Cluster */}
+          <div className="flex items-center gap-6">
               <button
                 onClick={() => navigate("/dashboard/quotes")}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-brand-navy/30 hover:bg-zinc-100 transition-colors"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-navy/30 hover:bg-zinc-100 hover:text-brand-navy transition-all"
                 title="Back to list"
               >
                 <MdArrowBack className="w-5 h-5" />
               </button>
-              <div className="min-w-[120px] px-6 py-2.5 rounded-xl border-2 border-brand-navy/10 bg-white shadow-sm flex items-center justify-center">
-                  <span className="text-sm font-black text-brand-navy tracking-widest">{quoteNumber || "DRAFT"}</span>
+              
+              <div className="flex items-center gap-3 pr-6 border-r border-brand-navy/10">
+                 <BrandLogo className="w-9 h-9 shadow-sm rounded-lg" />
+                 <div className="min-w-[100px] px-4 py-2 rounded-xl bg-brand-teal text-white shadow-[0_4px_14px_rgba(42,142,158,0.3)] flex items-center justify-center">
+                    <span className="text-[11px] font-black tracking-[0.2em]">{quoteNumber || "DRAFT"}</span>
+                 </div>
               </div>
+
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-navy/10 bg-white text-brand-navy/60 hover:text-brand-teal hover:border-brand-teal transition-all shadow-sm group"
+                title="Print Quotation"
+              >
+                <MdPrint className="w-4 h-4 group-hover:text-brand-teal" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Print</span>
+              </button>
           </div>
 
-          {/* Middle: Brand & Identity */}
-          <div className="flex-1 flex items-center justify-center gap-8">
-              <div className="flex items-center gap-3 pr-8 border-r border-brand-navy/5">
-                 <BrandLogo className="w-8 h-8 opacity-90" />
-                 <h1 className="text-xl font-bold text-brand-navy tracking-tight">Quotation</h1>
-              </div>
-
-              <div className="flex flex-col gap-1.5 flex-1 max-w-md">
-                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest ml-1">Quotation Title</label>
+          {/* Middle: Integrated Inputs */}
+          <div className="flex-1 flex items-center gap-8 max-w-3xl">
+              <div className="flex flex-col gap-1.5 flex-1">
+                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] ml-1">Subject</label>
                  <input
                    type="text"
                    placeholder="Enter descriptive title..."
@@ -453,16 +649,16 @@ export default function QuotationEditorPage() {
                   {headerErrors.title && <span className="text-[8px] font-black text-red-400 uppercase tracking-tighter mt-1">{headerErrors.title[0]}</span>}
                </div>
 
-              <div className="flex flex-col gap-1.5 w-32">
-                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest ml-1">Status</label>
+              <div className="flex flex-col gap-1.5 w-28">
+                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] ml-1">Status</label>
                  <select
-                  value={status}
-                  onChange={(e) => {
-                    const newStatus = e.target.value;
-                    setStatus(newStatus);
-                    syncHeader({ status: newStatus });
-                  }}
-                  className="text-[11px] font-black text-brand-teal uppercase tracking-widest bg-zinc-50 border border-brand-navy/10 rounded-lg px-2 py-1.5 outline-none focus:border-brand-teal transition-all cursor-pointer"
+                   value={status}
+                   onChange={(e) => {
+                     const newStatus = e.target.value;
+                     setStatus(newStatus);
+                     syncHeader({ status: newStatus });
+                   }}
+                   className="text-[10px] font-black text-brand-teal uppercase tracking-widest bg-zinc-50 border border-brand-navy/10 rounded-lg px-2 py-1.5 outline-none focus:border-brand-teal transition-all cursor-pointer"
                  >
                     <option value="DRAFT">Draft</option>
                     <option value="SENT">Sent</option>
@@ -473,32 +669,30 @@ export default function QuotationEditorPage() {
                  </select>
               </div>
 
-              <div className="flex flex-col gap-1.5 w-32 pl-4 border-l border-brand-navy/5">
-                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest ml-1">Valid Until</label>
+              <div className="flex flex-col gap-1.5 w-28 pl-4 border-l border-brand-navy/5">
+                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] ml-1">Valid Till</label>
                  <input
-                  type="date"
-                  value={validUntil}
-                  onChange={(e) => {
-                    setValidUntil(e.target.value);
-                    syncHeader({ validUntil: e.target.value || null });
-                  }}
-                  className="text-[11px] font-bold text-brand-navy outline-none bg-transparent py-1 transition-all"
+                   type="date"
+                   value={validUntil}
+                   onChange={(e) => {
+                     setValidUntil(e.target.value);
+                     syncHeader({ validUntil: e.target.value || null });
+                   }}
+                   className="text-[10px] font-bold text-brand-navy outline-none bg-transparent py-1 transition-all"
                  />
               </div>
           </div>
 
+           {/* Right: Focused Customer Information Card */}
+           <div className="w-[360px] border border-brand-navy/10 rounded-xl p-4 bg-white shadow-sm relative group">
+               <div className="flex justify-between items-center mb-3">
+                  <span className="text-[9px] font-black text-brand-navy/20 uppercase tracking-[0.2em]">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  {busy && <div className="w-3 h-3 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
+               </div>
 
-
-          {/* Right: Customer Information Card */}
-          <div className="w-[420px] min-h-[100px] border border-brand-navy/10 rounded-2xl p-5 bg-white shadow-sm relative group">
-              <div className="flex justify-between items-start mb-3">
-                 <span className="text-[10px] font-black text-brand-navy/20 uppercase tracking-[0.2em]">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} - {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-                 {busy && <div className="w-3 h-3 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
-              </div>
-
-              <div className="space-y-1.5">
-                  <div className="flex items-center gap-3">
-                      <span className="text-[11px] font-bold text-brand-navy/40 w-16">Customer :</span>
+               <div className="space-y-1.5">
+                   <div className="flex items-center gap-3">
+                       <span className="text-[10px] font-bold text-brand-navy/40 w-12">Cust :</span>
                       <div className="relative flex-1 flex flex-col items-start">
                          <div className="w-full flex items-center gap-2">
                             {!selectedCustomer ? (
@@ -566,7 +760,7 @@ export default function QuotationEditorPage() {
       </section>
 
       {/* 2. Compact Calculator Bar */}
-      <section id="calc-top" className="border-b border-brand-navy/5 bg-white">
+      <section id="calc-top" className="no-print border-b border-brand-navy/5 bg-white">
           {/* Tabs - Redesigned to be rounded and thematic */}
           <div className="px-10 py-4 bg-zinc-50/50 flex">
              <div className="flex bg-zinc-200/50 p-1 rounded-2xl border border-zinc-200/50">
@@ -578,7 +772,6 @@ export default function QuotationEditorPage() {
                   >
                     <span className="text-base">{t.icon}</span>
                     {t.label}
-                    {t.id === 'offset' && <span className="ml-2 text-[8px] px-1.5 py-0.5 bg-brand-navy/10 text-brand-navy/40 rounded-full lowercase font-bold tracking-normal italic">soon</span>}
                   </button>
                 ))}
              </div>
@@ -777,11 +970,7 @@ export default function QuotationEditorPage() {
                              <div className="mt-4 pt-4 border-t border-brand-navy/5 animate-fade-in px-2 flex gap-3">
                                 {editingLineId && (
                                   <button
-                                    onClick={() => {
-                                      setEditingLineId(null);
-                                      setSelectedLaserOption(null);
-                                      setLaserSizeId("");
-                                    }}
+                                    onClick={resetCalculator}
                                     className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/30 hover:text-red-400 transition-colors"
                                   >
                                     Cancel
@@ -805,7 +994,7 @@ export default function QuotationEditorPage() {
                                       id: editingLineId || Date.now(),
                                       lineKind: "PRINTING",
                                       title: sizeName,
-                                      description: `${laserSides} • ${laserColorMode} • ${selPaper?.name || 'Standard'}`,
+                                      description: `LSR • ${laserSides} • ${laserColorMode} • ${selPaper?.name || 'Standard'}`,
                                       quantity: Number(laserCopies),
                                       meta: {
                                         laserStockItemId, laserSizeId, customWidth, customBreadth, customUnit,
@@ -843,9 +1032,7 @@ export default function QuotationEditorPage() {
                                     }
 
                                     await syncLineItems(newList);
-                                    setSelectedLaserOption(null);
-                                    setEditingLineId(null);
-                                    setLaserSizeId("");
+                                    resetCalculator();
                                   }}
                                   className="flex-1 flex items-center justify-center gap-2"
                                 >
@@ -859,13 +1046,282 @@ export default function QuotationEditorPage() {
                   </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-20 text-center space-y-4 opacity-20 grayscale">
-                 <MdPrint className="w-16 h-16" />
-                 <div>
-                    <h3 className="text-sm font-black uppercase tracking-[0.3em]">Offset Calculator</h3>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mt-2">Coming Soon • Module under development</p>
-                 </div>
-              </div>
+              <div className="flex flex-col lg:flex-row gap-8 animate-fade-in">
+                  {/* Left: Inputs */}
+                  <div className="w-full lg:w-[450px] space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
+                          <SearchableSelect
+                            label="Print Size"
+                            options={offsetSizeOptions}
+                            value={offsetSizeId}
+                            placeholder="Search Size Chart..."
+                            onChange={e => setOffsetSizeId(e.target.value)}
+                          />
+
+                          {offsetSizeId === 'custom' && (
+                            <div className="p-5 bg-brand-teal/5 h-16 rounded-2xl border border-brand-teal/10 flex items-center gap-4 animate-slide-down">
+                               <div className="flex-1">
+                                  <input
+                                    type="number"
+                                    placeholder="Width"
+                                    value={customWidth}
+                                    onChange={e => setCustomWidth(e.target.value)}
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                  />
+                               </div>
+                               <span className="text-[10px] font-black text-brand-navy/20">×</span>
+                               <div className="flex-1">
+                                  <input
+                                    type="number"
+                                    placeholder="Breadth"
+                                    value={customBreadth}
+                                    onChange={e => setCustomBreadth(e.target.value)}
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                  />
+                               </div>
+                               <div className="w-16">
+                                  <select
+                                    value={customUnit}
+                                    onChange={e => setCustomUnit(e.target.value)}
+                                    className="w-full bg-transparent outline-none text-[10px] font-black text-brand-teal uppercase tracking-widest cursor-pointer"
+                                  >
+                                     <option value="mm">mm</option>
+                                     <option value="cm">cm</option>
+                                     <option value="inch">in</option>
+                                  </select>
+                               </div>
+                            </div>
+                          )}
+
+                          <SearchableSelect
+                            label="Paper Stock (Offset)"
+                            options={offsetStockOptions}
+                            value={offsetStockItemId}
+                            placeholder="Search Inventory..."
+                            onChange={e => setOffsetStockItemId(e.target.value)}
+                          />
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-4">
+                          <TextField label="Copies" type="number" value={offsetCopies} onChange={e => setOffsetCopies(e.target.value)} />
+                          <TextField label="Waste Imp." type="number" value={offsetWaste} onChange={e => setOffsetWaste(e.target.value)} />
+                          <div className="flex flex-col gap-2">
+                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Sides</label>
+                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                                {['SINGLE', 'DOUBLE'].map(s => (
+                                  <button
+                                    key={s}
+                                    onClick={() => setOffsetSides(s)}
+                                    className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${offsetSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                  >
+                                    {s === 'SINGLE' ? 'Front' : 'F&B'}
+                                  </button>
+                                ))}
+                             </div>
+                          </div>
+                          {offsetSides === 'DOUBLE' && (
+                             <div className="flex flex-col gap-2 animate-fade-in">
+                                <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Different?</label>
+                                <button
+                                  onClick={() => setOffsetIsBackSideDifferent(!offsetIsBackSideDifferent)}
+                                  className={`h-11 rounded-xl border flex items-center justify-center transition-all ${offsetIsBackSideDifferent ? 'bg-brand-mint/10 border-brand-mint text-brand-teal' : 'bg-white border-brand-navy/10 text-brand-navy/40'}`}
+                                  title="Check if back side content is different (requires 2 plate sets)"
+                                >
+                                   <span className="text-[10px] font-black uppercase tracking-tighter">{offsetIsBackSideDifferent ? 'Yes (2 sets)' : 'No (1 set)'}</span>
+                                </button>
+                             </div>
+                          )}
+                      </div>
+
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Colour Mode</label>
+                         <div className="flex flex-wrap bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
+                            {['Single', 'Two Colour', 'Three Colour', 'Multi'].map(m => (
+                              <button
+                                key={m}
+                                onClick={() => setOffsetColorMode(m)}
+                                className={`flex-1 py-2 px-2 text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all whitespace-nowrap ${offsetColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                         </div>
+                      </div>
+                  </div>
+
+                  {/* Right: Results Mirror Laser pattern */}
+                  <div className="flex-1 flex flex-col min-w-0 bg-zinc-50/50 rounded-[2rem] border border-brand-navy/5 p-6 relative overflow-hidden">
+                       <div className="flex items-center justify-between mb-6">
+                           <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
+                                 <MdOutlineAnalytics className="w-4 h-4" />
+                              </div>
+                              <h3 className="text-[11px] font-black text-brand-navy uppercase tracking-[0.2em]">
+                                 {!!editingLineId ? "Editing Offset Item" : "Offset Comparisons"}
+                              </h3>
+                           </div>
+                           {offsetLoading && <div className="w-4 h-4 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
+                       </div>
+
+                      {offsetError ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+                           <MdWarningAmber className="w-12 h-12 text-red-400 opacity-20" />
+                           <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{offsetError}</p>
+                        </div>
+                      ) : offsetPricingOptions.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center opacity-30 p-8 space-y-3 grayscale">
+                           <MdPrint className="w-12 h-12" />
+                           <p className="text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px]">Select dimensions and offset stock to see machine comparisons</p>
+                        </div>
+                      ) : (
+                         <div className="flex-1 flex flex-col">
+                            <div className="space-y-3 overflow-y-auto no-scrollbar max-h-[350px] flex-1 pb-4">
+                                {offsetPricingOptions.map((opt, idx) => {
+                                  const isPrintable = opt.isPrintable !== false;
+                                  const isSelected = selectedOffsetOption && 
+                                                     selectedOffsetOption.printerModelId === opt.printerModelId && 
+                                                     selectedOffsetOption.pricing.total === opt.pricing.total;
+                                  
+                                  return (
+                                    <div
+                                     key={idx}
+                                     onClick={() => isPrintable && setSelectedOffsetOption(opt)}
+                                     className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'hover:border-brand-teal/40 border-brand-navy/5')}`}
+                                    >
+                                       <div className="flex-1">
+                                          <div className="text-xs font-black text-brand-navy flex items-center gap-2">
+                                             {opt.printerModelName}
+                                             {idx === 0 && isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Match</span>}
+                                             {!isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-red-500 text-white rounded uppercase tracking-tighter shadow-sm">Geometric Error</span>}
+                                          </div>
+                                          <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
+                                             {isPrintable ? (
+                                               <>
+                                                 <span>{opt.piecesPerSheet} Up</span>
+                                                 <span className="w-1 h-1 rounded-full bg-brand-navy/10" />
+                                                 <span>{opt.parentSheets} Parent Sheets</span>
+                                                 <span className="w-1 h-1 rounded-full bg-brand-navy/10" />
+                                                 <span>{opt.impressionsBilled?.toLocaleString()} Imps</span>
+
+                                                 {/* Price Breakdown Footer */}
+                                                 {opt.pricing.chargeComponents?.length > 0 && (
+                                                   <div className="w-full mt-2 pt-2 border-t border-brand-navy/5 flex flex-wrap gap-x-4 gap-y-1">
+                                                      {opt.pricing.chargeComponents.map(c => (
+                                                        <div key={c.role} className="flex items-center gap-1.5">
+                                                           <span className="text-[8px] font-black uppercase text-brand-navy/20 tracking-tighter">{c.role === 'printing' ? 'Print' : 'Paper'} :</span>
+                                                           <span className={`text-[9px] font-black ${c.role === 'printing' ? 'text-brand-navy/60' : 'text-brand-teal'}`}>₹{c.amount.toLocaleString()}</span>
+                                                        </div>
+                                                      ))}
+                                                   </div>
+                                                 )}
+                                               </>
+                                             ) : (
+                                               <span className="text-red-500/60 font-black">{opt.unprintableReason?.replace(/_/g, ' ') || 'Geometric Constraint'}</span>
+                                             )}
+                                          </div>
+                                       </div>
+                                       <div className="flex items-center gap-4">
+                                          {opt.layout && isPrintable && (
+                                            <button
+                                             onClick={(e) => {
+                                               e.stopPropagation();
+                                               setPreviewingLayoutOption(opt);
+                                             }}
+                                             className="p-2 text-brand-teal font-black text-[9px] uppercase tracking-widest hover:bg-brand-teal/10 rounded-lg transition-all"
+                                            >
+                                               Inspect
+                                            </button>
+                                          )}
+                                          <div className="text-right min-w-[70px]">
+                                             <div className="text-lg font-black text-brand-navy">
+                                                {isPrintable ? `₹${opt.pricing.total.toLocaleString()}` : '--'}
+                                             </div>
+                                          </div>
+                                       </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+
+                            {/* Offset Save Button */}
+                            {selectedOffsetOption && (
+                              <div className="mt-4 pt-4 border-t border-brand-navy/5 animate-fade-in px-2 flex gap-3">
+                                 {editingLineId && (
+                                   <button
+                                     onClick={resetCalculator}
+                                     className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/30 hover:text-red-400 transition-colors"
+                                   >
+                                     Cancel
+                                   </button>
+                                 )}
+                                 <PrimaryButton
+                                   onClick={async () => {
+                                     const opt = selectedOffsetOption;
+                                     const selPaper = stockItemList.find(s => s.id === offsetStockItemId);
+                                     
+                                     let sizeName = "Custom Offset";
+                                      if (offsetSizeId === 'custom') {
+                                        sizeName = `Custom (${customWidth}x${customBreadth}${customUnit})`;
+                                      } else {
+                                        const selSize = sizeList.find(s => s.id === offsetSizeId);
+                                        sizeName = selSize ? `${selSize.name}` : "Standard Offset";
+                                      }
+
+                                     const newLineItem = {
+                                       id: editingLineId || Date.now(),
+                                       lineKind: "PRINTING",
+                                       title: sizeName,
+                                       description: `OFST • ${offsetSides} • ${offsetColorMode} • ${selPaper?.name || 'Standard'}`,
+                                       quantity: Number(offsetCopies),
+                                       meta: {
+                                         offsetStockItemId, offsetSizeId, customWidth, customBreadth, customUnit,
+                                         offsetSides, offsetIsBackSideDifferent, offsetColorMode, offsetCopies, offsetWaste,
+                                         printerModelId: opt.printerModelId,
+                                         printerModelName: opt.printerModelName,
+                                         layout: opt.layout
+                                       },
+                                       chargeComponents: opt.pricing.chargeComponents ? opt.pricing.chargeComponents.map(c => ({
+                                         ...c,
+                                         printerModelId: opt.printerModelId,
+                                         label: c.role === 'printing' ? opt.printerModelName : 'Paper Stock'
+                                       })) : [
+                                         {
+                                           role: "printing",
+                                           label: opt.printerModelName,
+                                           amount: opt.pricing.total,
+                                           unitPrice: opt.pricing.total / (Number(offsetCopies) || 1),
+                                           quantity: opt.impressionsBilled,
+                                           printerModelId: opt.printerModelId,
+                                           meta: opt.pricing
+                                         }
+                                       ]
+                                     };
+
+                                     let newList;
+                                     const targetIdStr = editingLineId ? String(editingLineId) : null;
+                                     if (targetIdStr) {
+                                        newList = lineItems.map(item => {
+                                          const itemIdStr = String(item.id || item._id || "");
+                                          return itemIdStr === targetIdStr ? newLineItem : item;
+                                        });
+                                     } else {
+                                        newList = [...lineItems, newLineItem];
+                                     }
+
+                                     await syncLineItems(newList);
+                                     resetCalculator();
+                                   }}
+                                   className="flex-1 flex items-center justify-center gap-2"
+                                 >
+                                    {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
+                                    {!!editingLineId ? "Update Line Item" : "Add to Quotation"}
+                                 </PrimaryButton>
+                              </div>
+                            )}
+                         </div>
+                      )}
+                  </div>
+                </div>
             )}
           </div>
       </section>
@@ -890,6 +1346,7 @@ export default function QuotationEditorPage() {
                            <th className="py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest">Description / Specification</th>
                            <th className="py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest">Qty</th>
                            <th className="py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-right pr-4 tracking-tighter">Line Total</th>
+                           <th className="no-print py-4 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-right pr-4 tracking-tighter">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-brand-navy/5">
@@ -900,26 +1357,40 @@ export default function QuotationEditorPage() {
                               <td className="py-4 pl-4 text-xs font-black text-brand-navy/20 tabular-nums">{idx + 1}</td>
                               <td className="py-4">
                                  <div className="text-xs font-bold text-brand-navy underline decoration-brand-teal/20 offset-4">{item.title}</div>
-                                 <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1">{item.description}</div>
+                                 <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 flex flex-col">
+                                    <span>{item.description}</span>
+                                    {item.chargeComponents?.length > 1 && (
+                                      <div className="flex gap-2 mt-1 lowercase italic font-black text-[9px] text-brand-teal/60">
+                                        {item.chargeComponents.map((c, cIdx) => (
+                                          <span key={cIdx}>
+                                            {c.role?.substring(0, 4)}: ₹{c.amount?.toLocaleString()}
+                                            {cIdx < item.chargeComponents.length - 1 && <span className="ml-1 opacity-20">+</span>}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                 </div>
                               </td>
                               <td className="py-4 text-xs font-black text-brand-navy/60">{item.quantity}</td>
                               <td className="py-4 pr-4">
-                                 <div className="flex items-center justify-end gap-6">
+                                 <div className="flex items-center justify-end">
                                     <span className="text-xs font-black text-brand-navy">{currency} {lineTotal.toLocaleString()}</span>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                       <button
-                                         onClick={() => handleEditLineItem(item)}
-                                         className="p-1.5 rounded-lg bg-brand-mint/30 text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm"
-                                       >
-                                          <MdEdit className="w-3.5 h-3.5" />
-                                       </button>
-                                       <button
-                                         onClick={() => handleDeleteLineItem(item.id || item._id)}
-                                         className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                                       >
-                                          <MdDeleteOutline className="w-3.5 h-3.5" />
-                                       </button>
-                                    </div>
+                                 </div>
+                              </td>
+                              <td className="no-print py-4 pr-4">
+                                 <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                    <button
+                                      onClick={() => handleEditLineItem(item)}
+                                      className="p-1.5 rounded-lg bg-brand-mint/30 text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm"
+                                    >
+                                       <MdEdit className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteLineItem(item.id || item._id)}
+                                      className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                    >
+                                       <MdDeleteOutline className="w-3.5 h-3.5" />
+                                    </button>
                                  </div>
                               </td>
                             </tr>
@@ -930,22 +1401,35 @@ export default function QuotationEditorPage() {
                  )}
               </div>
 
-              {/* Summary Bar - Updated to Brand Teal */}
-              <div className="p-6 bg-brand-teal text-white flex items-center justify-between border-t border-white/10 shadow-[0_-10px_40px_rgba(42,142,158,0.15)]">
-                  <div className="flex gap-8">
-                     <div>
-                        <div className="text-[9px] font-bold text-white/50 uppercase tracking-widest mb-1">Items</div>
-                        <div className="text-lg font-black">{lineItems.length}</div>
-                     </div>
-                     <div>
-                        <div className="text-[9px] font-bold text-white/50 uppercase tracking-widest mb-1">Status</div>
-                        <div className="text-[10px] font-black uppercase bg-white/20 px-2 py-1 rounded-md">{status}</div>
+              {/* Summary Bar - Refined: No BG color, integrated Print button */}
+              <div className="p-8 bg-white flex items-center justify-between border-t border-brand-navy/5">
+                  <div className="flex items-center gap-12">
+                     <button
+                       onClick={() => window.print()}
+                       className="no-print flex items-center gap-3 px-6 py-3 rounded-xl border-2 border-brand-navy/5 bg-zinc-50 text-brand-navy/40 hover:text-brand-teal hover:border-brand-teal/30 transition-all font-black uppercase tracking-widest shadow-sm"
+                     >
+                        <MdPrint className="w-5 h-5" />
+                        <span className="text-[11px]">Print Quotation</span>
+                     </button>
+
+                     <div className="flex gap-10">
+                        <div>
+                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] mb-1.5">Line Items</div>
+                           <div className="text-xl font-black text-brand-navy">{lineItems.length}</div>
+                        </div>
+                        <div>
+                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] mb-1.5">Quote Status</div>
+                           <div className="flex">
+                              <span className="text-[10px] font-black uppercase bg-brand-mint text-brand-teal px-3 py-1 rounded-full border border-brand-teal/10">{status}</span>
+                           </div>
+                        </div>
                      </div>
                   </div>
+
                   <div className="text-right">
-                      <div className="text-[9px] font-bold text-white/60 uppercase tracking-[0.2em] mb-1">Quotation Total</div>
-                      <div className="text-3xl font-black flex items-center gap-2">
-                        <span className="text-xs text-white/40">{currency}</span>
+                      <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.3em] mb-2">Grand Total</div>
+                      <div className="text-4xl font-black text-brand-navy flex items-center justify-end gap-3">
+                        <span className="text-[14px] text-brand-navy/20 font-bold uppercase tracking-widest mt-1.5">{currency}</span>
                         {lineItems.reduce((acc, curr) => {
                           const itemTotal = curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0;
                           return acc + itemTotal;
