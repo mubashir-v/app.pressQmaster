@@ -41,13 +41,13 @@ export function SelectField({ label, options, value, onChange, disabled, childre
 }
 
 
-export function SearchableSelect({ label, options, value, onChange, disabled, placeholder = "Search..." }) {
+export function SearchableSelect({ label, options, value, onChange, disabled, placeholder = "Search...", onSearch }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef(null);
 
   const selectedOption = options.find(opt => opt.value === value);
-  const filteredOptions = options.filter(opt => 
+  const filteredOptions = onSearch ? options : options.filter(opt => 
     opt.label.toLowerCase().includes(query.toLowerCase())
   );
 
@@ -61,6 +61,15 @@ export function SearchableSelect({ label, options, value, onChange, disabled, pl
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (onSearch) {
+      const timer = setTimeout(() => {
+        onSearch(query);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [query, onSearch]);
 
   return (
     <div className="relative w-full" ref={containerRef}>

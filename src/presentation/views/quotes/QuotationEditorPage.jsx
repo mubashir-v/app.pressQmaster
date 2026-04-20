@@ -833,6 +833,7 @@ export default function QuotationEditorPage() {
                             value={laserStockItemId}
                             placeholder="Search Inventory..."
                             onChange={e => setLaserStockItemId(e.target.value)}
+                            onSearch={fetchLaserStocks}
                           />
 
                       </div>
@@ -1094,11 +1095,12 @@ export default function QuotationEditorPage() {
                           )}
 
                           <SearchableSelect
-                            label="Paper Stock (Offset)"
+                            label="Paper / Stock"
                             options={offsetStockOptions}
                             value={offsetStockItemId}
                             placeholder="Search Inventory..."
                             onChange={e => setOffsetStockItemId(e.target.value)}
+                            onSearch={fetchOffsetStocks}
                           />
                       </div>
 

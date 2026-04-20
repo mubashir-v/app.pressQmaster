@@ -71,7 +71,8 @@ export default function StocksManagementPage() {
     setLoading(true);
     setErrorText("");
     try {
-      const data = await getStockItems(query, page, pageSize);
+      const offset = (page - 1) * pageSize;
+      const data = await getStockItems(query, offset, pageSize);
       setItems(data.items || []);
       setTotalItems(data.pagination?.total || 0);
     } catch (e) {
@@ -577,10 +578,13 @@ export default function StocksManagementPage() {
                                   </div>
                               </div>
 
-                              {pricingType === "SLAB_BASED" && (
+                              {pricingType === "SLAB_BASED" ? (
                                   <div className="space-y-4">
                                       <div className="flex justify-between items-center">
-                                          <label className="text-sm font-bold text-brand-navy">Slab Configuration</label>
+                                          <div className="flex flex-col">
+                                              <label className="text-sm font-bold text-brand-navy">Slab Configuration</label>
+                                              {itemType === "LASER_PAPER" && <span className="text-[10px] font-bold text-brand-teal uppercase">Laser Paper: Slab Pricing Required</span>}
+                                          </div>
                                           <button onClick={handleAddSlab} className="text-xs font-bold text-brand-teal hover:underline flex items-center gap-1">
                                               <MdAdd /> Add Slab Tier
                                           </button>
@@ -636,18 +640,20 @@ export default function StocksManagementPage() {
                                                   </div>
                                               </div>
                                           ))}
-
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <div className="space-y-4">
+                                      <div className="p-6 bg-zinc-50 rounded-2xl border border-brand-navy/5">
+                                          <div className="flex justify-between items-center mb-4">
+                                               <label className="text-sm font-bold text-brand-navy">Fixed Pricing</label>
+                                               {itemType === "OFFSET_PAPER" && <span className="text-[10px] font-bold text-brand-teal uppercase">Offset Paper: Fixed Pricing Required</span>}
+                                          </div>
+                                          <TextField label="Unit Price (Fixed)" placeholder="3.30" value={fixedPrice} onChange={e => setFixedPrice(e.target.value)} />
+                                          <p className="mt-3 text-[10px] font-semibold text-brand-navy/40 uppercase tracking-wider">Applicable for all offset printing calculations.</p>
                                       </div>
                                   </div>
                               )}
-
-                              {pricingType === "FIXED" && (
-                                  <div className="p-6 bg-zinc-50 rounded-2xl border border-brand-navy/5">
-                                      <TextField label="Unit Price (Fixed)" placeholder="3.30" value={fixedPrice} onChange={e => setFixedPrice(e.target.value)} />
-                                      <p className="mt-3 text-[10px] font-semibold text-brand-navy/40 uppercase tracking-wider">Applicable for all offset printing calculations.</p>
-                                  </div>
-                              )}
-
                           </div>
                       )}
                   </div>
