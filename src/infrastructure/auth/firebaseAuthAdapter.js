@@ -1,21 +1,24 @@
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "../firebase/config.js";
+
 /**
- * Firebase Auth adapter (web SDK will be wired later).
- *
- * Presentation should not import Firebase directly; call use-cases instead.
+ * Firebase Auth adapter wiring into Clean Architecture.
  */
 
-function notConfigured(feature) {
-  return new Error(`Firebase auth is not configured yet (${feature}).`);
-}
-
 export async function signInWithGoogle() {
-  throw notConfigured("Google sign-in");
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Firebase Google Auth Error:", error);
+    throw error;
+  }
 }
 
 export async function signInWithEmailPassword(_email, _password) {
-  throw notConfigured("Email/password sign-in");
+  throw new Error("Email/password sign-in not configured in sprint yet.");
 }
 
 export async function signUpWithEmailPassword(_email, _password, _displayName) {
-  throw notConfigured("Email/password sign-up");
+  throw new Error("Email/password sign-up not configured in sprint yet.");
 }

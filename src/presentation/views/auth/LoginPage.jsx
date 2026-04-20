@@ -1,19 +1,47 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
+import { loginWithGoogle } from "../../../application/use-cases/auth/loginWithGoogle.js";
 import AuthShellLayout from "../../layouts/AuthShellLayout.jsx";
 import { Divider, GoogleButton, PrimaryButton, TextField } from "../../components/auth/AuthFormPrimitives.jsx";
 import BrandLogo from "../../components/logo/BrandLogo.jsx";
 
-// Illustration is governed natively by AuthShellLayout
-
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { user, globalError } = useAuth();
   const navigate = useNavigate();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Synchronize routing securely once the API contract lands the user object
+  React.useEffect(() => {
+     if (user) {
+        if (user.requiresOrganizationSetup) {
+           navigate("/onboarding");
+        } else {
+           navigate("/dashboard");
+        }
+     }
+     // Also if there's an error from the backend context, stop spinning
+     if (globalError) {
+        setIsGoogleLoading(false);
+     }
+  }, [user, globalError, navigate]);
+
+  const handleGoogleLogin = async () => {
+    try {
+       setIsGoogleLoading(true);
+       await loginWithGoogle();
+       // We intentionally do NOT set isGoogleLoading(false) here on success!
+       // We wait for the backend API to finish downloading the context over the network,
+       // which will trigger the useEffect above to navigate us away seamlessly.
+    } catch (e) {
+       console.error("Google popup cancelled or failed locally:", e);
+       setIsGoogleLoading(false);
+    }
+  };
 
   const handleLogin = (e) => {
      e.preventDefault();
-     login("admin"); // Mock logging in as admin
+     // Left generic email login fallback
      navigate("/dashboard");
   };
 
@@ -31,7 +59,16 @@ export default function LoginPage() {
 
         <div className="mt-8 rounded-[2rem] border border-brand-navy/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
           <div className="grid gap-4">
-            <GoogleButton>Continue with Google</GoogleButton>
+            
+            {globalError && (
+               <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-100 mb-2">
+                  {globalError}
+               </div>
+            )}
+
+            <GoogleButton onClick={handleGoogleLogin} disabled={isGoogleLoading}>
+              {isGoogleLoading ? "Connecting..." : "Continue with Google"}
+            </GoogleButton>
           </div>
 
           <Divider />
