@@ -29,7 +29,7 @@ export default function DashboardLayout() {
       <main className="flex-1 overflow-y-auto w-full relative">
          {!isEditorView && (
            <header className="sticky top-0 z-20 flex h-20 w-full items-center justify-between bg-[#F8FAFC]/80 px-8 backdrop-blur-sm">
-              <div className="flex w-full max-lg items-center gap-3 rounded-full border border-brand-navy/10 bg-white px-4 py-2.5 shadow-sm">
+              <div className="flex lg:w-1/2 w-full max-lg items-center gap-3 rounded-full border border-brand-navy/10 bg-white px-4 py-2.5 shadow-sm">
                   <svg className="h-5 w-5 text-brand-navy/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                   <input type="text" placeholder="Search..." className="flex-1 bg-transparent text-sm text-brand-navy outline-none placeholder:text-brand-navy/30" />
               </div>
