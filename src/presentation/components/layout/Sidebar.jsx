@@ -21,13 +21,14 @@ import UserProfileDrawer from "./UserProfileDrawer.jsx";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
 
 const MAIN_ITEMS = [
-   { label: "Dashboard", href: "/dashboard", icon: <MdSpaceDashboard className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_dashboard"] },
+   // { label: "Dashboard", href: "/dashboard", icon: <MdSpaceDashboard className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_dashboard"] },
    { label: "Customers", href: "/dashboard/customers", icon: <MdPeople className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_customers", "edit_customers", "manage_customers"] },
    { label: "Quotation", href: "/dashboard/quotes", icon: <MdArticle className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_quotes", "edit_quotes", "manage_quotes"] },
-   { label: "Invoice", href: "/dashboard/invoices", icon: <MdReceiptLong className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_invoices", "edit_invoices", "manage_invoices"] },
-   { label: "Jobs", href: "/dashboard/jobs", icon: <MdWork className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_jobs", "edit_jobs", "manage_jobs"] },
+   // { label: "Invoice", href: "/dashboard/invoices", icon: <MdReceiptLong className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_invoices", "edit_invoices", "manage_invoices"] },
+   // { label: "Jobs", href: "/dashboard/jobs", icon: <MdWork className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_jobs", "edit_jobs", "manage_jobs"] },
    { label: "Users", href: "/dashboard/users", icon: <MdGroup className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_users", "edit_users", "manage_users"] },
 ];
+
 
 const INVENTORY_ITEMS = [
    { label: "Printer & Plates", href: "/dashboard/printers", icon: <MdPrint className="w-5 h-5 flex-shrink-0" />, requiredScopes: ["view_printers", "edit_printers", "manage_printers"] },
