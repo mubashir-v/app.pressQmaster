@@ -583,7 +583,7 @@ export default function StocksManagementPage() {
                                       <div className="flex justify-between items-center">
                                           <div className="flex flex-col">
                                               <label className="text-sm font-bold text-brand-navy">Slab Configuration</label>
-                                              {itemType === "LASER_PAPER" && <span className="text-[10px] font-bold text-brand-teal uppercase">Laser Paper: Slab Pricing Required</span>}
+                                              {itemType === "LASER_PAPER" && <span className="text-[10px] font-bold text-brand-teal uppercase">Laser Paper: Slab Pricing Required (QUOTATION SLAB CHARGE)</span>}
                                           </div>
                                           <button onClick={handleAddSlab} className="text-xs font-bold text-brand-teal hover:underline flex items-center gap-1">
                                               <MdAdd /> Add Slab Tier

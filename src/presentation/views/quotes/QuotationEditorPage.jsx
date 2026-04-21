@@ -8,7 +8,7 @@ import {
 
 
 import BrandLogo from "../../components/logo/BrandLogo.jsx";
-import { MdAdd, MdClose, MdContentCopy, MdDeleteOutline, MdArrowBack, MdEdit, MdCheckCircle, MdPrint, MdOutlineAnalytics, MdWarningAmber, MdPrint as MdPrintIcon, MdComputer, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn } from "react-icons/md";
+import { MdAdd, MdClose, MdContentCopy, MdDeleteOutline, MdLayers, MdArrowBack, MdEdit, MdCheckCircle, MdPrint, MdOutlineAnalytics, MdWarningAmber, MdPrint as MdPrintIcon, MdComputer, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn, MdInfo, MdHelpOutline } from "react-icons/md";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 import { TextField, PrimaryButton, SearchableSelect, SelectField } from "../../components/auth/AuthFormPrimitives.jsx";
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
@@ -88,6 +88,7 @@ export default function QuotationEditorPage() {
   const [laserSizeOptions, setLaserSizeOptions] = useState([]);
   const [laserStockOptions, setLaserStockOptions] = useState([]);
   const [laserPricingOptions, setLaserPricingOptions] = useState([]);
+  const [showOffsetHelp, setShowOffsetHelp] = useState(false);
   const [laserLoading, setLaserLoading] = useState(false);
   const [laserError, setLaserError] = useState("");
 
@@ -671,8 +672,9 @@ export default function QuotationEditorPage() {
                 <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest mb-1">Grand Total:</div>
                 <div className="text-xl font-black text-brand-navy">{currency} {lineItems.reduce((acc, curr) => acc + (curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0), 0).toLocaleString()}</div>
              </div>
-          </div>
-       </div>
+         </div>
+
+      </div>
 
        {/* 1. Technical Header */}
        <section className="no-print px-10 py-6 border-b border-brand-navy/5 flex items-center justify-between gap-12 bg-[#FDFDFD]">
@@ -1059,18 +1061,26 @@ export default function QuotationEditorPage() {
                                  }
                               }}
                            />
-                          <div className="flex flex-col gap-2">
-                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
-                             <button
-                                onClick={() => setIsOnlyClipCharge(!isOnlyClipCharge)}
-                                className={`h-11 px-4 rounded-xl border flex items-center justify-between transition-all ${isOnlyClipCharge ? 'bg-brand-mint/10 border-brand-mint text-brand-teal' : 'bg-white border-brand-navy/10 text-brand-navy/40'}`}
-                             >
-                                <span className="text-xs font-bold">{isOnlyClipCharge ? 'Clip Only' : 'Paper Slabs'}</span>
-                                {isOnlyClipCharge ? <MdCheckCircle className="w-4 h-4"/> : <div className="w-4 h-4 rounded-full border-2 border-current opacity-20"></div>}
-                             </button>
-                          </div>
+                           <div className="flex flex-col gap-2">
+                              <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
+                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                                 {[
+                                   { id: true, label: "Printing Only" },
+                                   { id: false, label: "Slab Charge" }
+                                 ].map(m => (
+                                   <button
+                                     key={m.label}
+                                     onClick={() => setIsOnlyClipCharge(m.id)}
+                                     className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${isOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                   >
+                                     {m.label}
+                                   </button>
+                                 ))}
+                              </div>
+                           </div>
                       </div>
 
+                   
                       <div className="flex gap-4">
                           <div className="flex-1 space-y-2">
                              <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Colour Mode</label>
@@ -1353,13 +1363,13 @@ export default function QuotationEditorPage() {
                           </div>
                           {offsetSides === 'DOUBLE' && (
                              <div className="flex flex-col gap-2 animate-fade-in">
-                                <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Different?</label>
+                                <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Diff Content?</label>
                                 <button
                                   onClick={() => setOffsetIsBackSideDifferent(!offsetIsBackSideDifferent)}
                                   className={`h-11 rounded-xl border flex items-center justify-center transition-all ${offsetIsBackSideDifferent ? 'bg-brand-mint/10 border-brand-mint text-brand-teal' : 'bg-white border-brand-navy/10 text-brand-navy/40'}`}
                                   title="Check if back side content is different (requires 2 plate sets)"
                                 >
-                                   <span className="text-[10px] font-black uppercase tracking-tighter">{offsetIsBackSideDifferent ? 'Yes (2 sets)' : 'No (1 set)'}</span>
+                                   <span className="text-[10px] font-black uppercase tracking-tighter">{offsetIsBackSideDifferent ? 'Yes (2 Plates)' : 'No (1 Plate)'}</span>
                                 </button>
                              </div>
                           )}
@@ -1391,6 +1401,14 @@ export default function QuotationEditorPage() {
                               <h3 className="text-[11px] font-black text-brand-navy uppercase tracking-[0.2em]">
                                  {!!editingLineId ? "Editing Offset Item" : "Offset Comparisons"}
                               </h3>
+                              <button 
+                                  onClick={() => setShowOffsetHelp(true)}
+                                  className="w-7 h-7 rounded-full flex items-center justify-center bg-brand-mint text-brand-teal transition-all ml-1 hover:scale-110 active:scale-95 shadow-sm relative group"
+                                  title="Understand Offset Calculation Logic"
+                               >
+                                  <div className="absolute inset-0 rounded-full bg-brand-teal/20 animate-pulse group-hover:hidden" />
+                                  <MdHelpOutline className="w-4 h-4 relative z-10" />
+                               </button>
                            </div>
                            {offsetLoading && <div className="w-4 h-4 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
                        </div>
@@ -1690,9 +1708,9 @@ export default function QuotationEditorPage() {
            <div className="w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden flex flex-col animate-fade-in">
               <div className="p-8 border-b border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-brand-navy text-white flex items-center justify-center shadow-lg"><MdPersonAdd className="w-6 h-6"/></div>
+                    <div className="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20"><MdPersonAdd className="w-6 h-6"/></div>
                     <div>
-                       <h2 className="text-xl font-black text-brand-navy leading-none mb-1">New Customer</h2>
+                       <h2 className="text-xl font-black text-brand-teal leading-none mb-1">New Customer</h2>
                        <p className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">Register and link to this quote</p>
                     </div>
                  </div>
@@ -1790,8 +1808,171 @@ export default function QuotationEditorPage() {
            </div>
         </div>
       )}
-    </div>
 
+       {/* Offset Help Drawer */}
+       {showOffsetHelp && (
+           <div className="fixed inset-0 z-[100] flex justify-end">
+               <div className="absolute inset-0 bg-brand-navy/40 backdrop-blur-sm transition-opacity animate-fade-in" onClick={() => setShowOffsetHelp(false)}></div>
+               <div className="w-[450px] bg-white h-full shadow-2xl relative z-10 animate-slide-left p-0 flex flex-col">
+                   <div className="p-8 border-b border-brand-navy/5 flex items-center justify-between bg-zinc-50/50">
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-2xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
+                            <MdInfo className="w-6 h-6" />
+                         </div>
+                         <div className="flex flex-col">
+                            <h2 className="text-xl font-black text-brand-teal uppercase tracking-tighter leading-none">Offset Calculation Guide</h2>
+                            <span className="text-[9px] font-bold text-brand-teal uppercase tracking-widest mt-1">Pricing & Logic Blueprint</span>
+                       </div>
+                      </div>
+                      <button onClick={() => setShowOffsetHelp(false)} className="w-10 h-10 flex items-center justify-center rounded-xl text-brand-navy/20 hover:text-brand-navy hover:bg-zinc-100 transition-all">
+                         <MdClose className="w-5 h-5" />
+                      </button>
+                   </div>
+
+                   <div className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-12 pb-24">
+                      {/* Section 1: The Master Formula */}
+                      <div className="space-y-4">
+                         <h3 className="text-[11px] font-black text-brand-teal uppercase tracking-[0.2em]">01. The Master Formula</h3>
+                         <div className="p-6 bg-brand-teal text-white rounded-3xl space-y-4 relative overflow-hidden shadow-xl shadow-brand-teal/10">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-brand-teal/20 rounded-full blur-3xl -mr-12 -mt-12" />
+                            <div className="text-3xl font-black tracking-tighter flex items-baseline gap-2">
+                               ₹ <span className="text-brand-teal">Total</span>
+                               <span className="text-xl opacity-30">=</span>
+                               <span className="text-xl">Paper</span>
+                               <span className="text-xl opacity-30">+</span>
+                               <span className="text-xl">Printing</span>
+                            </div>
+                            <p className="text-[10px] font-medium opacity-60 leading-relaxed uppercase tracking-widest">
+                               Total Price = (Parent Sheets × Unit Price) + (Plate Fees + Machine Run Fees)
+                            </p>
+                         </div>
+                      </div>
+
+                      {/* Section 2: Material Calculation */}
+                      <div className="space-y-4">
+                         <h3 className="text-[11px] font-black text-brand-navy/40 uppercase tracking-[0.2em]">02. Material (Paper Sheets)</h3>
+                         <div className="p-5 bg-zinc-50 rounded-2xl border border-brand-navy/5 space-y-4">
+                            <div className="flex items-start gap-3">
+                               <div className="w-6 h-6 rounded-lg bg-brand-teal/10 text-brand-teal flex items-center justify-center text-[10px] font-black flex-shrink-0">A</div>
+                               <div className="space-y-1">
+                                  <div className="text-[10px] font-black text-brand-navy uppercase tracking-tighter">Sheets for Pieces</div>
+                                  <p className="text-[11px] text-brand-navy/60 font-medium leading-normal">
+                                     Pieces per machine sheet (e.g., 4-up layout). 100 copies = 25 machine sheets.
+                                  </p>
+                               </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                               <div className="w-6 h-6 rounded-lg bg-brand-teal/10 text-brand-teal flex items-center justify-center text-[10px] font-black flex-shrink-0">B</div>
+                               <div className="space-y-1">
+                                  <div className="text-[10px] font-black text-brand-navy uppercase tracking-tighter">Waste Sheets</div>
+                                  <p className="text-[11px] text-brand-navy/60 font-medium leading-normal">
+                                     Setup impressions added for ink balancing (Example: 25 pieces + 2 waste = 27 sheets).
+                                  </p>
+                               </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                               <div className="w-6 h-6 rounded-lg bg-brand-teal/10 text-brand-teal flex items-center justify-center text-[10px] font-black flex-shrink-0">C</div>
+                               <div className="space-y-1">
+                                  <div className="text-[10px] font-black text-brand-navy uppercase tracking-tighter">Portioning (Parent Sheets)</div>
+                                  <p className="text-[11px] text-brand-navy/60 font-medium leading-normal">
+                                     If the machine sheet is cut from a larger stock (e.g., 1/4 size), we divide total sheets by the portion to find the billed <strong>Full Sheets</strong>.
+                                  </p>
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* Section 3: Machine Setup (Plates) */}
+                      <div className="space-y-4">
+                         <h3 className="text-[11px] font-black text-brand-navy/40 uppercase tracking-[0.2em]">03. Machine Run (Logic)</h3>
+                         <div className="p-5 bg-brand-mint/50 rounded-2xl border border-brand-teal/10 relative overflow-hidden space-y-6">
+                            <div className="absolute top-0 right-0 p-3 opacity-10">
+                               <MdLayers className="w-12 h-12 text-brand-teal" />
+                            </div>
+                            
+                            <div className="space-y-2">
+                               <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">A. Plate Set Multiplier</div>
+                               <div className="space-y-2">
+                                  <div className="flex justify-between items-center bg-white/50 p-2 rounded-lg border border-brand-teal/5">
+                                     <span className="text-[11px] font-bold text-brand-navy">Single Side</span>
+                                     <span className="text-[11px] font-black text-brand-teal">1 Set</span>
+                                  </div>
+                                  <div className="flex justify-between items-center bg-white/50 p-2 rounded-lg border border-brand-teal/5">
+                                     <span className="text-[11px] font-bold text-brand-navy">Double (Same Back)</span>
+                                     <span className="text-[11px] font-black text-brand-teal">1 Set</span>
+                                  </div>
+                                  <div className="flex justify-between items-center bg-brand-teal text-white p-2 rounded-lg shadow-sm">
+                                     <span className="text-[11px] font-bold">Double (Diff Back)</span>
+                                     <span className="text-[11px] font-black">2 Sets</span>
+                                  </div>
+                               </div>
+                            </div>
+
+                            <div className="space-y-2 pt-2 border-t border-brand-teal/10">
+                               <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">B. Billed Impressions</div>
+                               <div className="p-3 bg-white/40 rounded-xl space-y-2 text-[11px] font-medium text-brand-navy/70 italic">
+                                  <div>Sheets Billed = (Copies / PiecesPerSheet) + Waste</div>
+                                  <div>Total Imp. = Sheets Billed × (2 for Double, else 1)</div>
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* Section 4: Bulk Threshold Boundary */}
+                      <div className="space-y-4">
+                         <h3 className="text-[11px] font-black text-brand-navy/40 uppercase tracking-[0.2em]">04. Bulk Threshold Boundary</h3>
+                         <div className="p-6 bg-brand-mint text-brand-teal rounded-3xl relative overflow-hidden border border-brand-teal/20">
+                            <div className="text-sm font-black mb-1 uppercase tracking-tighter">The "Inclusive Switch"</div>
+                            <p className="text-[10px] font-bold opacity-60 mb-6 uppercase tracking-widest leading-none">Status based on Billed Impressions</p>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                               <div className="space-y-2">
+                                  <div className="text-[10px] font-black text-red-500 uppercase">Standard</div>
+                                  <div className="text-[9px] font-bold opacity-60 leading-tight">Minimum Fee +<br/>Setup + Extra Steps</div>
+                               </div>
+                               <div className="space-y-2 text-right">
+                                  <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">Bulk Applied</div>
+                                  <div className="text-[9px] font-bold opacity-60 leading-tight">Setup +<br/>Volume Step Only</div>
+                               </div>
+                            </div>
+                            
+                            <div className="mt-4 h-1.5 bg-brand-teal/10 rounded-full relative">
+                               <div className="absolute top-1/2 left-[50%] w-4 h-4 bg-white border-2 border-brand-teal rounded-full -translate-x-1/2 -translate-y-1/2 shadow-md flex items-center justify-center group">
+                                  <div className="w-1.5 h-1.5 bg-brand-teal rounded-full animate-pulse" />
+                                  <div className="absolute top-full mt-2 bg-brand-navy text-white text-[8px] font-black px-2 py-1 rounded-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                                     Threshold (e.g. 10k)
+                                  </div>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-8 space-y-3">
+                               <div className="p-3 bg-white/60 rounded-xl border border-brand-teal/10">
+                                  <div className="text-[9px] font-black uppercase text-brand-navy/40 mb-1 text-center">Boundary Comparison (Example)</div>
+                                  <div className="flex items-center justify-between text-[11px]">
+                                     <span className="font-bold">9,999 Imp. <span className="opacity-30">(Standard)</span></span>
+                                     <span className="font-black text-red-500">₹ 3,800</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px] mt-1 pt-1 border-t border-brand-teal/5">
+                                     <span className="font-bold text-brand-teal">10,000 Imp. <span className="opacity-30">(Bulk)</span></span>
+                                     <span className="font-black text-brand-teal">₹ 3,500</span>
+                                  </div>
+                               </div>
+                               <p className="text-[9px] leading-relaxed font-bold opacity-60 italic">
+                                  Final Price drops at the threshold because the "Minimum Charge" is waived (Bulk Policy: Extra Charge Only). Boundary is <strong>inclusive</strong> (≥).
+                               </p>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="p-8 border-t border-brand-navy/5 bg-zinc-50/50 flex flex-col gap-1">
+                      <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Need more detail?</div>
+                      <div className="text-[11px] font-medium text-brand-navy/40">The machine rates shown are final calculations based on the printer's current tiered configuration.</div>
+                   </div>
+               </div>
+           </div>
+       )}
+    </div>
   );
 }
 

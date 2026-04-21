@@ -1,12 +1,27 @@
 import { FaGooglePlusG } from "react-icons/fa6";
-import { MdKeyboardArrowDown, MdSearch, MdCheck } from "react-icons/md";
+import { MdKeyboardArrowDown, MdSearch, MdCheck, MdInfo } from "react-icons/md";
 import React, { useState, useRef, useEffect } from "react";
 
-export const TextField = React.forwardRef(({ label, type = "text", placeholder, value, onChange, onKeyDown, error }, ref) => {
+const InfoTooltip = ({ content }) => {
+  return (
+    <div className="group/itooltip relative flex items-center ml-1.5">
+      <MdInfo className="w-3.5 h-3.5 text-brand-navy/30 cursor-help hover:text-brand-teal transition-colors" />
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-brand-teal text-[10px] font-bold text-white leading-relaxed rounded-xl opacity-0 group-hover/itooltip:opacity-100 pointer-events-none transition-all shadow-2xl z-[110] uppercase tracking-widest border border-white/10 backdrop-blur-md">
+        {content}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-brand-teal" />
+      </div>
+    </div>
+  );
+};
+
+export const TextField = React.forwardRef(({ label, type = "text", placeholder, value, onChange, onKeyDown, error, info }, ref) => {
   return (
     <label className="block">
       <div className="flex justify-between items-center mb-1.5">
-        <span className="text-sm font-medium text-brand-navy/80">{label}</span>
+        <div className="flex items-center">
+          <span className="text-sm font-medium text-brand-navy/80">{label}</span>
+          {info && <InfoTooltip content={info} />}
+        </div>
         {error && <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider animate-shake">{error}</span>}
       </div>
       <input
@@ -22,10 +37,13 @@ export const TextField = React.forwardRef(({ label, type = "text", placeholder, 
   );
 });
 
-export function SelectField({ label, options, value, onChange, disabled, children }) {
+export function SelectField({ label, options, value, onChange, disabled, children, info }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-brand-navy/80">{label}</span>
+      <div className="flex items-center mb-1.5">
+        <span className="text-sm font-medium text-brand-navy/80">{label}</span>
+        {info && <InfoTooltip content={info} />}
+      </div>
       <select
         value={value}
         onChange={onChange}
@@ -43,7 +61,7 @@ export function SelectField({ label, options, value, onChange, disabled, childre
 }
 
 
-export const SearchableSelect = React.forwardRef(({ label, options, value, onChange, disabled, placeholder = "Search...", onSearch, onKeyDown }, ref) => {
+export const SearchableSelect = React.forwardRef(({ label, options, value, onChange, disabled, placeholder = "Search...", onSearch, onKeyDown, info }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const localRef = useRef(null);
@@ -85,7 +103,12 @@ export const SearchableSelect = React.forwardRef(({ label, options, value, onCha
 
   return (
     <div className="relative w-full" ref={compositeRef}>
-      {label && <span className="text-sm font-medium text-brand-navy/80">{label}</span>}
+      {label && (
+        <div className="flex items-center mb-1.5">
+          <span className="text-sm font-medium text-brand-navy/80">{label}</span>
+          {info && <InfoTooltip content={info} />}
+        </div>
+      )}
       <div 
         tabIndex={disabled ? -1 : 0}
         onKeyDown={handleKeyDown}
