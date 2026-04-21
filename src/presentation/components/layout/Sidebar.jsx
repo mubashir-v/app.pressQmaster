@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+
+
+
+
+
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 import {
    MdSpaceDashboard,
@@ -38,7 +43,12 @@ const INVENTORY_ITEMS = [
 
 export default function Sidebar() {
    const { user } = useAuth();
+   const navigate = useNavigate();
    const [isCollapsed, setIsCollapsed] = useState(false);
+
+
+
+
 
    // Scope verification logic
    const availableMainItems = MAIN_ITEMS.filter((item) => {
@@ -77,11 +87,17 @@ export default function Sidebar() {
                <button onClick={() => setIsCollapsed(false)} className="w-10 h-10 flex items-center justify-center bg-brand-teal hover:bg-brand-teal-dark active:bg-brand-teal text-white rounded-xl transition-all shadow-lg shadow-brand-teal/30">
                   <FaChevronRight className="w-3 h-3" />
                </button>
-            ) : (
-               <button className="w-full flex items-center justify-center gap-2 bg-brand-teal hover:bg-brand-teal-dark active:bg-brand-teal text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-brand-teal/30">
-                  New Quote
-               </button>
-            )}
+             ) : (
+                <button 
+                   onClick={() => navigate("/dashboard/quotes/new")}
+                   className="w-full flex items-center justify-center gap-2 bg-brand-teal hover:bg-brand-teal-dark active:bg-brand-teal text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-brand-teal/30"
+                >
+                   New Quote
+                </button>
+             )}
+
+
+
          </div>
 
          {/* Navigation Links */}

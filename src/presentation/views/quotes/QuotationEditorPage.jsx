@@ -46,6 +46,8 @@ export default function QuotationEditorPage() {
   const [validUntil, setValidUntil] = useState("");
   const [customerId, setCustomerId] = useState(null);
   const [headerErrors, setHeaderErrors] = useState({});
+  const [createdBy, setCreatedBy] = useState(null);
+
 
 
   // Customer Details
@@ -124,39 +126,55 @@ export default function QuotationEditorPage() {
 
 
   useEffect(() => {
-    if (!isNew) {
-      fetchQuotation();
+    if (id && id !== "new") {
+       // Check if we already have the quotation data passed from navigation (e.g. after creation)
+       if (location.state?.quotation && location.state.quotation.id === id) {
+          applyQuotationData(location.state.quotation);
+          // Optional: clear state if we don't want it to persist on manual refresh
+          window.history.replaceState({}, document.title);
+       } else {
+          fetchQuotation();
+       }
+    } else {
+      // In case we were loading another quote before, reset loading for /new
+      setLoading(false);
     }
-  }, [id]);
+  }, [id, location.state]);
+
+  function applyQuotationData(q) {
+     setQuoteNumber(q.quoteNumber || "DRAFT");
+     setTitle(q.title || "");
+     setStatus(q.status || "DRAFT");
+     setCustomerId(q.customer?.id || q.customerId || null);
+     setSelectedCustomer(q.customer || null);
+     setNotes(q.notes || "");
+     setCreatedBy(q.createdBy || null);
+     if (q.validUntil) {
+       setValidUntil(new Date(q.validUntil).toISOString().split('T')[0]);
+     }
+      const items = (q.lineItems || []).map((li, index) => ({
+        ...li,
+        id: li.id || li._id || `item-${index}-${Date.now()}`
+      }));
+      setLineItems(items);
+  }
+
+
+
 
 
   async function fetchQuotation() {
     setLoading(true);
     try {
       const data = await getQuotation(id);
-      const q = data.quotation;
-      setQuoteNumber(q.quoteNumber || "DRAFT");
-      setTitle(q.title || "");
-      setStatus(q.status || "DRAFT");
-      setCustomerId(q.customer?.id || q.customerId || null);
-      setSelectedCustomer(q.customer || null);
-      setNotes(q.notes || "");
-      if (q.validUntil) {
-        setValidUntil(new Date(q.validUntil).toISOString().split('T')[0]);
-      }
-       const items = (q.lineItems || []).map((li, index) => ({
-         ...li,
-         // Ensure we always have a stable ID for the UI logic
-         id: li.id || li._id || `item-${index}-${Date.now()}`
-       }));
-       setLineItems(items);
+      applyQuotationData(data.quotation);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-
   }
+
 
   async function syncLineItems(newList) {
     if (isNew) {
@@ -270,8 +288,9 @@ export default function QuotationEditorPage() {
     if (calcEl) calcEl.scrollIntoView({ behavior: 'smooth' });
   }
 
-  async function syncHeader(fields) {
-    if (isNew) return;
+   async function syncHeader(fields) {
+     if (!id || id === "new") return;
+
     setHeaderErrors({});
     try {
       await updateQuotation(id, fields);
@@ -285,39 +304,39 @@ export default function QuotationEditorPage() {
   }
 
 
-  // Handle Customer Selection & Sync
-  async function handleCustomerSelect(cust) {
-    setCustomerId(cust.id);
-    setSelectedCustomer(cust);
-    setShowCustomerSearch(false);
+   // Handle Customer Selection & Sync
+   async function handleCustomerSelect(cust) {
+     setCustomerId(cust.id);
+     setSelectedCustomer(cust);
+     setShowCustomerSearch(false);
+     
+     if (id && id !== "new") {
+       syncHeader({ customerId: cust.id });
+     } else {
+       handleInitialCreation(cust.id);
+     }
+   }
 
-    if (!isNew) {
-      syncHeader({ customerId: cust.id });
-    } else {
+   async function handleInitialCreation(cId) {
+     setBusy(true);
+     try {
+       const res = await createQuotation({ customerId: cId, title: title.trim(), status: "DRAFT" });
+       // Pass the created quotation in state to avoid a loading flash on navigation
+       navigate(`/dashboard/quotes/${res.quotation.id}`, { 
+         replace: true,
+         state: { quotation: res.quotation }
+       });
+     } catch (e) {
+       console.error("Failed to create initial quote", e);
+     } finally {
+       setBusy(false);
+     }
+   }
 
-        // If new, we might want to trigger create immediately or let user fill more
-        // User said: "when clicking on new quotation form will come in content page... Customer selection will be there in top section"
-        // I'll wait for an explicit save or trigger create if it's the very first selection?
-        // Let's create it as a DRAFT immediately to get an ID once customer is picked
-        handleInitialCreation(cust.id);
-    }
-  }
 
-  async function handleInitialCreation(cId) {
-    setBusy(true);
-    try {
-      const res = await createQuotation({ customerId: cId, title: title.trim(), status: "DRAFT" });
-      // Pass the created quotation in state to avoid a loading flash on navigation
-      navigate(`/dashboard/quotes/${res.quotation.id}`, {
-        replace: true,
-        state: { quotation: res.quotation }
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setBusy(false);
-    }
-  }
+
+
+
 
 
   async function handleCreateNewCustomer() {
@@ -578,9 +597,19 @@ export default function QuotationEditorPage() {
              
              <div className="text-right">
                 <div className="text-3xl font-black text-brand-navy uppercase tracking-tighter mb-1">Quotation</div>
-                <div className="text-[11px] font-black text-brand-navy/40 uppercase tracking-widest">No: {quoteNumber || "DRAFT"}</div>
-                <div className="text-[11px] font-black text-brand-navy/40 uppercase tracking-widest mt-1">Date: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                <div className="text-[11px] font-black text-brand-navy/40 uppercase tracking-widest leading-relaxed">
+                   No: {quoteNumber || "DRAFT"}
+                </div>
+                <div className="text-[11px] font-black text-brand-navy/40 uppercase tracking-widest mt-0.5">
+                   Date: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
+                {createdBy && (
+                   <div className="text-[9px] font-black text-brand-teal uppercase tracking-widest mt-1.5 opacity-80 decoration-brand-teal/30 underline underline-offset-4 decoration-2">
+                      Created By: {createdBy.displayName || createdBy.name}
+                   </div>
+                )}
              </div>
+
           </div>
           
           <div className="mt-8 grid grid-cols-2 gap-12">
@@ -623,9 +652,17 @@ export default function QuotationEditorPage() {
               
               <div className="flex items-center gap-3 pr-6 border-r border-brand-navy/10">
                  <BrandLogo className="w-9 h-9 shadow-sm rounded-lg" />
-                 <div className="min-w-[100px] px-4 py-2 rounded-xl bg-brand-teal text-white shadow-[0_4px_14px_rgba(42,142,158,0.3)] flex items-center justify-center">
-                    <span className="text-[11px] font-black tracking-[0.2em]">{quoteNumber || "DRAFT"}</span>
+                 <div className="flex flex-col">
+                    <div className="min-w-[100px] px-4 py-2 rounded-xl bg-brand-teal text-white shadow-[0_4px_14px_rgba(42,142,158,0.3)] flex items-center justify-center">
+                       <span className="text-[11px] font-black tracking-[0.2em]">{quoteNumber || "DRAFT"}</span>
+                    </div>
+                    {createdBy && (
+                       <div className="absolute -bottom-5 left-[50px] whitespace-nowrap text-[8px] font-black text-brand-teal uppercase tracking-widest opacity-60">
+                          Owner: {createdBy.displayName || createdBy.name}
+                       </div>
+                    )}
                  </div>
+
               </div>
 
               <button

@@ -24,6 +24,8 @@ export default function QuotationsManagementPage() {
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
 
+
+
   // Roster State
   const [searchQuery, setSearchQuery] = useState("");
   const [offset, setOffset] = useState(0);
@@ -114,6 +116,7 @@ export default function QuotationsManagementPage() {
                New Quotation
             </button>
           )}
+
         </div>
       </div>
 
@@ -158,7 +161,17 @@ export default function QuotationsManagementPage() {
                                                 {item.quoteNumber || <span className="text-brand-navy/30 font-medium italic">No Number</span>}
                                             </div>
                                             <div className="text-xs font-semibold text-brand-navy/50 mt-0.5 line-clamp-1">{item.title || "Untitiled Presentation"}</div>
-                                            <div className="text-[10px] font-bold text-brand-navy/20 flex items-center gap-1 mt-1 text-xs"><MdCalendarToday className="w-3 h-3"/> {new Date(item.createdAt).toLocaleDateString()}</div>
+                                            <div className="flex flex-col gap-1 mt-1.5">
+                                               <div className="text-[10px] font-bold text-brand-navy/20 flex items-center gap-1 text-[9px] uppercase tracking-wider">
+                                                 <MdCalendarToday className="w-3 h-3"/> {new Date(item.createdAt).toLocaleDateString()}
+                                               </div>
+                                               {item.createdBy && (
+                                                 <div className="text-[9px] font-black text-brand-teal uppercase tracking-[0.1em] px-1.5 py-0.5 bg-brand-teal/5 rounded inline-block w-fit">
+                                                    BY {item.createdBy.displayName || item.createdBy.name}
+                                                 </div>
+                                               )}
+                                             </div>
+
                                           </button>
                                       </td>
 
