@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getQuotation, createQuotation, updateQuotation, getCustomers, createCustomer,
@@ -55,6 +55,8 @@ export default function QuotationEditorPage() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerList, setCustomerList] = useState([]);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [pendingPhone, setPendingPhone] = useState("");
+  const [pendingAddress, setPendingAddress] = useState("");
 
   // New Customer Modal State
   const [showNewCustModal, setShowNewCustModal] = useState(false);
@@ -112,6 +114,17 @@ export default function QuotationEditorPage() {
 
   const activeOrg = user?.organizations?.find(o => (o.organizationId || o.id) === user.activeOrganizationId);
   const activeOrgName = activeOrg?.name || "PrintQ Client";
+
+  // Navigation Refs
+  const phoneInputRef = useRef(null);
+  const addressInputRef = useRef(null);
+  const titleInputRef = useRef(null);
+  const laserSizeRef = useRef(null);
+  const laserStockRef = useRef(null);
+  const laserCopiesRef = useRef(null);
+  const itemTitleRef = useRef(null);
+  const customWidthRef = useRef(null);
+  const customBreadthRef = useRef(null);
 
   // Inspection Drawer State
   const [previewingLayoutOption, setPreviewingLayoutOption] = useState(null);
@@ -306,14 +319,37 @@ export default function QuotationEditorPage() {
 
    // Handle Customer Selection & Sync
    async function handleCustomerSelect(cust) {
-     setCustomerId(cust.id);
-     setSelectedCustomer(cust);
-     setShowCustomerSearch(false);
+      setCustomerId(cust.id);
+      setSelectedCustomer(cust);
+      setShowCustomerSearch(false);
+      setPendingPhone("");
+      setPendingAddress("");
+      
+      // Jump to Title after selection
+      setTimeout(() => titleInputRef.current?.focus(), 100);
      
      if (id && id !== "new") {
        syncHeader({ customerId: cust.id });
      } else {
        handleInitialCreation(cust.id);
+     }
+   }
+
+
+   async function handleCustomerSearchKeyDown(e) {
+     if (e.key === "Enter") {
+       e.preventDefault();
+       if (!customerSearch.trim()) return;
+
+       const exactMatch = customerList.find(c => c.name.toLowerCase() === customerSearch.trim().toLowerCase());
+       if (exactMatch) {
+         handleCustomerSelect(exactMatch);
+         return;
+       }
+
+       // Focus Phone field next
+       setShowCustomerSearch(false);
+       phoneInputRef.current?.focus();
      }
    }
 
@@ -640,7 +676,7 @@ export default function QuotationEditorPage() {
 
        {/* 1. Technical Header */}
        <section className="no-print px-10 py-6 border-b border-brand-navy/5 flex items-center justify-between gap-12 bg-[#FDFDFD]">
-          {/* Left: Move & Identity Cluster */}
+          {/* Left: Navigation & Customer Cluster */}
           <div className="flex items-center gap-6">
               <button
                 onClick={() => navigate("/dashboard/quotes")}
@@ -650,30 +686,157 @@ export default function QuotationEditorPage() {
                 <MdArrowBack className="w-5 h-5" />
               </button>
               
-              <div className="flex items-center gap-3 pr-6 border-r border-brand-navy/10">
-                 <BrandLogo className="w-9 h-9 shadow-sm rounded-lg" />
-                 <div className="flex flex-col">
-                    <div className="min-w-[100px] px-4 py-2 rounded-xl bg-brand-teal text-white shadow-[0_4px_14px_rgba(42,142,158,0.3)] flex items-center justify-center">
-                       <span className="text-[11px] font-black tracking-[0.2em]">{quoteNumber || "DRAFT"}</span>
-                    </div>
-                    {createdBy && (
-                       <div className="absolute -bottom-5 left-[50px] whitespace-nowrap text-[8px] font-black text-brand-teal uppercase tracking-widest opacity-60">
-                          Owner: {createdBy.displayName || createdBy.name}
-                       </div>
+              {/* Focused Customer Information Card */}
+          <div className="w-[360px] border border-brand-navy/10 rounded-xl p-4 bg-white shadow-sm relative group">
+              <div className="flex justify-between items-center mb-3">
+                 <span className="text-[9px] font-black text-brand-navy/20 uppercase tracking-[0.2em]">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                 {busy && <div className="w-3 h-3 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
+              </div>
+
+              <div className="space-y-1.5">
+                  <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-bold text-brand-navy/40 w-12">Cust :</span>
+                     <div className="relative flex-1 flex flex-col items-start">
+                        <div className="w-full flex items-center gap-2">
+                           {!selectedCustomer ? (
+                              <div className="relative flex-1">
+                                 <input
+                                   type="text"
+                                   placeholder="Search account..."
+                                   value={customerSearch}
+                                   onFocus={() => setShowCustomerSearch(true)}
+                                   onChange={e => setCustomerSearch(e.target.value)}
+                                   onKeyDown={handleCustomerSearchKeyDown}
+                                   className={`w-full text-[11px] font-black text-brand-navy outline-none border-b py-0.5 transition-colors ${headerErrors.customerId ? 'border-red-400 focus:border-red-500' : 'border-brand-teal/20 focus:border-brand-teal'}`}
+                                 />
+                                 {showCustomerSearch && (
+                                   <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-brand-navy/10 rounded-xl shadow-2xl py-2 max-h-40 overflow-y-auto no-scrollbar">
+                                      {customerList.length > 0 ? customerList.map(c => (
+                                        <button
+                                         key={c.id}
+                                         onClick={() => handleCustomerSelect(c)}
+                                         className="w-full px-4 py-2 text-left text-[11px] font-bold text-brand-navy hover:bg-zinc-50"
+                                        >
+                                           {c.name} {c.companyName && <span className="opacity-40 ml-1">({c.companyName})</span>}
+                                        </button>
+                                      )) : (
+                                        <button 
+                                          onClick={() => {
+                                             setShowCustomerSearch(false);
+                                             phoneInputRef.current?.focus();
+                                          }}
+                                          className="w-full px-4 py-3 text-left group"
+                                        >
+                                           <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest mb-0.5">Register New Account</div>
+                                           <div className="text-[11px] font-bold text-brand-navy group-hover:text-brand-teal transition-colors">Press Enter to add "{customerSearch}"</div>
+                                        </button>
+                                      )}
+                                   </div>
+                                 )}
+                              </div>
+                           ) : (
+                             <div className="flex-1 flex items-center justify-between border-b border-brand-mint/40 py-0.5 group/select">
+                                <span className="text-[11px] font-black text-brand-teal">{selectedCustomer.name}</span>
+                                <button onClick={() => { setSelectedCustomer(null); setCustomerId(null); syncHeader({ customerId: null }); }} className="opacity-0 group-hover/select:opacity-100 transition-opacity">
+                                   <MdClose className="w-3 h-3 text-red-400" />
+                                </button>
+                             </div>
+                           )}
+                           {!selectedCustomer && (
+                              <button
+                               onClick={() => setShowNewCustModal(true)}
+                               className="p-1 px-2 bg-brand-teal/10 text-brand-teal hover:bg-brand-teal hover:text-white rounded-lg transition-all"
+                               title="Register new customer"
+                              >
+                                 <MdPersonAdd className="w-4 h-4" />
+                              </button>
+                           )}
+                        </div>
+                        {headerErrors.customerId && <span className="text-[8px] font-black text-red-400 uppercase tracking-tighter mt-1">{headerErrors.customerId[0]}</span>}
+                     </div>
+                  </div>
+
+
+                 <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-bold text-brand-navy/40 w-16">Phone :</span>
+                    {!selectedCustomer && customerSearch.trim() ? (
+                        <input
+                           ref={phoneInputRef}
+                           type="text"
+                           placeholder="Enter phone..."
+                           value={pendingPhone}
+                           onFocus={() => setShowCustomerSearch(false)}
+                           onChange={e => setPendingPhone(e.target.value)}
+                           onKeyDown={e => {
+                              if (e.key === "Enter") {
+                                 e.preventDefault();
+                                 addressInputRef.current?.focus();
+                              }
+                           }}
+                           className="text-[11px] font-black text-brand-navy outline-none border-b border-brand-teal/10 focus:border-brand-teal bg-transparent flex-1 py-0.5"
+                        />
+                    ) : (
+                        <span className="text-[11px] font-black text-brand-navy/80">{selectedCustomer?.phone || "--"}</span>
                     )}
                  </div>
 
+                 <div className="flex items-start gap-3">
+                    <span className="text-[11px] font-bold text-brand-navy/40 w-16 mt-0.5">Address :</span>
+                    {!selectedCustomer && customerSearch.trim() ? (
+                        <input
+                           ref={addressInputRef}
+                           type="text"
+                           placeholder="Enter address..."
+                           value={pendingAddress}
+                           onFocus={() => setShowCustomerSearch(false)}
+                           onChange={e => setPendingAddress(e.target.value)}
+                           onKeyDown={async e => {
+                              if (e.key === "Enter") {
+                                 e.preventDefault();
+                                 setBusy(true);
+                                 try {
+                                   const payload = { 
+                                     name: customerSearch.trim(), 
+                                     phone: pendingPhone.trim() || undefined,
+                                     billingAddress: pendingAddress.trim() ? { line1: pendingAddress.trim() } : undefined,
+                                     isActive: true 
+                                   };
+                                   const res = await createCustomer(payload);
+                                   handleCustomerSelect(res.customer);
+                                   setCustomerSearch("");
+                                 } catch (err) {
+                                   console.error("Failed to quick-create customer", err);
+                                 } finally {
+                                   setBusy(false);
+                                 }
+                              }
+                           }}
+                           className="text-[11px] font-black text-brand-navy outline-none border-b border-brand-teal/10 focus:border-brand-teal bg-transparent flex-1 py-0.5"
+                        />
+                    ) : (
+                        <span className="text-[11px] font-black text-brand-navy/80 flex-1 leading-snug">
+                           {selectedCustomer?.billingAddress ? `${selectedCustomer.billingAddress.line1}${selectedCustomer.billingAddress.city ? ', ' + selectedCustomer.billingAddress.city : ''}` : "--"}
+                        </span>
+                    )}
+                 </div>
               </div>
 
-              <button
-                onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-navy/10 bg-white text-brand-navy/60 hover:text-brand-teal hover:border-brand-teal transition-all shadow-sm group"
-                title="Print Quotation"
-              >
-                <MdPrint className="w-4 h-4 group-hover:text-brand-teal" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Print</span>
-              </button>
+               {!selectedCustomer && customerSearch.trim() && (
+                 <div className="mt-4 pt-4 border-t border-brand-teal/5 flex flex-col items-center gap-1.5 animate-fade-in">
+                    <div className="flex items-center gap-4 text-[7px] font-black uppercase tracking-[0.2em]">
+                       <span className={document.activeElement?.placeholder?.includes('account') ? 'text-brand-teal' : 'text-brand-navy/20'}>1. Name</span>
+                       <span className="text-brand-navy/10">→</span>
+                       <span className={document.activeElement?.placeholder?.includes('phone') ? 'text-brand-teal' : 'text-brand-navy/20'}>2. Phone</span>
+                       <span className="text-brand-navy/10">→</span>
+                       <span className={document.activeElement?.placeholder?.includes('address') ? 'text-brand-teal' : 'text-brand-navy/20'}>3. Address</span>
+                    </div>
+                    <div className="text-[8px] font-black text-brand-teal uppercase tracking-widest animate-pulse">
+                       {document.activeElement?.placeholder?.includes('address') ? 'Press Enter to Finish' : 'Press Enter to Continue'}
+                    </div>
+                 </div>
+               )}
           </div>
+        </div>
 
           {/* Middle: Integrated Inputs */}
           <div className="flex-1 flex items-center gap-8 max-w-3xl">
@@ -685,6 +848,13 @@ export default function QuotationEditorPage() {
                    value={title}
                    onChange={e => setTitle(e.target.value)}
                    onBlur={() => syncHeader({ title: title.trim() })}
+                   onKeyDown={e => {
+                      if (e.key === "Enter") {
+                         e.preventDefault();
+                         itemTitleRef.current?.focus();
+                      }
+                   }}
+                   ref={titleInputRef}
                    className={`w-full text-sm font-bold text-brand-navy outline-none border-b bg-transparent py-1 transition-all ${headerErrors.title ? 'border-red-400 focus:border-red-500' : 'border-brand-navy/10 focus:border-brand-teal'}`}
                   />
                   {headerErrors.title && <span className="text-[8px] font-black text-red-400 uppercase tracking-tighter mt-1">{headerErrors.title[0]}</span>}
@@ -724,79 +894,32 @@ export default function QuotationEditorPage() {
               </div>
           </div>
 
-           {/* Right: Focused Customer Information Card */}
-           <div className="w-[360px] border border-brand-navy/10 rounded-xl p-4 bg-white shadow-sm relative group">
-               <div className="flex justify-between items-center mb-3">
-                  <span className="text-[9px] font-black text-brand-navy/20 uppercase tracking-[0.2em]">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  {busy && <div className="w-3 h-3 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
-               </div>
+          {/* Right: Identity Cluster */}
+          <div className="flex items-center gap-6">
+              
+              <div className="flex items-center gap-3 pr-6 border-r border-brand-navy/10">
+                 <BrandLogo className="w-9 h-9 shadow-sm rounded-lg" />
+                 <div className="flex flex-col">
+                    <div className="min-w-[100px] px-4 py-2 rounded-xl bg-brand-teal text-white shadow-[0_4px_14px_rgba(42,142,158,0.3)] flex items-center justify-center">
+                       <span className="text-[11px] font-black tracking-[0.2em]">{quoteNumber || "DRAFT"}</span>
+                    </div>
+                    {createdBy && (
+                       <div className="absolute -bottom-5 left-[50px] whitespace-nowrap text-[8px] font-black text-brand-teal uppercase tracking-widest opacity-60">
+                          Owner: {createdBy.displayName || createdBy.name}
+                       </div>
+                    )}
+                 </div>
 
-               <div className="space-y-1.5">
-                   <div className="flex items-center gap-3">
-                       <span className="text-[10px] font-bold text-brand-navy/40 w-12">Cust :</span>
-                      <div className="relative flex-1 flex flex-col items-start">
-                         <div className="w-full flex items-center gap-2">
-                            {!selectedCustomer ? (
-                               <div className="relative flex-1">
-                                  <input
-                                    type="text"
-                                    placeholder="Search account..."
-                                    value={customerSearch}
-                                    onFocus={() => setShowCustomerSearch(true)}
-                                    onChange={e => setCustomerSearch(e.target.value)}
-                                    className={`w-full text-[11px] font-black text-brand-navy outline-none border-b py-0.5 transition-colors ${headerErrors.customerId ? 'border-red-400 focus:border-red-500' : 'border-brand-teal/20 focus:border-brand-teal'}`}
-                                  />
-                                  {showCustomerSearch && (
-                                    <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-brand-navy/10 rounded-xl shadow-2xl py-2 max-h-40 overflow-y-auto no-scrollbar">
-                                       {customerList.length > 0 ? customerList.map(c => (
-                                         <button
-                                          key={c.id}
-                                          onClick={() => handleCustomerSelect(c)}
-                                          className="w-full px-4 py-2 text-left text-[11px] font-bold text-brand-navy hover:bg-brand-mint/10"
-                                         >
-                                            {c.name} {c.companyName && <span className="opacity-40 ml-1">({c.companyName})</span>}
-                                         </button>
-                                       )) : (
-                                         <div className="px-4 py-2 text-[10px] font-bold text-brand-navy/30 italic">No matches...</div>
-                                       )}
-                                    </div>
-                                  )}
-                               </div>
-                            ) : (
-                              <div className="flex-1 flex items-center justify-between border-b border-brand-mint/40 py-0.5 group/select">
-                                 <span className="text-[11px] font-black text-brand-teal">{selectedCustomer.name}</span>
-                                 <button onClick={() => { setSelectedCustomer(null); setCustomerId(null); syncHeader({ customerId: null }); }} className="opacity-0 group-hover/select:opacity-100 transition-opacity">
-                                    <MdClose className="w-3 h-3 text-red-400" />
-                                 </button>
-                              </div>
-                            )}
-                            {!selectedCustomer && (
-                               <button
-                                onClick={() => setShowNewCustModal(true)}
-                                className="p-1 px-2 bg-brand-teal/10 text-brand-teal hover:bg-brand-teal hover:text-white rounded-lg transition-all"
-                                title="Register new customer"
-                               >
-                                  <MdPersonAdd className="w-4 h-4" />
-                               </button>
-                            )}
-                         </div>
-                         {headerErrors.customerId && <span className="text-[8px] font-black text-red-400 uppercase tracking-tighter mt-1">{headerErrors.customerId[0]}</span>}
-                      </div>
-                   </div>
-
-
-                  <div className="flex items-center gap-3">
-                     <span className="text-[11px] font-bold text-brand-navy/40 w-16">Phone :</span>
-                     <span className="text-[11px] font-black text-brand-navy/80">{selectedCustomer?.phone || "--"}</span>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                     <span className="text-[11px] font-bold text-brand-navy/40 w-16 mt-0.5">Address :</span>
-                     <span className="text-[11px] font-black text-brand-navy/80 flex-1 leading-snug">
-                        {selectedCustomer?.billingAddress ? `${selectedCustomer.billingAddress.line1}, ${selectedCustomer.billingAddress.city}` : "--"}
-                     </span>
-                  </div>
               </div>
+
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-navy/10 bg-white text-brand-navy/60 hover:text-brand-teal hover:border-brand-teal transition-all shadow-sm group"
+                title="Print Quotation"
+              >
+                <MdPrint className="w-4 h-4 group-hover:text-brand-teal" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Print</span>
+              </button>
           </div>
       </section>
 
@@ -827,17 +950,33 @@ export default function QuotationEditorPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
                           <TextField 
                             label="Job Title" 
+                            ref={itemTitleRef}
+                            onKeyDown={e => {
+                               if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  laserSizeRef.current?.focus();
+                               }
+                            }}
                             placeholder="e.g. Notice, Poster..." 
                             value={itemTitle} 
                             onChange={e => setItemTitle(e.target.value)} 
                           />
                           <SearchableSelect
-                            label="Press Size"
-                            options={laserSizeOptions}
-                            value={laserSizeId}
-                            placeholder="Search Size Chart..."
-                            onChange={e => setLaserSizeId(e.target.value)}
-                          />
+                             label="Press Size"
+                             options={laserSizeOptions}
+                             value={laserSizeId}
+                             placeholder="Search Size Chart..."
+                             onChange={e => {
+                               const newVal = e.target.value;
+                               setLaserSizeId(newVal);
+                               if (newVal === 'custom') {
+                                 setTimeout(() => customWidthRef.current?.focus(), 100);
+                               } else {
+                                 setTimeout(() => laserStockRef.current?.focus(), 100);
+                               }
+                             }}
+                             ref={laserSizeRef}
+                           />
 
 
                           {laserSizeId === 'custom' && (
@@ -846,6 +985,13 @@ export default function QuotationEditorPage() {
                                   <input
                                     type="number"
                                     placeholder="Width"
+                                    ref={customWidthRef}
+                                    onKeyDown={e => {
+                                       if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          customBreadthRef.current?.focus();
+                                       }
+                                    }}
                                     value={customWidth}
                                     onChange={e => setCustomWidth(e.target.value)}
                                     className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
@@ -856,6 +1002,13 @@ export default function QuotationEditorPage() {
                                   <input
                                     type="number"
                                     placeholder="Breadth"
+                                    ref={customBreadthRef}
+                                    onKeyDown={e => {
+                                       if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          laserStockRef.current?.focus();
+                                       }
+                                    }}
                                     value={customBreadth}
                                     onChange={e => setCustomBreadth(e.target.value)}
                                     className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
@@ -876,18 +1029,36 @@ export default function QuotationEditorPage() {
                           )}
 
                           <SearchableSelect
-                            label="Paper / Stock"
-                            options={laserStockOptions}
-                            value={laserStockItemId}
-                            placeholder="Search Inventory..."
-                            onChange={e => setLaserStockItemId(e.target.value)}
-                            onSearch={fetchLaserStocks}
-                          />
+                             label="Paper / Stock"
+                             options={laserStockOptions}
+                             value={laserStockItemId}
+                             placeholder="Search Inventory..."
+                             onChange={e => {
+                               setLaserStockItemId(e.target.value);
+                               setTimeout(() => laserCopiesRef.current?.focus(), 100);
+                             }}
+                             onSearch={fetchLaserStocks}
+                             ref={laserStockRef}
+                           />
 
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
-                          <TextField label="No of Copies" type="number" value={laserCopies} onChange={e => setLaserCopies(e.target.value)} />
+                           <TextField 
+                              label="No of Copies" 
+                              type="number" 
+                              value={laserCopies} 
+                              onChange={e => setLaserCopies(e.target.value)} 
+                              ref={laserCopiesRef}
+                              onKeyDown={e => {
+                                 if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    // Add logic to save if possible, or just focus save button
+                                    const saveBtn = document.getElementById('save-line-item');
+                                    saveBtn?.click();
+                                 }
+                              }}
+                           />
                           <div className="flex flex-col gap-2">
                              <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
                              <button
@@ -1316,6 +1487,7 @@ export default function QuotationEditorPage() {
                                    </button>
                                  )}
                                  <PrimaryButton
+                                   id="save-line-item"
                                    onClick={async () => {
                                      const opt = selectedOffsetOption;
                                      const selPaper = stockItemList.find(s => s.id === offsetStockItemId);

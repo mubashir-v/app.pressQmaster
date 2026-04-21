@@ -2,7 +2,7 @@ import { FaGooglePlusG } from "react-icons/fa6";
 import { MdKeyboardArrowDown, MdSearch, MdCheck } from "react-icons/md";
 import React, { useState, useRef, useEffect } from "react";
 
-export function TextField({ label, type = "text", placeholder, value, onChange, error }) {
+export const TextField = React.forwardRef(({ label, type = "text", placeholder, value, onChange, onKeyDown, error }, ref) => {
   return (
     <label className="block">
       <div className="flex justify-between items-center mb-1.5">
@@ -10,15 +10,17 @@ export function TextField({ label, type = "text", placeholder, value, onChange, 
         {error && <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider animate-shake">{error}</span>}
       </div>
       <input
+        ref={ref}
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
+        onKeyDown={onKeyDown}
         className={`w-full rounded-xl border bg-white px-4 py-2.5 text-brand-navy placeholder:text-brand-navy/40 outline-none transition-all ${error ? 'border-red-300 ring-4 ring-red-500/10' : 'border-brand-navy/15 focus:border-brand-teal/40 focus:ring-4 focus:ring-brand-teal/10 shadow-sm'}`}
       />
     </label>
   );
-}
+});
 
 export function SelectField({ label, options, value, onChange, disabled, children }) {
   return (
@@ -41,10 +43,11 @@ export function SelectField({ label, options, value, onChange, disabled, childre
 }
 
 
-export function SearchableSelect({ label, options, value, onChange, disabled, placeholder = "Search...", onSearch }) {
+export const SearchableSelect = React.forwardRef(({ label, options, value, onChange, disabled, placeholder = "Search...", onSearch, onKeyDown }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const containerRef = useRef(null);
+  const localRef = useRef(null);
+  const compositeRef = ref || localRef;
 
   const selectedOption = options.find(opt => opt.value === value);
   const filteredOptions = onSearch ? options : options.filter(opt => 
@@ -53,14 +56,14 @@ export function SearchableSelect({ label, options, value, onChange, disabled, pl
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      if (compositeRef.current && !compositeRef.current.contains(event.target)) {
         setIsOpen(false);
         setQuery("");
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [compositeRef]);
 
   useEffect(() => {
     if (onSearch) {
@@ -71,11 +74,22 @@ export function SearchableSelect({ label, options, value, onChange, disabled, pl
     }
   }, [query, onSearch]);
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !isOpen) {
+      e.preventDefault();
+      setIsOpen(true);
+    } else if (onKeyDown) {
+      onKeyDown(e);
+    }
+  };
+
   return (
-    <div className="relative w-full" ref={containerRef}>
+    <div className="relative w-full" ref={compositeRef}>
       {label && <span className="text-sm font-medium text-brand-navy/80">{label}</span>}
       <div 
-        className={`mt-2 relative w-full rounded-xl border transition-all cursor-pointer bg-white group ${isOpen ? 'border-brand-teal/40 ring-4 ring-brand-teal/10' : 'border-brand-navy/15 hover:border-brand-navy/30'}`}
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={handleKeyDown}
+        className={`mt-2 relative w-full rounded-xl border transition-all cursor-pointer bg-white group outline-none ${isOpen ? 'border-brand-teal/40 ring-4 ring-brand-teal/10' : 'border-brand-navy/15 hover:border-brand-navy/30 focus:border-brand-teal/40 focus:ring-4 focus:ring-brand-teal/10'}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
         <div className="flex items-center justify-between px-4 py-2.5 min-h-[46px]">
@@ -98,6 +112,16 @@ export function SearchableSelect({ label, options, value, onChange, disabled, pl
               onChange={(e) => setQuery(e.target.value)}
               className="bg-transparent border-none outline-none text-sm font-medium text-brand-navy w-full placeholder:text-brand-navy/20"
               onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && filteredOptions.length > 0) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const firstOpt = filteredOptions[0];
+                  onChange({ target: { value: firstOpt.value } });
+                  setIsOpen(false);
+                  setQuery("");
+                }
+              }}
             />
           </div>
           <div className="overflow-y-auto no-scrollbar py-2">
@@ -130,7 +154,7 @@ export function SearchableSelect({ label, options, value, onChange, disabled, pl
       )}
     </div>
   );
-}
+});
 
 
 

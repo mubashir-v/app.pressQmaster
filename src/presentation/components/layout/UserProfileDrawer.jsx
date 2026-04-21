@@ -145,7 +145,7 @@ export default function UserProfileDrawer({ isCollapsed }) {
                       onClick={() => {
                           setIsOpen(false);
                           if (!isActive) {
-                             localStorage.setItem("active_org_id", org.id || org.organizationId);
+                             localStorage.setItem("printq_active_org_id", org.id || org.organizationId);
                              window.location.reload(); // Hard flush react component tree to reload intercepts
                           }
                       }}
