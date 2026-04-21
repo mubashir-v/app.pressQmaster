@@ -42,6 +42,9 @@ export default function OrganizationSettingsPage() {
   if (!activeOrg) return null;
 
   const isOwner = activeOrg.role === "OWNER";
+  const isAdmin = activeOrg.role === "ADMIN";
+  const hasAllScope = activeOrg.scopes?.includes("all_scope");
+  const canEdit = isOwner || isAdmin || hasAllScope;
 
   // State mappings
   const [name, setName] = useState(activeOrg.organizationName || "");
@@ -138,10 +141,10 @@ export default function OrganizationSettingsPage() {
         </p>
       </div>
 
-      {!isOwner && (
+      {!canEdit && (
         <div className="mb-4 rounded-lg bg-amber-50 p-3 border border-amber-200 flex gap-3 items-center">
            <MdShield className="w-4 h-4 text-amber-500 flex-shrink-0" />
-           <p className="text-[10px] font-bold text-amber-800 uppercase tracking-tight">Read-Only Access: Only Owners can modify settings.</p>
+           <p className="text-[10px] font-bold text-amber-800 uppercase tracking-tight">Read-Only Access: Only Owners or Admins can modify settings.</p>
         </div>
       )}
 
@@ -164,7 +167,7 @@ export default function OrganizationSettingsPage() {
                       placeholder="e.g. Acme Printing Press"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      disabled={!isOwner || busy}
+                      disabled={!canEdit || busy}
                     />
                     <div className="grid grid-cols-2 gap-4 items-end">
                         <div className="min-w-0">
@@ -174,7 +177,7 @@ export default function OrganizationSettingsPage() {
                           </div>
                         </div>
                         <label className="flex items-center gap-3 cursor-pointer p-2 border border-brand-navy/5 rounded-lg hover:bg-zinc-50 transition-colors shrink-0">
-                            <ToggleSwitch enabled={isActive} onChange={setIsActive} disabled={!isOwner || busy} />
+                            <ToggleSwitch enabled={isActive} onChange={setIsActive} disabled={!canEdit || busy} />
                             <div className="text-[10px] font-bold text-brand-navy uppercase tracking-tight leading-tight">Status</div>
                         </label>
                     </div>
@@ -194,7 +197,7 @@ export default function OrganizationSettingsPage() {
                        label="Default Length Unit" 
                        value={defaultLengthUnit} 
                        onChange={(e) => setDefaultLengthUnit(e.target.value)}
-                       disabled={!isOwner || busy}
+                       disabled={!canEdit || busy}
                        options={[
                           { label: "Millimeters (mm)", value: "mm" },
                           { label: "Centimeters (cm)", value: "cm" },
@@ -222,7 +225,7 @@ export default function OrganizationSettingsPage() {
                                  placeholder="Street address..."
                                  value={addressLine1}
                                  onChange={(e) => setAddressLine1(e.target.value)}
-                                 disabled={!isOwner || busy}
+                                 disabled={!canEdit || busy}
                              />
                          </div>
                          <div className="md:col-span-2">
@@ -231,13 +234,13 @@ export default function OrganizationSettingsPage() {
                                  placeholder="Suite, unit, etc."
                                  value={addressLine2}
                                  onChange={(e) => setAddressLine2(e.target.value)}
-                                 disabled={!isOwner || busy}
+                                 disabled={!canEdit || busy}
                              />
                          </div>
-                         <TextField label="City" value={city} onChange={(e) => setCity(e.target.value)} disabled={!isOwner || busy}/>
-                         <TextField label="State / Province" value={region} onChange={(e) => setRegion(e.target.value)} disabled={!isOwner || busy}/>
-                         <TextField label="ZIP Code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} disabled={!isOwner || busy}/>
-                         <TextField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} disabled={!isOwner || busy}/>
+                         <TextField label="City" value={city} onChange={(e) => setCity(e.target.value)} disabled={!canEdit || busy}/>
+                         <TextField label="State / Province" value={region} onChange={(e) => setRegion(e.target.value)} disabled={!canEdit || busy}/>
+                         <TextField label="ZIP Code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} disabled={!canEdit || busy}/>
+                         <TextField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} disabled={!canEdit || busy}/>
                      </div>
                  </div>
               </section>
@@ -266,7 +269,7 @@ export default function OrganizationSettingsPage() {
           </div>
       </div>
 
-      {isOwner && (
+      {canEdit && (
           <div className="fixed bottom-0 left-0 lg:left-64 right-0 p-4 lg:p-6 bg-white/80 backdrop-blur-md border-t border-brand-navy/5 z-40 flex justify-end">
               <PrimaryButton disabled={busy || !canSubmit} onClick={handleSave} className="flex items-center gap-2 px-8">
                  <MdSave className="w-5 h-5" />
