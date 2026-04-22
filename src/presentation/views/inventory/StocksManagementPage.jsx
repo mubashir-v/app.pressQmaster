@@ -438,7 +438,7 @@ export default function StocksManagementPage() {
                   <div className="p-6 border-b border-brand-navy/5 flex justify-between items-center">
                       <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${modalStep === 1 ? 'bg-brand-navy text-white' : 'bg-brand-mint text-brand-teal'}`}>
-                              {modalStep === 1 ? <MdInventory /> : <MdSell />}
+                              {modalStep === 1 ? <MdLayers /> : <MdSell />}
                           </div>
                           <div>
                               <h2 className="text-xl font-bold text-brand-navy">
