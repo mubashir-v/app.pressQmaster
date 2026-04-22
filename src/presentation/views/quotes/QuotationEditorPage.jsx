@@ -374,7 +374,7 @@ export default function QuotationEditorPage() {
          setLaserSizeId(m.laserSizeId || "");
          setCustomWidth(m.customWidth || "");
          setCustomBreadth(m.customBreadth || "");
-         setCustomUnit(m.customUnit || "inch");
+         setCustomUnit(m.customUnit || user.settings?.defaultLengthUnit || "mm");
          setLaserSides(m.laserSides || "SINGLE");
          setLaserColorMode(m.laserColorMode || "COLOR");
          setLaserCopies(m.laserCopies?.toString() || "10");
@@ -385,7 +385,7 @@ export default function QuotationEditorPage() {
          setOffsetSizeId(m.offsetSizeId || "");
          setCustomWidth(m.customWidth || "");
          setCustomBreadth(m.customBreadth || "");
-         setCustomUnit(m.customUnit || "inch");
+         setCustomUnit(m.customUnit || user.settings?.defaultLengthUnit || "mm");
          setOffsetSides(m.offsetSides || "SINGLE");
          setOffsetIsBackSideDifferent(m.offsetIsBackSideDifferent ?? false);
          setOffsetColorMode(m.offsetColorMode || "Single");

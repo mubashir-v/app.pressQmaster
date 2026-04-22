@@ -41,7 +41,7 @@ export default function SizeChartsManagementPage() {
   const [name, setName] = useState("");
   const [width, setWidth] = useState("");
   const [breadth, setBreadth] = useState("");
-  const [unit, setUnit] = useState("inch");
+  const [unit, setUnit] = useState(user.settings?.defaultLengthUnit || "inch");
   const [isActive, setIsActive] = useState(true);
 
 
@@ -65,7 +65,7 @@ export default function SizeChartsManagementPage() {
   }, [searchQuery, offset]);
 
   function resetForm() {
-    setName(""); setWidth(""); setBreadth(""); setUnit("inch"); setIsActive(true);
+    setName(""); setWidth(""); setBreadth(""); setUnit(user.settings?.defaultLengthUnit || "inch"); setIsActive(true);
     setEditingItemId(null); setModalError(""); setFieldErrors({});
   }
 
