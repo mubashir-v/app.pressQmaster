@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getQuotation, createQuotation, updateQuotation, getCustomers, createCustomer,
@@ -512,23 +512,23 @@ export default function QuotationEditorPage() {
     }
   }
 
-  async function searchCustomers(q) {
+  const searchCustomers = useCallback(async (q) => {
     if (!q) { setCustomerList([]); return; }
     try {
       const data = await getCustomers(q, 0, 10);
       setCustomerList(data.items || []);
     } catch (e) { console.error(e); }
-  }
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (showCustomerSearch) searchCustomers(customerSearch);
     }, 300);
     return () => clearTimeout(timer);
-  }, [customerSearch, showCustomerSearch]);
+  }, [customerSearch, showCustomerSearch, searchCustomers]);
 
   // Laser Support Fetches
-  async function fetchLaserSizes(q = "") {
+  const fetchLaserSizes = useCallback(async (q = "") => {
     try {
       const data = await getSizeCharts(q, 0, 20);
       setSizeList(data.items || []);
@@ -540,10 +540,10 @@ export default function QuotationEditorPage() {
       // Inject Custom Size Option
       setLaserSizeOptions([...options, { label: "📐 Custom Size...", value: "custom" }]);
     } catch (e) { console.error(e); }
-  }
+  }, []);
 
 
-  async function fetchLaserStocks(q = "") {
+  const fetchLaserStocks = useCallback(async (q = "") => {
     try {
       const data = await getLaserPaperStocks(q, 0, 20);
       setStockItemList(data.items || []);
@@ -552,20 +552,12 @@ export default function QuotationEditorPage() {
         value: s.id
       })));
     } catch (e) { console.error(e); }
-  }
+  }, []);
 
 
-  useEffect(() => {
-    if (activeTab === "laser") {
-      fetchLaserSizes();
-      fetchLaserStocks();
-    } else if (activeTab === "offset") {
-      fetchOffsetSizes();
-      fetchOffsetStocks();
-    }
-  }, [activeTab]);
 
-  async function fetchOffsetSizes(q = "") {
+
+  const fetchOffsetSizes = useCallback(async (q = "") => {
     try {
       const data = await getSizeCharts(q, 0, 20);
       setSizeList(data.items || []);
@@ -576,9 +568,9 @@ export default function QuotationEditorPage() {
       }));
       setOffsetSizeOptions([...options, { label: "📐 Custom Size...", value: "custom" }]);
     } catch (e) { console.error(e); }
-  }
+  }, []);
 
-  async function fetchOffsetStocks(q = "") {
+  const fetchOffsetStocks = useCallback(async (q = "") => {
     try {
       const data = await getOffsetPaperStocks(q, 0, 20);
       setStockItemList(data.items || []);
@@ -587,9 +579,19 @@ export default function QuotationEditorPage() {
         value: s.id
       })));
     } catch (e) { console.error(e); }
-  }
+  }, []);
 
-  async function recalculateLaserPricing() {
+  useEffect(() => {
+    if (activeTab === "laser") {
+      fetchLaserSizes();
+      fetchLaserStocks();
+    } else if (activeTab === "offset") {
+      fetchOffsetSizes();
+      fetchOffsetStocks();
+    }
+  }, [activeTab, fetchLaserSizes, fetchLaserStocks, fetchOffsetSizes, fetchOffsetStocks]);
+
+  const recalculateLaserPricing = useCallback(async () => {
     if (!laserSizeId || !laserStockItemId || !laserCopies) return;
 
     let sizePayload;
@@ -634,9 +636,9 @@ export default function QuotationEditorPage() {
     } finally {
       setLaserLoading(false);
     }
-  }
+  }, [laserSizeId, laserStockItemId, laserCopies, customWidth, customBreadth, customUnit, sizeList, laserColorMode, laserSides, isOnlyClipCharge]);
 
-  async function recalculateOffsetPricing() {
+  const recalculateOffsetPricing = useCallback(async () => {
     if (!offsetSizeId || !offsetStockItemId || !offsetCopies) return;
 
     let sizePayload;
@@ -681,7 +683,7 @@ export default function QuotationEditorPage() {
     } finally {
       setOffsetLoading(false);
     }
-  }
+  }, [offsetSizeId, offsetStockItemId, offsetCopies, customWidth, customBreadth, customUnit, sizeList, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetWaste]);
 
 
   // Effect to trigger calculation
@@ -691,7 +693,7 @@ export default function QuotationEditorPage() {
       const timer = setTimeout(recalculateLaserPricing, 500);
       return () => clearTimeout(timer);
     }
-  }, [laserSizeId, laserStockItemId, laserColorMode, laserSides, laserCopies, isOnlyClipCharge, activeTab, customWidth, customBreadth, customUnit]);
+  }, [laserSizeId, laserStockItemId, laserColorMode, laserSides, laserCopies, isOnlyClipCharge, activeTab, customWidth, customBreadth, customUnit, recalculateLaserPricing]);
 
   useEffect(() => {
     setSelectedOffsetOption(null);
@@ -699,7 +701,7 @@ export default function QuotationEditorPage() {
       const timer = setTimeout(recalculateOffsetPricing, 500);
       return () => clearTimeout(timer);
     }
-  }, [offsetSizeId, offsetStockItemId, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetCopies, offsetWaste, activeTab, customWidth, customBreadth, customUnit]);
+  }, [offsetSizeId, offsetStockItemId, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetCopies, offsetWaste, activeTab, customWidth, customBreadth, customUnit, recalculateOffsetPricing]);
 
 
 
@@ -1402,9 +1404,13 @@ export default function QuotationEditorPage() {
                            <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{laserError}</p>
                         </div>
                       ) : laserPricingOptions.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center opacity-30 p-8 space-y-3 grayscale">
-                           <MdComputer className="w-12 h-12" />
-                           <p className="text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px]">Select dimensions and stock to see machine comparisons</p>
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+                           <MdComputer className={`w-12 h-12 ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400' : 'text-brand-navy/30'}`}>
+                             {laserSizeId && laserStockItemId && laserCopies 
+                               ? "No printer available to print this configuration" 
+                               : "Select dimensions and stock to see machine comparisons"}
+                           </p>
                         </div>
                       ) : (
                          <div className="flex-1 flex flex-col">
@@ -1688,9 +1694,13 @@ export default function QuotationEditorPage() {
                            <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{offsetError}</p>
                         </div>
                       ) : offsetPricingOptions.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center opacity-30 p-8 space-y-3 grayscale">
-                           <MdPrint className="w-12 h-12" />
-                           <p className="text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px]">Select dimensions and offset stock to see machine comparisons</p>
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+                           <MdPrint className={`w-12 h-12 ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400' : 'text-brand-navy/30'}`}>
+                              {offsetSizeId && offsetStockItemId && offsetCopies 
+                                ? "No printer available to print this configuration" 
+                                : "Select dimensions and offset stock to see machine comparisons"}
+                           </p>
                         </div>
                       ) : (
                          <div className="flex-1 flex flex-col">
