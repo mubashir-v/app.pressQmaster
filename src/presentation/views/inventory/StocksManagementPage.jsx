@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { getStockItems, createStockItem, updateStockItem, deleteStockItem, getStockPricingRule, upsertStockPricingRule, addStockQuantity, clearStockQuantity } from "../../../infrastructure/api/backendService.js";
+import { getStockItems, createStockItem, updateStockItem, deleteStockItem, getStockPricingRule, upsertStockPricingRule } from "../../../infrastructure/api/backendService.js";
 import { PrimaryButton, TextField, SelectField, SearchableSelect } from "../../components/auth/AuthFormPrimitives.jsx";
-import { MdAdd, MdClose, MdInventory, MdSell, MdSettings, MdTrendingUp, MdLayers, MdLinearScale, MdContentCopy, MdOutlineDelete, MdSearch, MdChevronLeft, MdChevronRight } from "react-icons/md";
+import { MdAdd, MdClose, MdEdit, MdSell, MdSettings, MdLayers, MdContentCopy, MdOutlineDelete, MdSearch, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 
 const ITEM_TYPES = [
@@ -32,11 +32,6 @@ export default function StocksManagementPage() {
   const [editingItemId, setEditingItemId] = useState(null);
   const [createdItemId, setCreatedItemId] = useState(null);
 
-  // Quantity Management Modal
-  const [showQtyModal, setShowQtyModal] = useState(false);
-  const [qtyTargetItem, setQtyTargetItem] = useState(null);
-  const [adjustAmount, setAdjustAmount] = useState("");
-
   // Search & Delete Modals
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -55,7 +50,6 @@ export default function StocksManagementPage() {
   const [dimLength, setDimLength] = useState("");
   const [dimBreadth, setDimBreadth] = useState("");
   const [dimUnit, setDimUnit] = useState(user.settings?.defaultLengthUnit || "mm");
-  const [baseQty, setBaseQty] = useState("0");
   const [isActive, setIsActive] = useState(true);
 
   // Form State - Step 2 (Pricing)
@@ -113,7 +107,6 @@ export default function StocksManagementPage() {
     setDimLength("");
     setDimBreadth("");
     setDimUnit(user.settings?.defaultLengthUnit || "mm");
-    setBaseQty("0");
     setIsActive(true);
     setPricingType("SLAB_BASED");
     setFixedPrice("");
@@ -138,7 +131,6 @@ export default function StocksManagementPage() {
       setDimLength(item.dimensions?.length ? String(item.dimensions.length) : "");
       setDimBreadth(item.dimensions?.breadth ? String(item.dimensions.breadth) : "");
       setDimUnit(item.dimensions?.unit || "mm");
-      setBaseQty(String(item.baseStockQuantity || 0));
       setIsActive(item.isActive);
 
       // Step 2: Pricing data needs to be fetched
@@ -177,7 +169,7 @@ export default function StocksManagementPage() {
         name: name.trim(),
         itemType,
         unitOfMeasurement,
-        baseStockQuantity: parseFloat(baseQty) || 0,
+        baseStockQuantity: 0,
         isActive
       };
 
@@ -263,38 +255,6 @@ export default function StocksManagementPage() {
     
     setSlabs(newSlabs);
   }
-  async function handleApplyAddQty() {
-      if (!qtyTargetItem || !adjustAmount) return;
-      setBusy(true);
-      setErrorText("");
-      try {
-          await addStockQuantity(qtyTargetItem.id, parseFloat(adjustAmount));
-          setShowQtyModal(false);
-          setAdjustAmount("");
-          fetchItems();
-      } catch (e) {
-          setErrorText(e.response?.data?.message || "Failed to add stock quantity.");
-      } finally {
-          setBusy(false);
-      }
-  }
-
-  async function handleApplyClearQty() {
-      if (!qtyTargetItem) return;
-      if (!window.confirm("Are you sure you want to reset this item's on-hand quantity to ZERO?")) return;
-      setBusy(true);
-      setErrorText("");
-      try {
-          await clearStockQuantity(qtyTargetItem.id);
-          setShowQtyModal(false);
-          fetchItems();
-      } catch (e) {
-          setErrorText(e.response?.data?.message || "Failed to clear stock quantity.");
-      } finally {
-          setBusy(false);
-      }
-  }
-
   async function handleApplyDelete() {
       if (!deleteTargetItem) return;
       setBusy(true);
@@ -363,14 +323,13 @@ export default function StocksManagementPage() {
                               <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider">Item Name</th>
                               <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider">Type</th>
                               <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider">Specs (GSM/Size)</th>
-                              <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider">Inventory</th>
                               <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider text-right">Actions</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-brand-navy/5">
                           {items.length === 0 ? (
                               <tr>
-                                  <td colSpan="5" className="px-6 py-12 text-center text-brand-navy/40 font-bold">No stock items provisioned yet.</td>
+                                  <td colSpan="4" className="px-6 py-12 text-center text-brand-navy/40 font-bold">No stock items provisioned yet.</td>
                               </tr>
                           ) : (
                               items.map(item => (
@@ -394,29 +353,16 @@ export default function StocksManagementPage() {
                                               {item.dimensions ? `${item.dimensions.length}×${item.dimensions.breadth} ${item.dimensions.unit}` : ""}
                                           </div>
                                       </td>
-                                      <td className="px-6 py-4">
-                                          <div className="font-bold text-brand-navy tracking-tight">
-                                              {item.baseStockQuantity} <span className="text-[10px] text-brand-navy/40 tracking-normal font-bold">{item.unitOfMeasurement}</span>
-                                          </div>
-                                      </td>
                                       <td className="px-6 py-4 text-right">
                                           {canEdit && (
                                               <div className="flex justify-end gap-2">
-                                                  <button 
-                                                    onClick={() => { setQtyTargetItem(item); setShowQtyModal(true); setAdjustAmount(""); }}
-                                                    disabled={busy}
-                                                    title="Adjust Inventory"
-                                                    className="p-2 text-brand-teal/60 hover:text-brand-teal hover:bg-brand-mint/10 rounded-full transition-all disabled:opacity-50"
-                                                  >
-                                                      <MdInventory className="w-5 h-5" />
-                                                  </button>
                                                   <button 
                                                     onClick={() => handleEditClick(item)}
                                                     disabled={busy}
                                                     title="Edit Catalog & Pricing"
                                                     className="p-2 text-brand-navy/40 hover:text-brand-navy hover:bg-brand-navy/5 rounded-full transition-all disabled:opacity-50"
                                                   >
-                                                      <MdSettings className="w-5 h-5" />
+                                                      <MdEdit className="w-5 h-5" />
                                                   </button>
                                                   <button 
                                                     onClick={() => { setDeleteTargetItem(item); setShowDeleteModal(true); }}
@@ -535,12 +481,9 @@ export default function StocksManagementPage() {
                               </div>
 
 
-                              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-brand-navy/5">
+                              <div className="grid grid-cols-1 gap-6 pt-4 border-t border-brand-navy/5">
                                   <div>
                                       <TextField label="GSM (Optional)" placeholder="90" value={gsm} onChange={e => setGsm(e.target.value)} disabled={busy} />
-                                  </div>
-                                  <div>
-                                      <TextField label="Opening Balance" placeholder="500" value={baseQty} onChange={e => setBaseQty(e.target.value)} disabled={busy} />
                                   </div>
                               </div>
 
@@ -666,64 +609,6 @@ export default function StocksManagementPage() {
                       >
                           {busy ? "Processing..." : (modalStep === 1 ? (editingItemId ? "Update Properties" : "Next: Configure Pricing") : (editingItemId ? "Update Pricing Rules" : "Finalize Stock Item"))}
                       </PrimaryButton>
-                  </div>
-              </div>
-          </div>
-      )}
-      {/* Quantity Adjustment Modal */}
-      {showQtyModal && qtyTargetItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-brand-navy/40 backdrop-blur-sm transition-opacity" onClick={() => !busy && setShowQtyModal(false)}></div>
-              
-              <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl relative z-10 flex flex-col animate-slide-up overflow-hidden">
-                  <div className="p-6 border-b border-brand-navy/5 flex justify-between items-center bg-zinc-50/50">
-                      <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
-                              <MdInventory />
-                          </div>
-                          <div>
-                              <h2 className="text-lg font-bold text-brand-navy">Adjust Inventory</h2>
-                              <p className="text-[10px] font-bold text-brand-teal uppercase tracking-widest leading-none mt-0.5">{qtyTargetItem.name}</p>
-                          </div>
-                      </div>
-                      <button onClick={() => !busy && setShowQtyModal(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-brand-navy/40 hover:bg-zinc-100 transition-colors">
-                          <MdClose className="w-5 h-5" />
-                      </button>
-                  </div>
-
-                  <div className="p-8 space-y-6">
-                      <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl border border-brand-navy/5">
-                          <div>
-                              <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-widest">On-Hand Quantity</div>
-                              <div className="text-2xl font-black text-brand-navy tracking-tight">
-                                  {qtyTargetItem.baseStockQuantity} <span className="text-xs uppercase text-brand-navy/40 font-bold">{qtyTargetItem.unitOfMeasurement}</span>
-                              </div>
-                          </div>
-                          <MdTrendingUp className="w-8 h-8 text-brand-navy/10" />
-                      </div>
-
-                      <div className="space-y-4">
-                          <TextField 
-                              label={`Add to Stock (${qtyTargetItem.unitOfMeasurement})`} 
-                              placeholder="e.g. 500" 
-                              value={adjustAmount} 
-                              onChange={e => setAdjustAmount(e.target.value)} 
-                              disabled={busy} 
-                          />
-                      </div>
-
-                      <div className="flex flex-col gap-3 pt-2">
-                          <PrimaryButton onClick={handleApplyAddQty} disabled={busy || !adjustAmount}>
-                              {busy ? "Updating..." : "Add to Inventory"}
-                          </PrimaryButton>
-                          <button 
-                            onClick={handleApplyClearQty}
-                            disabled={busy}
-                            className="w-full py-3 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 uppercase tracking-widest"
-                          >
-                            Reset Stock to Zero
-                          </button>
-                      </div>
                   </div>
               </div>
           </div>
