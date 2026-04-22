@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getStockItems, createStockItem, updateStockItem, deleteStockItem, getStockPricingRule, upsertStockPricingRule } from "../../../infrastructure/api/backendService.js";
 import { PrimaryButton, TextField, SelectField, SearchableSelect } from "../../components/auth/AuthFormPrimitives.jsx";
-import { MdAdd, MdClose, MdEdit, MdSell, MdSettings, MdLayers, MdContentCopy, MdOutlineDelete, MdSearch, MdChevronLeft, MdChevronRight } from "react-icons/md";
+import { MdAdd, MdClose, MdEdit, MdSell, MdSettings, MdLayers, MdContentCopy, MdOutlineDelete, MdSearch, MdChevronLeft, MdChevronRight, MdCloudDownload, MdFileUpload } from "react-icons/md";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 
 const ITEM_TYPES = [
@@ -16,6 +16,15 @@ const UNIT_OF_MEASUREMENTS = ["COUNT", "KG", "LENGTH"];
 
 const DEFAULT_SLABS = [
   { minCount: "1", maxCount: "", colorCharge: "0", bwCharge: "0" },
+];
+
+const STANDARD_LASER_SLABS = [
+  { minCount: "1", maxCount: "50", colorCharge: "0", bwCharge: "0" },
+  { minCount: "51", maxCount: "100", colorCharge: "0", bwCharge: "0" },
+  { minCount: "101", maxCount: "250", colorCharge: "0", bwCharge: "0" },
+  { minCount: "251", maxCount: "500", colorCharge: "0", bwCharge: "0" },
+  { minCount: "501", maxCount: "1000", colorCharge: "0", bwCharge: "0" },
+  { minCount: "1001", maxCount: "", colorCharge: "0", bwCharge: "0" },
 ];
 
 export default function StocksManagementPage() {
@@ -187,7 +196,32 @@ export default function StocksManagementPage() {
         setModalStep(2);
       } else {
         const response = await createStockItem(payload);
-        setCreatedItemId(response.item.id);
+        const newId = response.item.id;
+        setCreatedItemId(newId);
+
+        // Auto-prefill ranges from another laser paper if this is a new setup
+        if (itemType === "LASER_PAPER" && slabs.length <= 1) {
+            const referenceItem = items.find(it => it.itemType === "LASER_PAPER");
+            if (referenceItem) {
+                try {
+                    const pricingData = await getStockPricingRule(referenceItem.id);
+                    if (pricingData.rule?.slabs) {
+                        const templateSlabs = pricingData.rule.slabs.map(s => ({
+                            minCount: String(s.minCount),
+                            maxCount: s.maxCount === null ? "" : String(s.maxCount),
+                            colorCharge: "0",
+                            bwCharge: "0"
+                        }));
+                        setSlabs(templateSlabs);
+                    }
+                } catch (e) {
+                    setSlabs([...STANDARD_LASER_SLABS]);
+                }
+            } else {
+                // Fallback to standard industry tiers if no history found
+                setSlabs([...STANDARD_LASER_SLABS]);
+            }
+        }
         setModalStep(2);
       }
     } catch (e) {
@@ -237,9 +271,17 @@ export default function StocksManagementPage() {
   function handleRemoveSlab(index) {
     if (slabs.length <= 1) return;
     const newSlabs = slabs.filter((_, i) => i !== index);
+    
     // Re-calculate mincounts from the point of deletion to maintain continuity
     for (let i = 1; i < newSlabs.length; i++) {
-        newSlabs[i].minCount = (newSlabs[i-1].maxCount || 0) + 1;
+        const prevMax = parseFloat(newSlabs[i-1].maxCount);
+        if (!isNaN(prevMax)) {
+            newSlabs[i].minCount = String(prevMax + 1);
+        } else {
+            // If prevMax is empty (infinity), the next row should technically start at prevMin + 1
+            // but usually we don't allow rows after infinity.
+            newSlabs[i].minCount = String((parseFloat(newSlabs[i-1].minCount) || 0) + 1);
+        }
     }
     setSlabs(newSlabs);
   }
@@ -255,6 +297,121 @@ export default function StocksManagementPage() {
     
     setSlabs(newSlabs);
   }
+
+  const fileInputRef = React.useRef(null);
+
+  const downloadSlabTemplateCSV = async () => {
+    let templateSlabs = [...slabs];
+    
+    // If current slabs are empty/default, try to fetch from any existing laser paper
+    if (templateSlabs.length <= 1 && templateSlabs[0].maxCount === "") {
+        const firstLaserPaper = items.find(it => it.itemType === "LASER_PAPER" && it.id !== editingItemId);
+        if (firstLaserPaper) {
+            setBusy(true);
+            try {
+                const pricingData = await getStockPricingRule(firstLaserPaper.id);
+                if (pricingData.rule?.slabs) {
+                    templateSlabs = pricingData.rule.slabs;
+                }
+            } catch (e) {
+                console.error("Failed to fetch reference slabs:", e);
+            } finally {
+                setBusy(false);
+            }
+        }
+    }
+
+    const headers = ["Instructions", "Range Min", "Range Max", "Color Charge", "B/W Charge"];
+    
+    // Static instructions for specific rows or general
+    const rows = templateSlabs.map((s, idx) => {
+        let instr = "";
+        if (idx === 0) instr = "Min starts at 1. Max is inclusive.";
+        else if (idx === templateSlabs.length - 1) instr = "Leave Max blank for 'to Infinity'.";
+        else instr = "Charges should be numeric decimal values.";
+        
+        return [
+            `"${instr}"`,
+            s.minCount,
+            s.maxCount || "∞",
+            s.colorCharge,
+            s.bwCharge
+        ];
+    });
+    
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.join(","))
+    ].join("\n");
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `slab_template_${name.replace(/\s+/g, '_') || 'stock'}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+        if (lines.length <= 1) return;
+
+        const dataLines = lines.slice(1);
+        const importedSlabs = dataLines.map(line => {
+          // Handling comma within instructions if any (basic CSV split)
+          const parts = line.split(",");
+          
+          // If we have 5 parts, the first is instructions
+          if (parts.length >= 5) {
+              return {
+                minCount: parts[1]?.trim() || "1",
+                maxCount: parts[2]?.trim() === "∞" || parts[2]?.trim() === "" ? "" : parts[2]?.trim(),
+                colorCharge: parts[3]?.trim() || "0",
+                bwCharge: parts[4]?.trim() || "0"
+              };
+          }
+          
+          // Fallback to 4 parts if instructions missing
+          return {
+            minCount: parts[0]?.trim() || "1",
+            maxCount: parts[1]?.trim() === "∞" || parts[1]?.trim() === "" ? "" : parts[1]?.trim(),
+            colorCharge: parts[2]?.trim() || "0",
+            bwCharge: parts[3]?.trim() || "0"
+          };
+        });
+
+        // Continuity check & auto-fix
+        if (importedSlabs.length > 0) {
+          importedSlabs[0].minCount = "1";
+          for (let i = 1; i < importedSlabs.length; i++) {
+            const prevMax = parseFloat(importedSlabs[i-1].maxCount);
+            if (!isNaN(prevMax)) {
+              importedSlabs[i].minCount = String(prevMax + 1);
+            }
+          }
+        }
+
+        setSlabs(importedSlabs);
+        setModalError("");
+      } catch (err) {
+        setModalError("Error parsing CSV. Please use the provided template.");
+      }
+      e.target.value = null; // Clear for next upload
+    };
+    reader.readAsText(file);
+  };
+
   async function handleApplyDelete() {
       if (!deleteTargetItem) return;
       setBusy(true);
@@ -523,13 +680,43 @@ export default function StocksManagementPage() {
 
                               {pricingType === "SLAB_BASED" ? (
                                   <div className="space-y-4">
-                                      <div className="flex justify-between items-center">
+                                      <div className="flex justify-between items-center bg-zinc-50/50 p-4 rounded-2xl border border-brand-navy/5">
                                           <div className="flex flex-col">
-                                              <label className="text-sm font-bold text-brand-navy">Slab Configuration</label>
-                                              {itemType === "LASER_PAPER" && <span className="text-[10px] font-bold text-brand-teal uppercase">Laser Paper: Slab Pricing Required (QUOTATION SLAB CHARGE)</span>}
+                                              <label className="text-sm font-bold text-brand-navy">Bulk Slab Setup</label>
+                                              <span className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest mt-0.5">Excel-ready Import/Export</span>
                                           </div>
-                                          <button onClick={handleAddSlab} className="text-xs font-bold text-brand-teal hover:underline flex items-center gap-1">
-                                              <MdAdd /> Add Slab Tier
+                                          <div className="flex gap-2">
+                                              <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                onChange={handleImportCSV} 
+                                                accept=".csv" 
+                                                className="hidden" 
+                                              />
+                                              <button 
+                                                onClick={downloadSlabTemplateCSV}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-navy/10 text-[10px] font-black text-brand-navy/60 hover:bg-white hover:text-brand-teal transition-all uppercase tracking-widest"
+                                              >
+                                                  <MdCloudDownload className="w-3.5 h-3.5" />
+                                                  Template
+                                              </button>
+                                              <button 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[10px] font-black hover:bg-brand-navy-dark transition-all uppercase tracking-widest shadow-sm shadow-brand-navy/10"
+                                              >
+                                                  <MdFileUpload className="w-3.5 h-3.5" />
+                                                  Import CSV
+                                              </button>
+                                          </div>
+                                      </div>
+
+                                      <div className="flex justify-between items-center px-2">
+                                          <div className="flex flex-col">
+                                              <label className="text-[10px] font-black text-brand-navy opacity-40 uppercase tracking-widest">Slab Configuration</label>
+                                              {itemType === "LASER_PAPER" && <span className="text-[9px] font-bold text-brand-teal uppercase">Laser Paper: Slab Pricing Required</span>}
+                                          </div>
+                                          <button onClick={handleAddSlab} className="text-[10px] font-black text-brand-teal hover:underline flex items-center gap-1 uppercase tracking-widest">
+                                              <MdAdd className="w-3 h-3" /> Add Tier
                                           </button>
                                       </div>
                                       <div className="space-y-2">
