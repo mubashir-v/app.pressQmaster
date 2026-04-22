@@ -9,6 +9,7 @@ import {
 
 import BrandLogo from "../../components/logo/BrandLogo.jsx";
 import { MdAdd, MdClose, MdContentCopy, MdDeleteOutline, MdLayers, MdArrowBack, MdEdit, MdCheckCircle, MdPrint, MdOutlineAnalytics, MdWarningAmber, MdPrint as MdPrintIcon, MdComputer, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn, MdInfo, MdHelpOutline } from "react-icons/md";
+import { FaWhatsapp } from "react-icons/fa";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 import { TextField, PrimaryButton, SearchableSelect, SelectField } from "../../components/auth/AuthFormPrimitives.jsx";
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
@@ -136,7 +137,11 @@ export default function QuotationEditorPage() {
   const [customBreadth, setCustomBreadth] = useState("");
   const [customUnit, setCustomUnit] = useState(user.settings?.defaultLengthUnit || "mm");
   const [editingLineId, setEditingLineId] = useState(null); 
+  const [activeEditId, setActiveEditId] = useState(null);
+  const [activeEditValue, setActiveEditValue] = useState("");
+  const syncDebounceRef = useRef(null);
   const [selectedLaserOption, setSelectedLaserOption] = useState(null);
+  const [shareError, setShareError] = useState("");
 
 
   useEffect(() => {
@@ -188,6 +193,99 @@ export default function QuotationEditorPage() {
       setLoading(false);
     }
   }
+
+  const handleUpdateLineItem = (itemId, updates) => {
+    const newList = lineItems.map(item => {
+      const matchId = item.id || item._id;
+      if (matchId === itemId) {
+        const updated = { ...item, ...updates };
+        
+        // Handle Pricing Logic
+        if (updates.quantity || updates.unitPrice || updates.totalAmount !== undefined) {
+          const qty = Number(updated.quantity) || item.quantity || 1;
+          
+          // Get current unit price from components if not provided in updates
+          let currentUnitPrice = Number(updates.unitPrice);
+          if (updates.unitPrice === undefined) {
+             const firstComp = item.chargeComponents?.[0];
+             currentUnitPrice = firstComp?.unitPrice || (item.totalAmount / qty) || 0;
+          }
+
+          let total = updates.totalAmount !== undefined ? Number(updates.totalAmount) : (currentUnitPrice * qty);
+          let unitPrice = updates.totalAmount !== undefined ? (total / qty) : currentUnitPrice;
+
+          updated.quantity = qty;
+          updated.chargeComponents = [
+            {
+              role: "printing",
+              label: item.chargeComponents?.[0]?.label || "Manual Item",
+              amount: total,
+              unitPrice: unitPrice,
+              quantity: qty
+            }
+          ];
+        }
+        return updated;
+      }
+      return item;
+    });
+    
+    setLineItems(newList);
+    
+    // Debounce the API sync
+    if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
+    syncDebounceRef.current = setTimeout(() => {
+       syncLineItems(newList);
+    }, 800);
+  };
+
+
+  const handleWhatsAppShare = () => {
+    const total = lineItems.reduce((acc, curr) => acc + (curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0), 0);
+    const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    
+    let message = `📄 *QUOTATION*\n`;
+    message += `------------------------------\n`;
+    message += `*Customer:* ${selectedCustomer?.name || 'Valued Customer'}\n`;
+    message += `*Subject:* ${title || 'General Printing'}\n`;
+    message += `*Date:* ${dateStr}\n`;
+    message += `------------------------------\n\n`;
+
+    lineItems.forEach((item, idx) => {
+      const itemTitle = item.meta?.itemTitle || item.title || "Printing Item";
+      const trimmedTitle = itemTitle.length > 35 ? itemTitle.substring(0, 32) + "..." : itemTitle;
+      const itemTotal = item.chargeComponents?.reduce((acc, c) => acc + (c.amount || 0), 0) || 0;
+      
+      message += `${idx + 1}. *${trimmedTitle}*\n`;
+      message += `   Qty: ${item.quantity} | *₹${itemTotal.toLocaleString()}*\n`;
+      if (item.description) {
+         // Optionally trim description too if long
+         const desc = item.description.length > 60 ? item.description.substring(0, 57) + "..." : item.description;
+         message += `   _${desc}_\n`;
+      }
+      message += `\n`;
+    });
+
+    message += `------------------------------\n`;
+    message += `*GRAND TOTAL: ₹${total.toLocaleString()}*\n`;
+    message += `------------------------------\n`;
+    message += `Thank you for your business!\n`;
+    message += `_Generated via ${activeOrgName}_`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const phone = selectedCustomer?.phone || "";
+    if (!phone) {
+       setShareError("No phone number found for this customer.");
+       setTimeout(() => setShareError(""), 3000);
+       return;
+    }
+
+    // Remove non-numeric characters for WA link
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
+  };
 
 
   async function syncLineItems(newList) {
@@ -915,6 +1013,15 @@ export default function QuotationEditorPage() {
               </div>
 
               <button
+                onClick={handleWhatsAppShare}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all shadow-sm group ${shareError ? 'border-red-400 text-red-500 bg-red-50 animate-shake' : 'border-brand-navy/10 bg-white text-brand-navy/60 hover:text-brand-teal hover:border-brand-teal'}`}
+                title="Send to WhatsApp"
+              >
+                {shareError ? <MdWarningAmber className="w-4 h-4 animate-pulse" /> : <FaWhatsapp className="w-5 h-5 group-hover:scale-110 transition-transform" />}
+                <span className="text-[10px] font-black uppercase tracking-widest">{shareError ? 'No Phone' : 'Share'}</span>
+              </button>
+
+              <button
                 onClick={() => window.print()}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-navy/10 bg-white text-brand-navy/60 hover:text-brand-teal hover:border-brand-teal transition-all shadow-sm group"
                 title="Print Quotation"
@@ -922,6 +1029,170 @@ export default function QuotationEditorPage() {
                 <MdPrint className="w-4 h-4 group-hover:text-brand-teal" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Print</span>
               </button>
+          </div>
+      </section>
+
+      {/* 2. High-Density Preview Area (Relocated Above Calculator) */}
+      <section className="bg-[#F1F4F9] print:bg-white p-2 lg:p-4 print:p-0 border-b border-brand-navy/5 print:border-none">
+          <div className="w-full bg-white rounded-3xl print:rounded-none shadow-inner print:shadow-none border border-brand-navy/5 print:border-none overflow-hidden flex flex-col">
+              <div className={`overflow-y-auto no-scrollbar p-2 md:p-4 print:p-0 ${lineItems.length === 0 ? 'max-h-[200px]' : 'max-h-[None] print:max-h-none'}`}>
+                 {lineItems.length === 0 ? (
+                   <div className="py-10 flex items-center justify-center">
+                      <div className="text-center opacity-10">
+                         <BrandLogo className="w-20 h-20 mx-auto grayscale mb-3" />
+                         <span className="text-[10px] font-black uppercase tracking-[0.4em]">Preview Workspace</span>
+                      </div>
+                   </div>
+                 ) : (
+                   <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-brand-navy/10">
+                            <th className="py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest pl-4">#</th>
+                            <th className="py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-left">Line Description & Specifications</th>
+                            <th className="py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest w-20 text-center">Qty</th>
+                            <th className="py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest w-40 text-right pr-4">Total (₹)</th>
+                            <th className="no-print py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest w-24 text-right pr-4">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-brand-navy/5">
+                        {lineItems.map((item, idx) => {
+                          const primaryComp = item.chargeComponents?.[0] || {};
+                          const lineTotal = item.chargeComponents?.reduce((acc, c) => acc + (c.amount || 0), 0) || 0;
+                          const unitPrice = primaryComp.unitPrice || (lineTotal / (item.quantity || 1));
+
+                          return (
+                            <tr key={item.id || item._id} className="group hover:bg-zinc-50/50 transition-colors">
+                              <td className="py-2.5 pl-4 text-xs font-black text-brand-navy/10 tabular-nums align-top">{idx + 1}</td>
+                              
+                              {/* Description Column */}
+                              <td className="py-2.5 align-top">
+                                 <div className="flex flex-col gap-1 pr-4">
+                                    <input 
+                                       type="text"
+                                       value={item.meta?.itemTitle || item.title || ''}
+                                       onChange={(e) => handleUpdateLineItem(item.id || item._id, { meta: { ...item.meta, itemTitle: e.target.value }, title: e.target.value })}
+                                       className="bg-transparent border-none text-xs font-bold text-brand-teal focus:ring-0 p-0 hover:bg-brand-teal/5 rounded transition-all placeholder:opacity-20"
+                                       placeholder="Item Title..."
+                                    />
+                                    <textarea 
+                                       value={item.description}
+                                       onChange={(e) => handleUpdateLineItem(item.id || item._id, { description: e.target.value })}
+                                       className="bg-transparent border-none text-[10px] font-medium text-brand-navy/60 focus:ring-0 p-0 hover:bg-zinc-100 rounded transition-all resize-none overflow-hidden min-h-[32px] w-full"
+                                       rows={2}
+                                    />
+                                 </div>
+                              </td>
+
+                              {/* Quantity Column */}
+                              <td className="py-2.5 align-top text-center text-xs font-black text-brand-navy/60">
+                                 {item.quantity}
+                              </td>
+
+                              {/* Total Column */}
+                              <td className="py-2.5 align-top text-right pr-4">
+                                 <div className="flex flex-col items-end">
+                                    <input 
+                                       type="number"
+                                       value={activeEditId === (item.id || item._id) ? activeEditValue : lineTotal.toFixed(2)}
+                                       onFocus={() => {
+                                          setActiveEditId(item.id || item._id);
+                                          setActiveEditValue(lineTotal || "");
+                                       }}
+                                       onBlur={() => {
+                                          setActiveEditId(null);
+                                          setActiveEditValue("");
+                                       }}
+                                       onChange={(e) => {
+                                          setActiveEditValue(e.target.value);
+                                          if (e.target.value !== "") {
+                                            handleUpdateLineItem(item.id || item._id, { totalAmount: e.target.value });
+                                          }
+                                       }}
+                                       onWheel={(e) => e.currentTarget.blur()}
+                                       className="w-32 bg-transparent border-none text-right text-sm font-black text-brand-teal focus:ring-0 p-0 hover:bg-brand-teal/5 rounded transition-all tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <div className="text-[8px] font-bold text-brand-navy/20 uppercase tracking-widest mt-1">
+                                       Subtotal {currency}
+                                    </div>
+                                 </div>
+                              </td>
+
+                              <td className="no-print py-2.5 pr-4 align-top">
+                                 <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                                    <button
+                                      onClick={() => handleEditLineItem(item)}
+                                      className="p-2 rounded-xl bg-brand-mint/30 text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm border border-brand-teal/10"
+                                      title="Re-open in Calculator"
+                                    >
+                                       <MdEdit className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteLineItem(item.id || item._id)}
+                                      className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-100"
+                                      title="Delete Item"
+                                    >
+                                       <MdDeleteOutline className="w-4 h-4" />
+                                    </button>
+                                 </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                   </table>
+                 )}
+              </div>
+
+              {/* Summary Bar - Relocated with Table */}
+              <div className="p-4 md:p-6 bg-zinc-50 print:bg-white flex items-center justify-between border-t border-brand-navy/5 print:border-brand-navy/10">
+                  <div className="flex items-center gap-6 relative">
+                     {shareError && (
+                        <div className="absolute -top-12 right-0 bg-red-500 text-white text-[9px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-lg shadow-xl animate-bounce-in flex items-center gap-2 whitespace-nowrap">
+                           <MdWarningAmber className="w-3 h-3" />
+                           {shareError}
+                        </div>
+                     )}
+                     <button
+                       onClick={handleWhatsAppShare}
+                       className={`no-print flex items-center gap-3 px-4 py-2 rounded-xl border-2 transition-all font-black uppercase tracking-widest shadow-sm ${shareError ? 'border-red-400 text-red-500 bg-red-50 animate-shake' : 'border-brand-navy/5 bg-white text-brand-navy/40 hover:text-brand-teal hover:border-brand-teal/30'}`}
+                     >
+                        <FaWhatsapp className="w-4 h-4" />
+                        <span className="text-[10px]">WhatsApp</span>
+                     </button>
+
+                     <button
+                       onClick={() => window.print()}
+                       className="no-print flex items-center gap-3 px-4 py-2 rounded-xl border-2 border-brand-navy/5 bg-white text-brand-navy/40 hover:text-brand-teal hover:border-brand-teal/30 transition-all font-black uppercase tracking-widest shadow-sm"
+                     >
+                        <MdPrint className="w-4 h-4" />
+                        <span className="text-[10px]">Print Quotation</span>
+                     </button>
+
+                     <div className="flex gap-10">
+                        <div>
+                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] mb-1.5">Line Items</div>
+                           <div className="text-xl font-black text-brand-navy">{lineItems.length}</div>
+                        </div>
+                        <div>
+                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] mb-1.5">Quote Status</div>
+                           <div className="flex">
+                              <span className="text-[10px] font-black uppercase bg-brand-mint text-brand-teal px-3 py-1 rounded-full border border-brand-teal/10">{status}</span>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="text-right">
+                      <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.3em] mb-2">Grand Total</div>
+                      <div className="text-4xl font-black text-brand-navy flex items-center justify-end gap-3">
+                        <span className="text-[14px] text-brand-navy/20 font-bold uppercase tracking-widest mt-1.5">{currency}</span>
+                        {lineItems.reduce((acc, curr) => {
+                          const itemTotal = curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0;
+                          return acc + itemTotal;
+                        }, 0).toLocaleString()}
+                      </div>
+                  </div>
+              </div>
           </div>
       </section>
 
@@ -934,7 +1205,7 @@ export default function QuotationEditorPage() {
                   <button
                    key={t.id}
                    onClick={() => setActiveTab(t.id)}
-                   className={`flex items-center gap-2 px-8 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-300 ${activeTab === t.id ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                   className={`flex items-center gap-2 px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-300 ${activeTab === t.id ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
                   >
                     <span className="text-base">{t.icon}</span>
                     {t.label}
@@ -946,9 +1217,9 @@ export default function QuotationEditorPage() {
 
           <div className="p-6">
             {activeTab === "laser" ? (
-              <div className="flex flex-col lg:flex-row gap-8">
+              <div className="flex flex-col lg:flex-row gap-6">
                   {/* Left: Inputs */}
-                  <div className="w-full lg:w-[450px] space-y-6">
+                  <div className="w-full lg:w-[450px] space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
                           <TextField 
                             label="Job Title" 
@@ -1114,7 +1385,7 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Pricing Preview */}
-                  <div className={`flex-1 rounded-2xl border-2 p-6 min-h-[300px] flex flex-col relative transition-all duration-300 ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
+                  <div className={`flex-1 rounded-2xl border-2 p-5 min-h-[300px] flex flex-col relative transition-all duration-300 ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
                        <div className="mb-4 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                              <MdOutlineAnalytics className="w-5 h-5 text-brand-teal" />
@@ -1280,9 +1551,9 @@ export default function QuotationEditorPage() {
                   </div>
               </div>
             ) : (
-              <div className="flex flex-col lg:flex-row gap-8 animate-fade-in">
+              <div className="flex flex-col lg:flex-row gap-6 animate-fade-in">
                   {/* Left: Inputs */}
-                  <div className="w-full lg:w-[450px] space-y-6">
+                  <div className="w-full lg:w-[450px] space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
                           <TextField 
                             label="Job Title" 
@@ -1392,15 +1663,13 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Results Mirror Laser pattern */}
-                  <div className="flex-1 flex flex-col min-w-0 bg-zinc-50/50 rounded-[2rem] border border-brand-navy/5 p-6 relative overflow-hidden">
-                       <div className="flex items-center justify-between mb-6">
-                           <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
-                                 <MdOutlineAnalytics className="w-4 h-4" />
-                              </div>
-                              <h3 className="text-[11px] font-black text-brand-navy uppercase tracking-[0.2em]">
-                                 {!!editingLineId ? "Editing Offset Item" : "Offset Comparisons"}
-                              </h3>
+                  <div className="flex-1 flex flex-col min-w-0 bg-zinc-50/50 rounded-3xl border border-brand-navy/5 p-5 relative overflow-hidden">
+                       <div className="mb-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                             <MdOutlineAnalytics className="w-5 h-5 text-brand-teal" />
+                             <h3 className="text-sm font-black text-brand-navy uppercase tracking-widest">
+                                {!!editingLineId ? "Editing Offset Item" : "Offset Options"}
+                             </h3>
                               <button 
                                   onClick={() => setShowOffsetHelp(true)}
                                   className="w-7 h-7 rounded-full flex items-center justify-center bg-brand-mint text-brand-teal transition-all ml-1 hover:scale-110 active:scale-95 shadow-sm relative group"
@@ -1436,7 +1705,7 @@ export default function QuotationEditorPage() {
                                     <div
                                      key={idx}
                                      onClick={() => isPrintable && setSelectedOffsetOption(opt)}
-                                     className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'hover:border-brand-teal/40 border-brand-navy/5')}`}
+                                     className={`p-3 rounded-xl border bg-white shadow-sm flex items-center justify-between group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'hover:border-brand-teal/40 border-brand-navy/5')}`}
                                     >
                                        <div className="flex-1">
                                           <div className="text-xs font-black text-brand-navy flex items-center gap-2">
@@ -1582,124 +1851,6 @@ export default function QuotationEditorPage() {
       </section>
 
 
-      {/* 3. High-Density Preview Area */}
-      <section className="flex-1 bg-[#F1F4F9] p-4 lg:p-6">
-          <div className="w-full h-full bg-white rounded-xl shadow-inner border border-brand-navy/5 overflow-hidden flex flex-col">
-              <div className="flex-1 overflow-y-auto no-scrollbar p-3 md:p-4">
-                 {lineItems.length === 0 ? (
-                   <div className="h-full flex items-center justify-center">
-                      <div className="text-center opacity-10">
-                         <BrandLogo className="w-32 h-32 mx-auto grayscale mb-4" />
-                         <span className="text-xs font-black uppercase tracking-[0.4em]">Preview Workspace</span>
-                      </div>
-                   </div>
-                 ) : (
-                   <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b-2 border-brand-navy/10">
-                            <th className="py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest pl-4">#</th>
-                            <th className="py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-left">Desc / Spec</th>
-                            <th className="py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest">Qty</th>
-                            <th className="py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-right pr-4 tracking-tighter">Total</th>
-                            <th className="no-print py-1.5 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-right pr-4 tracking-tighter">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-brand-navy/5">
-                        {lineItems.map((item, idx) => {
-                          const lineTotal = item.chargeComponents?.reduce((acc, c) => acc + (c.amount || 0), 0) || 0;
-                          return (
-                            <tr key={item.id || item._id} className="group hover:bg-zinc-50 transition-colors">
-                              <td className="py-1.5 pl-4 text-xs font-black text-brand-navy/20 tabular-nums">{idx + 1}</td>
-                              <td className="py-1.5">
-                                 <div className="text-xs font-bold text-brand-navy underline decoration-brand-teal/20 offset-4">
-                                    {item.meta?.itemTitle || 'N/A'}
-                                 </div>
-
-
-                                 <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 flex flex-col">
-                                    <span>{item.description}</span>
-                                    {item.chargeComponents?.length > 1 && (
-
-
-                                      <div className="flex gap-2 mt-1 lowercase italic font-black text-[9px] text-brand-teal/60">
-                                        {item.chargeComponents.map((c, cIdx) => (
-                                          <span key={cIdx}>
-                                            {c.role?.substring(0, 4)}: ₹{c.amount?.toLocaleString()}
-                                            {cIdx < item.chargeComponents.length - 1 && <span className="ml-1 opacity-20">+</span>}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                 </div>
-                              </td>
-                              <td className="py-4 text-xs font-black text-brand-navy/60">{item.quantity}</td>
-                              <td className="py-4 pr-4">
-                                 <div className="flex items-center justify-end">
-                                    <span className="text-xs font-black text-brand-navy">{currency} {lineTotal.toLocaleString()}</span>
-                                 </div>
-                              </td>
-                              <td className="no-print py-4 pr-4">
-                                 <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                    <button
-                                      onClick={() => handleEditLineItem(item)}
-                                      className="p-1.5 rounded-lg bg-brand-mint/30 text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm"
-                                    >
-                                       <MdEdit className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteLineItem(item.id || item._id)}
-                                      className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                                    >
-                                       <MdDeleteOutline className="w-3.5 h-3.5" />
-                                    </button>
-                                 </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                   </table>
-                 )}
-              </div>
-
-              {/* Summary Bar - Refined: No BG color, integrated Print button */}
-              <div className="p-8 bg-white flex items-center justify-between border-t border-brand-navy/5">
-                  <div className="flex items-center gap-12">
-                     <button
-                       onClick={() => window.print()}
-                       className="no-print flex items-center gap-3 px-6 py-3 rounded-xl border-2 border-brand-navy/5 bg-zinc-50 text-brand-navy/40 hover:text-brand-teal hover:border-brand-teal/30 transition-all font-black uppercase tracking-widest shadow-sm"
-                     >
-                        <MdPrint className="w-5 h-5" />
-                        <span className="text-[11px]">Print Quotation</span>
-                     </button>
-
-                     <div className="flex gap-10">
-                        <div>
-                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] mb-1.5">Line Items</div>
-                           <div className="text-xl font-black text-brand-navy">{lineItems.length}</div>
-                        </div>
-                        <div>
-                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] mb-1.5">Quote Status</div>
-                           <div className="flex">
-                              <span className="text-[10px] font-black uppercase bg-brand-mint text-brand-teal px-3 py-1 rounded-full border border-brand-teal/10">{status}</span>
-                           </div>
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className="text-right">
-                      <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.3em] mb-2">Grand Total</div>
-                      <div className="text-4xl font-black text-brand-navy flex items-center justify-end gap-3">
-                        <span className="text-[14px] text-brand-navy/20 font-bold uppercase tracking-widest mt-1.5">{currency}</span>
-                        {lineItems.reduce((acc, curr) => {
-                          const itemTotal = curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0;
-                          return acc + itemTotal;
-                        }, 0).toLocaleString()}
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </section>
 
       {/* 4. New Customer Modal */}
       {showNewCustModal && (

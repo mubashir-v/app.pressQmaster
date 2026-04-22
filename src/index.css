@@ -8,6 +8,19 @@
   --color-brand-navy-dark: #122c29;
   --color-brand-dark: #1D1E20;
   --font-sans: "Helvetica", "Arial", sans-serif;
+
+  --animate-shake: shake 0.5s ease-in-out;
+  --animate-bounce-in: bounce-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  @keyframes bounce-in {
+    0% { transform: scale(0.3); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
 }
 
 html,
