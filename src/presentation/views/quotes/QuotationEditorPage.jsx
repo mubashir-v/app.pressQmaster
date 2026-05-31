@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getQuotation, createQuotation, updateQuotation, getCustomers, createCustomer,
   getLaserQuoteOptions, getSizeCharts, getStockItems, getLaserPaperStocks,
-  getOffsetQuoteOptions, getOffsetPaperStocks
+  getOffsetQuoteOptions, getOffsetPaperStocks, getBrochureLaserQuoteOptions
 } from "../../../infrastructure/api/backendService.js";
 
 
@@ -22,6 +22,7 @@ const ADDRESS_TEMPLATE = { line1: "", line2: "", city: "", region: "", postalCod
 
 const TABS = [
   { id: "laser", label: "Laser Printing", icon: <MdComputer /> },
+  { id: "brochure", label: "Brochure (Center Clip)", icon: <MdLayers /> },
   { id: "offset", label: "Offset Printing", icon: <MdPrint /> }
 ];
 
@@ -114,6 +115,27 @@ export default function QuotationEditorPage() {
   const [offsetLoading, setOffsetLoading] = useState(false);
   const [offsetError, setOffsetError] = useState("");
 
+  // --- Brochure Calculator State ---
+  const [brochureSizeId, setBrochureSizeId] = useState("");
+  const [brochureStockItemId, setBrochureStockItemId] = useState("");
+  const [brochurePagesPerBrochure, setBrochurePagesPerBrochure] = useState("8");
+  const [brochureCopies, setBrochureCopies] = useState("100");
+  const [brochureColorMode, setBrochureColorMode] = useState("COLOR");
+  const [brochureSides, setBrochureSides] = useState("DOUBLE");
+  const [brochureIsOnlyClipCharge, setBrochureIsOnlyClipCharge] = useState(false);
+  const [brochureOrientation, setBrochureOrientation] = useState("NORMAL");
+  const [showBrochureOrientationModal, setShowBrochureOrientationModal] = useState(false);
+  const [pendingBrochureSizeId, setPendingBrochureSizeId] = useState(null);
+  const [prevBrochureSizeId, setPrevBrochureSizeId] = useState("");
+
+  const [brochureViews, setBrochureViews] = useState([]);
+  const [selectedBrochureView, setSelectedBrochureView] = useState(null);
+  const [selectedBrochureOption, setSelectedBrochureOption] = useState(null); // { viewId, optionIdx, kind: 'SINGLE' | 'MIXED' }
+  const [brochureNestedPrintPlans, setBrochureNestedPrintPlans] = useState([]);
+  const [selectedNestedPrintPlan, setSelectedNestedPrintPlan] = useState(null);
+  const [brochureLoading, setBrochureLoading] = useState(false);
+  const [brochureError, setBrochureError] = useState("");
+
   const activeOrg = user?.organizations?.find(o => (o.organizationId || o.id) === user.activeOrganizationId);
   const activeOrgName = activeOrg?.name || "PrintQ Client";
 
@@ -159,6 +181,31 @@ export default function QuotationEditorPage() {
       setLoading(false);
     }
   }, [id, location.state]);
+
+  const openBrochureOrientationModal = useCallback((params) => {
+    const { nextSizeId, prevSizeId } = params || {};
+    const selectedSize = sizeList.find(s => s.id === nextSizeId);
+    const width = Number(selectedSize?.width);
+    const breadth = Number(selectedSize?.breadth);
+    const isSquare =
+      Number.isFinite(width) &&
+      Number.isFinite(breadth) &&
+      width > 0 &&
+      breadth > 0 &&
+      Math.abs(width - breadth) < 0.0001;
+    if (isSquare) {
+      setBrochureOrientation("NORMAL");
+      setPendingBrochureSizeId(null);
+      setShowBrochureOrientationModal(false);
+      if (nextSizeId) {
+        setBrochureSizeId(nextSizeId);
+      }
+      return;
+    }
+    setPrevBrochureSizeId(prevSizeId ?? brochureSizeId ?? "");
+    setPendingBrochureSizeId(nextSizeId ?? brochureSizeId ?? "");
+    setShowBrochureOrientationModal(true);
+  }, [brochureSizeId, sizeList]);
 
   function applyQuotationData(q) {
      setQuoteNumber(q.quoteNumber || "DRAFT");
@@ -329,6 +376,15 @@ export default function QuotationEditorPage() {
      setOffsetSizeId("");
      setOffsetWaste("0");
 
+     setBrochureSizeId("");
+     setBrochureStockItemId("");
+     setBrochurePagesPerBrochure("8");
+     setBrochureCopies("100");
+     setBrochureColorMode("COLOR");
+     setBrochureSides("DOUBLE");
+     setBrochureIsOnlyClipCharge(false);
+     setBrochureOrientation("NORMAL");
+
      setCustomWidth("");
      setCustomBreadth("");
      
@@ -349,6 +405,10 @@ export default function QuotationEditorPage() {
      setOffsetPricingOptions([]);
      setSelectedOffsetOption(null);
 
+     setBrochureViews([]);
+     setSelectedBrochureView(null);
+     setSelectedBrochureOption(null);
+
      setItemTitle("");
      setEditingLineId(null);
    }
@@ -367,8 +427,8 @@ export default function QuotationEditorPage() {
      if (!m) {
        console.warn("Item meta is missing. Calculator rehydration might be incomplete.", item);
      } else {
-       // Check if it's laser or offset
-       if (m.laserStockItemId !== undefined) {
+       // Check if it's laser, offset, or brochure
+       if (m.laserStockItemId !== undefined && m.brochureStockItemId === undefined) {
          setActiveTab("laser");
          setLaserStockItemId(m.laserStockItemId || "");
          setLaserSizeId(m.laserSizeId || "");
@@ -391,6 +451,19 @@ export default function QuotationEditorPage() {
          setOffsetColorMode(m.offsetColorMode || "Single");
          setOffsetCopies(m.offsetCopies?.toString() || "1000");
          setOffsetWaste(m.offsetWaste?.toString() || "0");
+       } else if (m.brochureStockItemId !== undefined) {
+         setActiveTab("brochure");
+         setBrochureStockItemId(m.brochureStockItemId || "");
+         setBrochureSizeId(m.brochureSizeId || "");
+         setCustomWidth(m.customWidth || "");
+         setCustomBreadth(m.customBreadth || "");
+         setCustomUnit(m.customUnit || user.settings?.defaultLengthUnit || "mm");
+         setBrochurePagesPerBrochure(m.brochurePagesPerBrochure?.toString() || "8");
+         setBrochureCopies(m.brochureCopies?.toString() || "100");
+         setBrochureColorMode(m.brochureColorMode || "COLOR");
+         setBrochureSides(m.brochureSides || "DOUBLE");
+         setBrochureIsOnlyClipCharge(m.brochureIsOnlyClipCharge ?? false);
+         setBrochureOrientation(m.brochureOrientation || "NORMAL");
        }
        setItemTitle(m.itemTitle || "");
      }
@@ -588,6 +661,9 @@ export default function QuotationEditorPage() {
     } else if (activeTab === "offset") {
       fetchOffsetSizes();
       fetchOffsetStocks();
+    } else if (activeTab === "brochure") {
+      fetchLaserSizes(); // Brochures use laser stocks and sizes
+      fetchLaserStocks();
     }
   }, [activeTab, fetchLaserSizes, fetchLaserStocks, fetchOffsetSizes, fetchOffsetStocks]);
 
@@ -685,6 +761,67 @@ export default function QuotationEditorPage() {
     }
   }, [offsetSizeId, offsetStockItemId, offsetCopies, customWidth, customBreadth, customUnit, sizeList, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetWaste]);
 
+  const recalculateBrochurePricing = useCallback(async () => {
+    if (!brochureSizeId || !brochureStockItemId || !brochureCopies || !brochurePagesPerBrochure) return;
+
+    let sizePayload;
+    if (brochureSizeId === 'custom') {
+      if (!customWidth || !customBreadth) return;
+      sizePayload = { width: Number(customWidth), breadth: Number(customBreadth), unit: customUnit };
+    } else {
+      const selectedSize = sizeList.find(s => s.id === brochureSizeId);
+      if (!selectedSize) return;
+      sizePayload = { width: selectedSize.width, breadth: selectedSize.breadth, unit: selectedSize.unit };
+    }
+
+    setBrochureLoading(true);
+    setBrochureError("");
+    try {
+      const payload = {
+        pageSize: sizePayload,
+        pagesPerBrochure: parseInt(brochurePagesPerBrochure) || 0,
+        brochureCopies: parseInt(brochureCopies) || 0,
+        stockItemId: brochureStockItemId,
+        colorMode: brochureColorMode,
+        sides: brochureSides,
+        isOnlyClipCharge: brochureIsOnlyClipCharge,
+        pageNumberingOrientation: brochureOrientation
+      };
+
+      const data = await getBrochureLaserQuoteOptions(payload);
+      if (data.nestedPrintPlans?.length) {
+        console.log("[brochure-laser/nested-plans]", data.nestedPrintPlans);
+      }
+      const nestedPlans = data.nestedPrintPlans || [];
+      setBrochureNestedPrintPlans(nestedPlans);
+      setSelectedNestedPrintPlan((current) =>
+        nestedPlans.find((plan) => plan.planId === current?.planId) || nestedPlans[0] || null
+      );
+      setBrochureViews(data.views || []);
+      
+      // Auto-select first view and its best printer option if not already selected
+      if (data.views?.length > 0) {
+        if (!selectedBrochureView) {
+          setSelectedBrochureView(data.views[0]);
+          if (data.views[0].singlePrinterRanked?.length > 0) {
+            setSelectedBrochureOption({ viewId: data.views[0].viewId, optionIdx: 0, kind: 'SINGLE' });
+          }
+        } else {
+          // Refresh the selected view data from new response
+          const updatedView = data.views.find(v => v.viewId === selectedBrochureView.viewId) || data.views[0];
+          setSelectedBrochureView(updatedView);
+        }
+      }
+    } catch (e) {
+      setBrochureError(e.response?.data?.message || "Composition not available for this configuration.");
+      setBrochureViews([]);
+      setSelectedBrochureView(null);
+      setBrochureNestedPrintPlans([]);
+      setSelectedNestedPrintPlan(null);
+    } finally {
+      setBrochureLoading(false);
+    }
+  }, [brochureSizeId, brochureStockItemId, brochureCopies, brochurePagesPerBrochure, customWidth, customBreadth, customUnit, sizeList, brochureColorMode, brochureSides, brochureIsOnlyClipCharge, brochureOrientation]);
 
   // Effect to trigger calculation
   useEffect(() => {
@@ -703,6 +840,13 @@ export default function QuotationEditorPage() {
     }
   }, [offsetSizeId, offsetStockItemId, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetCopies, offsetWaste, activeTab, customWidth, customBreadth, customUnit, recalculateOffsetPricing]);
 
+  useEffect(() => {
+    if (activeTab === "brochure" && brochureSizeId && brochureStockItemId && brochureCopies && brochurePagesPerBrochure) {
+      const timer = setTimeout(recalculateBrochurePricing, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [brochureSizeId, brochureStockItemId, brochureColorMode, brochureSides, brochureCopies, brochurePagesPerBrochure, brochureIsOnlyClipCharge, brochureOrientation, activeTab, customWidth, customBreadth, customUnit, recalculateBrochurePricing]);
+
 
 
 
@@ -711,6 +855,160 @@ export default function QuotationEditorPage() {
     setLineItems([...lineItems, { ...currentItem, id: Date.now() }]);
     setCurrentItem({ size: "", side: "", colour: "", paper: "", qty: "", waste: "", printer: "", amount: "" });
   };
+
+  const nestedRoleLabel = (role) => {
+    if (role === "ONLY") return "Single folded signature";
+    if (role === "OUTER") return "Outer wrap";
+    return "Inner insert";
+  };
+
+  const nestedPreviewMetrics = (signature, sideRows) => {
+    const rowCount = Math.max(1, sideRows.length);
+    const colCount = Math.max(1, sideRows[0]?.length || 1);
+    const pageFootprintWidth = signature.portion.width / Math.max(1, signature.fit.across);
+    const pageFootprintBreadth = signature.portion.breadth / Math.max(1, signature.fit.down);
+    const previewWidth = pageFootprintWidth * colCount;
+    const previewBreadth = pageFootprintBreadth * rowCount;
+
+    return { rowCount, colCount, previewWidth, previewBreadth };
+  };
+
+  const renderNestedImpositionSide = (signature, sideRows, tone = "teal", planPreviewScale = null) => {
+    const { rowCount, colCount, previewWidth, previewBreadth } = nestedPreviewMetrics(signature, sideRows);
+    const paperIsHorizontal = previewWidth >= previewBreadth;
+    const paperRatio = `${previewWidth} / ${previewBreadth}`;
+    const scaleWidth = planPreviewScale?.maxPreviewWidth
+      ? Math.max(0.22, Math.min(1, previewWidth / planPreviewScale.maxPreviewWidth))
+      : 1;
+    const referenceWidthRem = planPreviewScale?.paperIsHorizontal === false ? 18 : 34;
+    const numberRotation = (cell) => {
+      if (signature.imposition.orientation === "ROTATED") {
+        return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
+      }
+      if (paperIsHorizontal) {
+        return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
+      }
+      return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
+    };
+
+    return (
+      <div className="overflow-x-auto pb-1">
+        <div
+          className={`grid gap-2 mx-auto max-w-full rounded-2xl border p-3 ${tone === "teal" ? "border-brand-teal/20 bg-brand-teal/3" : "border-brand-navy/10 bg-white"}`}
+          style={{
+            aspectRatio: paperRatio,
+            width: `min(100%, ${Math.max(7, referenceWidthRem * scaleWidth)}rem)`,
+            gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
+          }}
+        >
+          {sideRows.flatMap((row, ri) =>
+            row.map((cell, ci) => (
+              <div
+                key={`${ri}-${ci}-${cell.pageNumber}`}
+                title={`${cell.designOrientation.toLowerCase()} page design`}
+                className="flex items-center justify-center rounded-sm border border-brand-navy/10 bg-zinc-200/80 text-brand-navy shadow-sm"
+              >
+                <span
+                  className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
+                  style={{ transform: numberRotation(cell) }}
+                >
+                  {cell.pageNumber}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderBrochureImpositionSide = (seg, sideRows, tone = "teal") => {
+    const rowCount = Math.max(1, sideRows.length);
+    const colCount = Math.max(1, sideRows[0]?.length || 1);
+    const cellWidth = seg.spreadSize.width / colCount;
+    const cellBreadth = seg.spreadSize.breadth / rowCount;
+    const previewWidth = cellWidth * colCount;
+    const previewBreadth = cellBreadth * rowCount;
+    const paperIsHorizontal = previewWidth >= previewBreadth;
+    const paperRatio = `${previewWidth} / ${previewBreadth}`;
+    const orientation = seg.pageNumbering?.orientation ?? "NORMAL";
+    const numberRotation = (pageNumber, rowIndex, colIndex) => {
+      if (orientation === "ROTATED") {
+        const inverted = (rowIndex + colIndex) % 2 === 1;
+        return inverted ? "rotate(180deg)" : "rotate(0deg)";
+      }
+      if (paperIsHorizontal) {
+        const inverted = colIndex === 0;
+        return inverted ? "rotate(90deg)" : "rotate(-90deg)";
+      }
+      const inverted = rowIndex === 0;
+      return inverted ? "rotate(180deg)" : "rotate(0deg)";
+    };
+
+    return (
+      <div className="overflow-x-auto pb-1">
+        <div
+          className={`grid gap-2 mx-auto min-w-72 max-w-full rounded-2xl border p-3 ${tone === "teal" ? "border-brand-teal/20 bg-brand-teal/3" : "border-brand-navy/10 bg-white"}`}
+          style={{
+            aspectRatio: paperRatio,
+            width: paperIsHorizontal ? "min(100%, 34rem)" : "min(100%, 18rem)",
+            gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
+          }}
+        >
+          {sideRows.flatMap((row, ri) =>
+            row.map((pageNumber, ci) => (
+              <div
+                key={`${ri}-${ci}-${pageNumber}`}
+                className="flex items-center justify-center rounded-sm border border-brand-navy/10 bg-zinc-200/80 text-brand-navy shadow-sm"
+              >
+                <span
+                  className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
+                  style={{ transform: numberRotation(pageNumber, ri, ci) }}
+                >
+                  {pageNumber}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const selectedNestedSignatureGroups = selectedNestedPrintPlan
+    ? Array.from(
+        selectedNestedPrintPlan.signatures.reduce((groups, signature) => {
+          const key = String(signature.signaturePages);
+          if (!groups.has(key)) {
+            groups.set(key, { signaturePages: signature.signaturePages, signatures: [] });
+          }
+          groups.get(key).signatures.push(signature);
+          return groups;
+        }, new Map()).values()
+      ).sort((a, b) => b.signaturePages - a.signaturePages)
+    : [];
+
+  const selectedNestedPlanPreviewScale = selectedNestedPrintPlan
+    ? selectedNestedPrintPlan.signatures.reduce(
+        (scale, signature) => {
+          const sides = [signature.imposition.front, signature.imposition.back];
+          sides.forEach((sideRows) => {
+            const metrics = nestedPreviewMetrics(signature, sideRows);
+            scale.maxPreviewWidth = Math.max(scale.maxPreviewWidth, metrics.previewWidth);
+            scale.maxPreviewBreadth = Math.max(scale.maxPreviewBreadth, metrics.previewBreadth);
+          });
+          return scale;
+        },
+        { maxPreviewWidth: 1, maxPreviewBreadth: 1, paperIsHorizontal: true }
+      )
+    : null;
+
+  if (selectedNestedPlanPreviewScale) {
+    selectedNestedPlanPreviewScale.paperIsHorizontal =
+      selectedNestedPlanPreviewScale.maxPreviewWidth >= selectedNestedPlanPreviewScale.maxPreviewBreadth;
+  }
 
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
@@ -1556,6 +1854,640 @@ export default function QuotationEditorPage() {
                       )}
                   </div>
               </div>
+            ) : activeTab === "brochure" ? (
+              <div className="flex flex-col lg:flex-row gap-6 animate-fade-in">
+                  {/* Left: Inputs */}
+                  <div className="w-full lg:w-[450px] space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
+                          <TextField 
+                            label="Job Title" 
+                            placeholder="e.g. Annual Report, Booklet..." 
+                            value={itemTitle} 
+                            onChange={e => setItemTitle(e.target.value)} 
+                          />
+                          <SearchableSelect
+                             label="Finished Page Size"
+                             options={laserSizeOptions}
+                             value={brochureSizeId}
+                             placeholder="Search Size Chart..."
+                             onChange={e => {
+                               const next = e.target.value;
+                               const prev = brochureSizeId;
+                               if (!next) return;
+                               if (next === "custom") {
+                                 setPrevBrochureSizeId(prev);
+                                 setPendingBrochureSizeId("custom");
+                                 setBrochureSizeId("custom");
+                                 setCustomWidth("");
+                                 setCustomBreadth("");
+                                 return;
+                               }
+                               setPendingBrochureSizeId(next);
+                               setPrevBrochureSizeId(prev);
+                               // Do not commit the size until the user explicitly chooses orientation.
+                               openBrochureOrientationModal({ nextSizeId: next, prevSizeId: prev });
+                             }}
+                           />
+
+                          {brochureSizeId === 'custom' && (
+                            <div className="p-5 bg-brand-teal/5 h-16 rounded-2xl border border-brand-teal/10 flex items-center gap-4 animate-slide-down">
+                               <div className="flex-1">
+                                  <input
+                                    type="number"
+                                    placeholder="Width"
+                                    value={customWidth}
+                                    onChange={e => {
+                                      const v = e.target.value;
+                                      setCustomWidth(v);
+                                      if (pendingBrochureSizeId === "custom") {
+                                        const w = Number(v);
+                                        const b = Number(customBreadth);
+                                        if (
+                                          Number.isFinite(w) &&
+                                          Number.isFinite(b) &&
+                                          w > 0 &&
+                                          b > 0 &&
+                                          Math.abs(w - b) < 0.0001
+                                        ) {
+                                          setBrochureOrientation("NORMAL");
+                                          setPendingBrochureSizeId(null);
+                                          setShowBrochureOrientationModal(false);
+                                          return;
+                                        }
+                                        if (
+                                          Number.isFinite(w) &&
+                                          Number.isFinite(b) &&
+                                          w > 0 &&
+                                          b > 0 &&
+                                          !showBrochureOrientationModal
+                                        ) {
+                                          setShowBrochureOrientationModal(true);
+                                        }
+                                      }
+                                    }}
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                  />
+                               </div>
+                               <span className="text-[10px] font-black text-brand-navy/20">×</span>
+                               <div className="flex-1">
+                                  <input
+                                    type="number"
+                                    placeholder="Breadth"
+                                    value={customBreadth}
+                                    onChange={e => {
+                                      const v = e.target.value;
+                                      setCustomBreadth(v);
+                                      if (pendingBrochureSizeId === "custom") {
+                                        const w = Number(customWidth);
+                                        const b = Number(v);
+                                        if (
+                                          Number.isFinite(w) &&
+                                          Number.isFinite(b) &&
+                                          w > 0 &&
+                                          b > 0 &&
+                                          Math.abs(w - b) < 0.0001
+                                        ) {
+                                          setBrochureOrientation("NORMAL");
+                                          setPendingBrochureSizeId(null);
+                                          setShowBrochureOrientationModal(false);
+                                          return;
+                                        }
+                                        if (
+                                          Number.isFinite(w) &&
+                                          Number.isFinite(b) &&
+                                          w > 0 &&
+                                          b > 0 &&
+                                          !showBrochureOrientationModal
+                                        ) {
+                                          setShowBrochureOrientationModal(true);
+                                        }
+                                      }
+                                    }}
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                  />
+                               </div>
+                               <div className="w-16">
+                                  <select
+                                    value={customUnit}
+                                    onChange={e => {
+                                      setCustomUnit(e.target.value);
+                                      // If custom size is pending, require orientation selection again (dimensions context changed).
+                                      if (pendingBrochureSizeId === "custom") {
+                                        setShowBrochureOrientationModal(false);
+                                      }
+                                    }}
+                                    className="w-full bg-transparent outline-none text-[10px] font-black text-brand-teal uppercase tracking-widest cursor-pointer"
+                                  >
+                                     <option value="mm">mm</option>
+                                     <option value="cm">cm</option>
+                                     <option value="inch">in</option>
+                                  </select>
+                               </div>
+                            </div>
+                          )}
+
+                          <SearchableSelect
+                             label="Paper / Stock"
+                             options={laserStockOptions}
+                             value={brochureStockItemId}
+                             placeholder="Search Inventory..."
+                             onChange={e => setBrochureStockItemId(e.target.value)}
+                             onSearch={fetchLaserStocks}
+                           />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                           <TextField 
+                              label="Pages per Brochure" 
+                              type="number" 
+                              value={brochurePagesPerBrochure} 
+                              onChange={e => setBrochurePagesPerBrochure(e.target.value)} 
+                              helperText="Total reader pages (must be even)"
+                           />
+                           <TextField 
+                              label="No of Copies" 
+                              type="number" 
+                              value={brochureCopies} 
+                              onChange={e => setBrochureCopies(e.target.value)} 
+                           />
+                      </div>
+
+                      <div className="flex gap-4">
+                          <div className="flex-1 space-y-2">
+                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Colour Mode</label>
+                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
+                                {['COLOR', 'BW'].map(m => (
+                                  <button
+                                    key={m}
+                                    onClick={() => setBrochureColorMode(m)}
+                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                  >
+                                    {m === 'BW' ? 'B&W' : 'Multicolor'}
+                                  </button>
+                                ))}
+                             </div>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Orientation</label>
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 if (!brochureSizeId) return;
+                                 openBrochureOrientationModal({ nextSizeId: brochureSizeId, prevSizeId: brochureSizeId });
+                               }}
+                               className="w-full flex items-center justify-between bg-zinc-50 p-3 rounded-xl border border-brand-navy/5 hover:border-brand-teal/40 transition-all"
+                             >
+                               <div className="flex flex-col items-start">
+                                 <span className="text-[9px] font-black text-brand-navy/20 uppercase tracking-widest">Selected</span>
+                                 <span className="text-[11px] font-black text-brand-navy">
+                                   {brochureOrientation === "ROTATED" ? "Landscape (rotated)" : "Portrait (normal)"}
+                                 </span>
+                               </div>
+                               <span className="text-[10px] font-black text-brand-teal uppercase tracking-widest">Change</span>
+                             </button>
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-col gap-2">
+                              <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
+                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                                 {[
+                                   { id: true, label: "Printing Only" },
+                                   { id: false, label: "Slab Charge" }
+                                 ].map(m => (
+                                   <button
+                                     key={m.label}
+                                     onClick={() => setBrochureIsOnlyClipCharge(m.id)}
+                                     className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureIsOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                   >
+                                     {m.label}
+                                   </button>
+                                 ))}
+                              </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Sides (2pp)</label>
+                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                                {['SINGLE', 'DOUBLE'].map(s => (
+                                  <button
+                                    key={s}
+                                    onClick={() => setBrochureSides(s)}
+                                    className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                  >
+                                    {s === 'SINGLE' ? 'Front' : 'F&B'}
+                                  </button>
+                                ))}
+                             </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Right: Brochure Composition \u0026 Pricing */}
+                  <div className={`flex-1 rounded-2xl border-2 p-5 min-h-[400px] flex flex-col relative transition-all duration-300 ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
+                      <div className="mb-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                             <MdLayers className="w-5 h-5 text-brand-teal" />
+                             <h3 className="text-sm font-black text-brand-navy uppercase tracking-widest">
+                                {!!editingLineId ? "Editing Brochure" : "Composition Options"}
+                             </h3>
+                          </div>
+                          {brochureLoading && <div className="w-4 h-4 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
+                      </div>
+
+                      {brochureError ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+                           <MdWarningAmber className="w-12 h-12 text-red-400 opacity-20" />
+                           <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{brochureError}</p>
+                        </div>
+                      ) : brochureViews.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+                           <MdLayers className={`w-12 h-12 ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400' : 'text-brand-navy/30'}`}>
+                             {brochureSizeId && brochureStockItemId && brochureCopies 
+                               ? "No composition possible for this page count" 
+                               : "Configure brochure details to see split options"}
+                           </p>
+                        </div>
+                      ) : (
+                        <div className="flex-1 flex flex-col gap-6">
+                          {brochureNestedPrintPlans.length === 0 && (
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                               {brochureViews.map((view) => (
+                                 <button
+                                   key={view.viewId}
+                                   onClick={() => {
+                                     setSelectedBrochureView(view);
+                                     if (view.singlePrinterRanked?.length > 0) {
+                                       setSelectedBrochureOption({ viewId: view.viewId, optionIdx: 0, kind: 'SINGLE' });
+                                     }
+                                   }}
+                                   className={`flex-shrink-0 px-4 py-3 rounded-xl border transition-all text-left min-w-[140px] ${selectedBrochureView?.viewId === view.viewId ? 'bg-brand-teal text-white border-brand-teal shadow-lg shadow-brand-teal/20' : 'bg-white text-brand-navy border-brand-navy/5 hover:border-brand-teal/30'}`}
+                                 >
+                                    <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Split</div>
+                                    <div className="text-sm font-black">[{view.parts.join(', ')}]</div>
+                                    <div className="text-[9px] font-bold uppercase tracking-tighter mt-1 opacity-80">{view.physicalSheetsPerBrochure} Sheets</div>
+                                 </button>
+                               ))}
+                            </div>
+                          )}
+
+                           {brochureNestedPrintPlans.length > 0 && (
+                             <div className="space-y-3">
+                               <div className="flex items-center justify-between px-1">
+                                 <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">
+                                   Nested Center Pin Options
+                                 </h4>
+                                 <span className="text-[9px] font-black text-brand-teal uppercase tracking-widest">
+                                   {brochureNestedPrintPlans.length} plan{brochureNestedPrintPlans.length === 1 ? "" : "s"}
+                                 </span>
+                               </div>
+
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1">
+                                 {brochureNestedPrintPlans.map((plan, planIdx) => (
+                                   <button
+                                     key={plan.planId}
+                                     type="button"
+                                    onClick={() => setSelectedNestedPrintPlan(plan)}
+                                    className={`p-3 rounded-xl border bg-white text-left transition-all ${selectedNestedPrintPlan?.planId === plan.planId ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/2' : 'border-brand-navy/5 hover:border-brand-teal/40'}`}
+                                   >
+                                     <div className="flex items-start justify-between gap-4">
+                                      <div className="min-w-0">
+                                         <div className="flex items-center gap-2">
+                                           <span className="text-xs font-black text-brand-navy">Option {planIdx + 1}</span>
+                                           {planIdx === 0 && (
+                                             <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">
+                                               Best Nest
+                                             </span>
+                                           )}
+                                         </div>
+                                        <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 truncate">
+                                          {plan.printRunCount} run{plan.printRunCount === 1 ? "" : "s"} • {plan.physicalSheetsPerBrochure} sheet{plan.physicalSheetsPerBrochure === 1 ? "" : "s"} • {plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}
+                                         </div>
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                          {plan.signatures.slice(0, 8).map((sig) => (
+                                            <span key={`${plan.planId}-${sig.runIndex}`} className="px-1.5 py-0.5 rounded-md bg-brand-navy/3 text-[8px] font-black text-brand-navy/45 uppercase tracking-tight">
+                                              {sig.runIndex}:{sig.signaturePages}pp
+                                            </span>
+                                          ))}
+                                          {plan.signatures.length > 8 && (
+                                            <span className="px-1.5 py-0.5 rounded-md bg-brand-navy/3 text-[8px] font-black text-brand-navy/45 uppercase tracking-tight">
+                                              +{plan.signatures.length - 8}
+                                            </span>
+                                          )}
+                                         </div>
+                                       </div>
+                                      <div className="shrink-0 text-right text-[9px] font-black text-brand-navy/30 uppercase tracking-widest">
+                                         {plan.signatures[0]?.printerModelName || "Printer"}
+                                       </div>
+                                     </div>
+                                   </button>
+                                 ))}
+                               </div>
+
+                               {selectedNestedPrintPlan && (
+                                 <div className="bg-brand-navy/2 rounded-2xl border border-brand-navy/5 p-4 space-y-4">
+                                   <div className="grid grid-cols-3 gap-2">
+                                     <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
+                                       <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Print Sets</div>
+                                       <div className="text-lg font-black text-brand-navy mt-1">{selectedNestedPrintPlan.printRunCount}</div>
+                                     </div>
+                                     <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
+                                       <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Sheets</div>
+                                       <div className="text-lg font-black text-brand-navy mt-1">{selectedNestedPrintPlan.physicalSheetsPerBrochure}</div>
+                                     </div>
+                                     <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
+                                       <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Plan</div>
+                                       <div className="text-sm font-black text-brand-teal mt-1">{selectedNestedPrintPlan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}</div>
+                                     </div>
+                                   </div>
+
+                                   <div className="text-[10px] font-bold text-brand-navy/45 uppercase tracking-tight">
+                                     Print every set below. Fold each set, then nest from outer to inner.
+                                   </div>
+
+                                   <div className="space-y-5">
+                                     {selectedNestedSignatureGroups.map((group) => (
+                                       <div key={`${selectedNestedPrintPlan.planId}-${group.signaturePages}`} className="bg-white rounded-2xl border border-brand-navy/5 p-4 space-y-4">
+                                         <div className="flex items-center justify-between gap-4">
+                                           <div>
+                                             <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">
+                                               {group.signaturePages === 2 ? "2pp Loose Insert" : `${group.signaturePages}pp Fold Print`}
+                                             </div>
+                                             <div className="text-xs font-black text-brand-navy mt-0.5">
+                                               {group.signatures.length} set{group.signatures.length === 1 ? "" : "s"} to print
+                                             </div>
+                                           </div>
+                                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest">
+                                             {group.signaturePages / 2} pages per side
+                                           </div>
+                                         </div>
+
+                                         {group.signatures.map((signature) => (
+                                           <div key={`${selectedNestedPrintPlan.planId}-${signature.runIndex}`} className="rounded-xl border border-brand-navy/5 bg-white p-3 space-y-3">
+                                             <div className="flex justify-between gap-4">
+                                               <div>
+                                                 <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">
+                                                   Set {signature.runIndex}: {nestedRoleLabel(signature.nestRole)}
+                                                 </div>
+                                                 <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1">
+                                                   Pages {signature.readerPages.join(", ")}
+                                                 </div>
+                                                 {signature.signaturePages === 2 && signature.imposition?.note && (
+                                                   <p className="text-[10px] font-bold text-amber-700/80 normal-case tracking-normal mt-2 leading-relaxed">
+                                                     {signature.imposition.note}
+                                                   </p>
+                                                 )}
+                                               </div>
+                                               <div className="text-right">
+                                                 <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest">Portion</div>
+                                                 <div className="text-[11px] font-black text-brand-navy">
+                                                   {signature.portion.width}×{signature.portion.breadth}{signature.portion.unit}
+                                                 </div>
+                                                 <div className="text-[9px] font-bold text-brand-navy/30 uppercase mt-0.5">
+                                                   {signature.gridOnPortion.across}×{signature.gridOnPortion.down}
+                                                 </div>
+                                               </div>
+                                             </div>
+
+                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                               <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
+                                                 <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest mb-2">Front Side</div>
+                                                {renderNestedImpositionSide(signature, signature.imposition.front, "teal", selectedNestedPlanPreviewScale)}
+                                               </div>
+                                               <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
+                                                 <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest mb-2">Back Side</div>
+                                                {renderNestedImpositionSide(signature, signature.imposition.back, "navy", selectedNestedPlanPreviewScale)}
+                                               </div>
+                                             </div>
+                                           </div>
+                                         ))}
+                                       </div>
+                                     ))}
+                                   </div>
+                                 </div>
+                               )}
+                             </div>
+                           )}
+
+                          {brochureNestedPrintPlans.length === 0 && selectedBrochureView && (
+                             <div className="flex-1 flex flex-col gap-6 animate-fade-in">
+                                {/* Intelligence Summary */}
+                                <div className="p-4 bg-brand-navy/[0.03] rounded-xl border border-brand-navy/5">
+                                   <div className="flex items-center gap-2 mb-2">
+                                      <MdInfo className="w-4 h-4 text-brand-teal" />
+                                      <span className="text-[10px] font-black text-brand-navy/40 uppercase tracking-widest">Composition Strategy</span>
+                                   </div>
+                                   <p className="text-[11px] font-bold text-brand-navy/70 leading-relaxed italic">
+                                      "{selectedBrochureView.intelligence.humanSummary}"
+                                   </p>
+                                </div>
+
+                                {/* Ranked Printers */}
+                                <div className="space-y-3">
+                                   <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em] px-1">Printer Options</h4>
+                                   <div className="grid grid-cols-1 gap-3">
+                                      {/* Single Printer Options */}
+                                      {selectedBrochureView.singlePrinterRanked.map((opt, oIdx) => (
+                                        <div
+                                          key={`single-${oIdx}`}
+                                          onClick={() => setSelectedBrochureOption({ viewId: selectedBrochureView.viewId, optionIdx: oIdx, kind: 'SINGLE' })}
+                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between cursor-pointer transition-all ${selectedBrochureOption?.kind === 'SINGLE' && selectedBrochureOption?.optionIdx === oIdx ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'border-brand-navy/5 hover:border-brand-teal/40'}`}
+                                        >
+                                           <div className="flex-1">
+                                              <div className="text-xs font-black text-brand-navy flex items-center gap-2">
+                                                 {opt.printerModelName}
+                                                 {oIdx === 0 && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Value</span>}
+                                              </div>
+                                              <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1">
+                                                 Single Printer Workflow • {opt.totals.prints} Prints • {opt.totals.parentSheets} Stocks
+                                              </div>
+                                           </div>
+                                           <div className="text-right">
+                                              <div className="text-lg font-black text-brand-navy">₹{opt.totals.price.toLocaleString()}</div>
+                                           </div>
+                                        </div>
+                                      ))}
+
+                                      {/* Mixed Printer Options */}
+                                      {selectedBrochureView.mixedPrinterRanked.map((opt, oIdx) => (
+                                        <div
+                                          key={`mixed-${oIdx}`}
+                                          onClick={() => setSelectedBrochureOption({ viewId: selectedBrochureView.viewId, optionIdx: oIdx, kind: 'MIXED' })}
+                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between cursor-pointer transition-all ${selectedBrochureOption?.kind === 'MIXED' && selectedBrochureOption?.optionIdx === oIdx ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'border-brand-navy/5 hover:border-brand-teal/40'}`}
+                                        >
+                                           <div className="flex-1">
+                                              <div className="text-xs font-black text-brand-navy flex items-center gap-2">
+                                                 Mixed Machines
+                                                 <span className="text-[8px] px-1.5 py-0.5 bg-brand-navy text-white rounded uppercase tracking-tighter">Hybrid</span>
+                                              </div>
+                                              <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1">
+                                                 Optimized per segment • {opt.totals.prints} Prints • {opt.totals.parentSheets} Stocks
+                                              </div>
+                                           </div>
+                                           <div className="text-right">
+                                              <div className="text-lg font-black text-brand-navy">₹{opt.totals.price.toLocaleString()}</div>
+                                           </div>
+                                        </div>
+                                      ))}
+                                   </div>
+                                </div>
+
+                                {/* Segment Details (Visual Breakdown) */}
+                                <div className="space-y-3">
+                                   <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em] px-1">Segment Breakdown</h4>
+                                   <div className="space-y-4">
+                                      {selectedBrochureView.segments.map((seg, sIdx) => {
+                                        const optData = selectedBrochureOption?.kind === 'SINGLE' 
+                                          ? selectedBrochureView.singlePrinterRanked[selectedBrochureOption?.optionIdx]?.segments[sIdx]
+                                          : selectedBrochureView.mixedPrinterRanked[selectedBrochureOption?.optionIdx]?.segments[sIdx];
+                                        
+                                        return (
+                                          <div key={sIdx} className="bg-white rounded-2xl border border-brand-navy/5 p-4 relative overflow-hidden group">
+                                             <div className="absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 bg-brand-teal/[0.03] rounded-full group-hover:bg-brand-teal/[0.06] transition-colors" />
+                                             <div className="flex justify-between items-start mb-3 relative">
+                                                <div>
+                                                   <span className="text-[10px] font-black text-brand-teal uppercase tracking-widest">Segment {sIdx + 1}: {seg.partPages}pp</span>
+                                                   <h5 className="text-xs font-black text-brand-navy mt-0.5">{seg.layoutSummary}</h5>
+                                                </div>
+                                                <div className="text-right">
+                                                   <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">Spread Size</div>
+                                                   <div className="text-[11px] font-black text-brand-navy">{seg.spreadSize.width}×{seg.spreadSize.breadth}{seg.spreadSize.unit}</div>
+                                                </div>
+                                             </div>
+
+                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+                                                {/* Page Numbering Grids */}
+                                                {seg.pageNumbering && (
+                                                  <div className="space-y-2 md:col-span-2">
+                                                     <div className="text-[9px] font-black text-brand-navy/20 uppercase tracking-widest">Imposition ({seg.pageNumbering.orientation})</div>
+                                                     {seg.partPages === 2 && (
+                                                       <p className="text-[10px] font-bold text-amber-700/80 leading-relaxed">{seg.layoutSummary}</p>
+                                                     )}
+                                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                                        <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
+                                                           <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest mb-2">Front</div>
+                                                           {renderBrochureImpositionSide(seg, seg.pageNumbering.front, "teal")}
+                                                        </div>
+                                                        <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
+                                                           <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest mb-2">Back</div>
+                                                           {renderBrochureImpositionSide(seg, seg.pageNumbering.back, "navy")}
+                                                        </div>
+                                                     </div>
+                                                  </div>
+                                                )}
+
+                                                {/* Printer Specs for this segment */}
+                                                {optData && (
+                                                  <div className="bg-brand-teal/[0.02] rounded-lg p-3 border border-brand-teal/5">
+                                                     <div className="text-[9px] font-black text-brand-teal/60 uppercase tracking-widest mb-2">Segment Run</div>
+                                                     <div className="space-y-1.5">
+                                                        <div className="flex justify-between text-[10px] font-bold">
+                                                           <span className="text-brand-navy/40">Yield</span>
+                                                           <span className="text-brand-navy">{optData.laserOption?.piecesPerSheet || '--'} up</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-[10px] font-bold">
+                                                           <span className="text-brand-navy/40">Impressions</span>
+                                                           <span className="text-brand-navy">{optData.laserOption?.prints || '--'} prints</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-[10px] font-black pt-1 border-t border-brand-teal/10">
+                                                           <span className="text-brand-teal">Cost</span>
+                                                           <span className="text-brand-navy">₹{optData.laserOption?.pricing?.total?.toLocaleString() || '--'}</span>
+                                                        </div>
+                                                     </div>
+                                                  </div>
+                                                )}
+                                             </div>
+                                          </div>
+                                        );
+                                      })}
+                                   </div>
+                                </div>
+
+                                {/* Global Add Button */}
+                                {selectedBrochureOption && (
+                                  <div className="mt-4 pt-6 border-t border-brand-navy/5 flex gap-3">
+                                     {editingLineId && (
+                                       <button
+                                         onClick={resetCalculator}
+                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/30 hover:text-red-400 transition-colors"
+                                       >
+                                         Cancel
+                                       </button>
+                                     )}
+                                     <PrimaryButton
+                                       onClick={async () => {
+                                          const view = selectedBrochureView;
+                                          const opt = selectedBrochureOption.kind === 'SINGLE' 
+                                            ? view.singlePrinterRanked[selectedBrochureOption.optionIdx]
+                                            : view.mixedPrinterRanked[selectedBrochureOption.optionIdx];
+                                          
+                                          const selPaper = stockItemList.find(s => s.id === brochureStockItemId);
+                                          let sizeName = "Custom Brochure";
+                                          if (brochureSizeId === 'custom') {
+                                            sizeName = `Custom (${customWidth}x${customBreadth}${customUnit})`;
+                                          } else {
+                                            const selSize = sizeList.find(s => s.id === brochureSizeId);
+                                            sizeName = selSize ? `${selSize.name}` : "Standard Brochure";
+                                          }
+
+                                          const newLineItem = {
+                                            id: editingLineId || Date.now(),
+                                            lineKind: "PRINTING",
+                                            title: itemTitle || `${sizeName} Brochure`,
+                                            description: `BRC • ${brochurePagesPerBrochure}pp • ${brochureColorMode} • ${selPaper?.name || 'Standard'} • ${view.parts.join('-')} split`,
+                                            quantity: Number(brochureCopies),
+                                            meta: {
+                                              itemTitle,
+                                              brochureStockItemId, brochureSizeId, customWidth, customBreadth, customUnit,
+                                              brochurePagesPerBrochure, brochureCopies, brochureColorMode, brochureSides,
+                                              brochureIsOnlyClipCharge, brochureOrientation,
+                                              selectedViewId: view.viewId,
+                                              selectedOptionKind: selectedBrochureOption.kind,
+                                              selectedOptionIdx: selectedBrochureOption.optionIdx,
+                                              viewData: view,
+                                              optionData: opt
+                                            },
+                                            chargeComponents: opt.segments.map((s, idx) => ({
+                                              role: "printing",
+                                              label: `${view.parts[idx]}pp Segment - ${s.printerModelName || opt.printerModelName}`,
+                                              amount: s.laserOption.pricing.total,
+                                              unitPrice: s.laserOption.pricing.perPrintCharge,
+                                              quantity: s.laserOption.prints,
+                                              meta: s.laserOption.pricing
+                                            }))
+                                          };
+
+                                          let newList;
+                                          if (editingLineId) {
+                                            newList = lineItems.map(item => String(item.id || item._id) === String(editingLineId) ? newLineItem : item);
+                                          } else {
+                                            newList = [...lineItems, newLineItem];
+                                          }
+                                          await syncLineItems(newList);
+                                          resetCalculator();
+                                       }}
+                                       className="flex-1 flex items-center justify-center gap-2"
+                                     >
+                                        {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
+                                        {!!editingLineId ? "Update Brochure" : "Add Brochure to Quotation"}
+                                     </PrimaryButton>
+                                  </div>
+                                )}
+                             </div>
+                           )}
+                        </div>
+                      )}
+                  </div>
+              </div>
+            ) : activeTab === "bookwork" ? (
+               <div className="flex-1 flex flex-col items-center justify-center text-center p-20 space-y-4 animate-fade-in bg-zinc-50/50 rounded-3xl border-2 border-dashed border-brand-navy/5">
+                  <MdLayers className="w-16 h-16 text-brand-navy/10" />
+                  <div>
+                     <h3 className="text-sm font-black text-brand-navy uppercase tracking-[0.2em]">Bookwork Module</h3>
+                     <p className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-widest mt-2">Coming Soon • Advanced gathered \u0026 perfect bound quoting</p>
+                  </div>
+               </div>
             ) : (
               <div className="flex flex-col lg:flex-row gap-6 animate-fade-in">
                   {/* Left: Inputs */}
@@ -1861,6 +2793,128 @@ export default function QuotationEditorPage() {
       </section>
 
 
+
+      {/* 4. Brochure Orientation Modal */}
+      {showBrochureOrientationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-brand-navy/40 backdrop-blur-md" />
+          <div className="w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden flex flex-col animate-fade-in">
+            <div className="p-8 border-b border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
+                  <MdLayers className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-brand-teal leading-none mb-1">Select Orientation</h2>
+                  <p className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">
+                    Pick how the content should read on the selected page size
+                  </p>
+                </div>
+              </div>
+              <div className="text-[10px] font-black text-brand-navy/20 uppercase tracking-widest">
+                required
+              </div>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBrochureOrientation("NORMAL");
+                    if (pendingBrochureSizeId && pendingBrochureSizeId !== "custom") {
+                      setBrochureSizeId(pendingBrochureSizeId);
+                    }
+                    setPendingBrochureSizeId(null);
+                    setShowBrochureOrientationModal(false);
+                  }}
+                  className="group rounded-3xl border border-brand-navy/10 bg-white hover:border-brand-teal/40 hover:shadow-xl hover:shadow-brand-teal/10 transition-all overflow-hidden text-left"
+                >
+                  <div className="p-6 flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">
+                        Portrait
+                      </div>
+                      <div className="text-sm font-black text-brand-navy mt-1">Normal (not rotated)</div>
+                      <div className="text-[10px] font-bold text-brand-navy/40 mt-2">
+                        Content reads like a normal book page.
+                      </div>
+                    </div>
+                    <div className="w-20 h-24 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center">
+                      <span className="text-5xl font-black text-brand-teal">A</span>
+                    </div>
+                  </div>
+                  <div className="px-6 pb-6">
+                    <div className="h-2 w-full bg-brand-teal/10 rounded-full overflow-hidden">
+                      <div className="h-full w-0 group-hover:w-full bg-brand-teal/40 transition-all" />
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBrochureOrientation("ROTATED");
+                    if (pendingBrochureSizeId && pendingBrochureSizeId !== "custom") {
+                      setBrochureSizeId(pendingBrochureSizeId);
+                    }
+                    setPendingBrochureSizeId(null);
+                    setShowBrochureOrientationModal(false);
+                  }}
+                  className="group rounded-3xl border border-brand-navy/10 bg-white hover:border-brand-teal/40 hover:shadow-xl hover:shadow-brand-teal/10 transition-all overflow-hidden text-left"
+                >
+                  <div className="p-6 flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">
+                        Landscape
+                      </div>
+                      <div className="text-sm font-black text-brand-navy mt-1">Rotated</div>
+                      <div className="text-[10px] font-bold text-brand-navy/40 mt-2">
+                        Content is opposite of the page’s long side.
+                      </div>
+                    </div>
+                    <div className="w-32 h-18 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center">
+                      <span className="text-5xl font-black text-brand-teal rotate-90 inline-block">A</span>
+                    </div>
+                  </div>
+                  <div className="px-6 pb-6">
+                    <div className="h-2 w-full bg-brand-teal/10 rounded-full overflow-hidden">
+                      <div className="h-full w-0 group-hover:w-full bg-brand-teal/40 transition-all" />
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="p-4 bg-brand-navy/[0.03] rounded-2xl border border-brand-navy/5 text-[11px] font-bold text-brand-navy/60 leading-relaxed">
+                This controls center-clip page numbering / imposition. If your proof comes out sideways, pick
+                <span className="font-black text-brand-teal"> Rotated</span>.
+              </div>
+            </div>
+
+            <div className="p-8 border-t border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  // Cancel keeps the previous committed size selection.
+                  if (pendingBrochureSizeId === "custom") {
+                    setBrochureSizeId(prevBrochureSizeId || "");
+                    setCustomWidth("");
+                    setCustomBreadth("");
+                  }
+                  setPendingBrochureSizeId(null);
+                  setShowBrochureOrientationModal(false);
+                }}
+                className="px-6 py-3 text-[10px] font-black text-brand-navy/30 hover:text-brand-navy transition-all uppercase tracking-widest"
+              >
+                Cancel
+              </button>
+              <div className="text-[10px] font-black text-brand-navy/20 uppercase tracking-widest">
+                Choose Portrait or Landscape to continue
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 4. New Customer Modal */}
       {showNewCustModal && (

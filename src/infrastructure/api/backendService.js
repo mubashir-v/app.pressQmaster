@@ -233,6 +233,11 @@ export async function getOffsetQuoteOptions(payload) {
   return response.data;
 }
 
+export async function getBrochureLaserQuoteOptions(payload) {
+  const response = await apiClient.post("/v1/quotations/brochure/laser/options", payload);
+  return response.data;
+}
+
 export async function getOffsetPaperStocks(searchQuery = "", offset = 0, limit = 20) {
   let url = `/v1/stock/items/offset-paper?offset=${offset}&limit=${limit}`;
   if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
