@@ -883,7 +883,10 @@ export default function QuotationEditorPage() {
     const referenceWidthRem = planPreviewScale?.paperIsHorizontal === false ? 18 : 34;
     const numberRotation = (cell) => {
       if (signature.imposition.orientation === "ROTATED") {
-        return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
+        return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
+      }
+      if (colCount === 1) {
+        return "rotate(90deg)";
       }
       if (paperIsHorizontal) {
         return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
@@ -936,7 +939,10 @@ export default function QuotationEditorPage() {
     const numberRotation = (pageNumber, rowIndex, colIndex) => {
       if (orientation === "ROTATED") {
         const inverted = (rowIndex + colIndex) % 2 === 1;
-        return inverted ? "rotate(180deg)" : "rotate(0deg)";
+        return inverted ? "rotate(90deg)" : "rotate(-90deg)";
+      }
+      if (colCount === 1) {
+        return "rotate(90deg)";
       }
       if (paperIsHorizontal) {
         const inverted = colIndex === 0;
@@ -2193,8 +2199,10 @@ export default function QuotationEditorPage() {
                                        <div className="text-lg font-black text-brand-navy mt-1">{selectedNestedPrintPlan.printRunCount}</div>
                                      </div>
                                      <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
-                                       <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Sheets</div>
-                                       <div className="text-lg font-black text-brand-navy mt-1">{selectedNestedPrintPlan.physicalSheetsPerBrochure}</div>
+                                      <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Print Sheets</div>
+                                      <div className="text-lg font-black text-brand-navy mt-1">
+                                        {selectedNestedPrintPlan.printedSheetsForCopies ?? selectedNestedPrintPlan.physicalSheetsPerBrochure}
+                                      </div>
                                      </div>
                                      <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
                                        <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Plan</div>
@@ -2247,8 +2255,23 @@ export default function QuotationEditorPage() {
                                                  <div className="text-[9px] font-bold text-brand-navy/30 uppercase mt-0.5">
                                                    {signature.gridOnPortion.across}×{signature.gridOnPortion.down}
                                                  </div>
+                                                 {signature.copiesPerPrintedSheet > 1 && (
+                                                   <div className="text-[9px] font-black text-brand-teal uppercase mt-1">
+                                                     {signature.copiesPerPrintedSheet} sets / print
+                                                   </div>
+                                                 )}
+                                                 {signature.printedSheetsForCopies && (
+                                                   <div className="text-[9px] font-bold text-brand-navy/35 uppercase mt-1">
+                                                     {signature.printedSheetsForCopies} sheet(s) → {signature.finishedCopiesProduced} set(s)
+                                                   </div>
+                                                 )}
                                                </div>
                                              </div>
+                                             {signature.cutAfterPrint && (
+                                               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-800">
+                                                 {signature.cutAfterPrint}
+                                               </div>
+                                             )}
 
                                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                                <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
