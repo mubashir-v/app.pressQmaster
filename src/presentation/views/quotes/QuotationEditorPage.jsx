@@ -184,28 +184,10 @@ export default function QuotationEditorPage() {
 
   const openBrochureOrientationModal = useCallback((params) => {
     const { nextSizeId, prevSizeId } = params || {};
-    const selectedSize = sizeList.find(s => s.id === nextSizeId);
-    const width = Number(selectedSize?.width);
-    const breadth = Number(selectedSize?.breadth);
-    const isSquare =
-      Number.isFinite(width) &&
-      Number.isFinite(breadth) &&
-      width > 0 &&
-      breadth > 0 &&
-      Math.abs(width - breadth) < 0.0001;
-    if (isSquare) {
-      setBrochureOrientation("NORMAL");
-      setPendingBrochureSizeId(null);
-      setShowBrochureOrientationModal(false);
-      if (nextSizeId) {
-        setBrochureSizeId(nextSizeId);
-      }
-      return;
-    }
     setPrevBrochureSizeId(prevSizeId ?? brochureSizeId ?? "");
     setPendingBrochureSizeId(nextSizeId ?? brochureSizeId ?? "");
     setShowBrochureOrientationModal(true);
-  }, [brochureSizeId, sizeList]);
+  }, [brochureSizeId]);
 
   function applyQuotationData(q) {
      setQuoteNumber(q.quoteNumber || "DRAFT");
@@ -882,6 +864,9 @@ export default function QuotationEditorPage() {
       : 1;
     const referenceWidthRem = planPreviewScale?.paperIsHorizontal === false ? 18 : 34;
     const numberRotation = (cell) => {
+      if (typeof cell.previewRotationDeg === "number") {
+        return `rotate(${cell.previewRotationDeg}deg)`;
+      }
       if (signature.imposition.orientation === "ROTATED") {
         return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
       }
@@ -1913,18 +1898,6 @@ export default function QuotationEditorPage() {
                                           Number.isFinite(b) &&
                                           w > 0 &&
                                           b > 0 &&
-                                          Math.abs(w - b) < 0.0001
-                                        ) {
-                                          setBrochureOrientation("NORMAL");
-                                          setPendingBrochureSizeId(null);
-                                          setShowBrochureOrientationModal(false);
-                                          return;
-                                        }
-                                        if (
-                                          Number.isFinite(w) &&
-                                          Number.isFinite(b) &&
-                                          w > 0 &&
-                                          b > 0 &&
                                           !showBrochureOrientationModal
                                         ) {
                                           setShowBrochureOrientationModal(true);
@@ -1946,18 +1919,6 @@ export default function QuotationEditorPage() {
                                       if (pendingBrochureSizeId === "custom") {
                                         const w = Number(customWidth);
                                         const b = Number(v);
-                                        if (
-                                          Number.isFinite(w) &&
-                                          Number.isFinite(b) &&
-                                          w > 0 &&
-                                          b > 0 &&
-                                          Math.abs(w - b) < 0.0001
-                                        ) {
-                                          setBrochureOrientation("NORMAL");
-                                          setPendingBrochureSizeId(null);
-                                          setShowBrochureOrientationModal(false);
-                                          return;
-                                        }
                                         if (
                                           Number.isFinite(w) &&
                                           Number.isFinite(b) &&
