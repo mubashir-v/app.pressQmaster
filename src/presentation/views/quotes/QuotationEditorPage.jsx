@@ -965,7 +965,7 @@ export default function QuotationEditorPage() {
   };
 
   const paperWasteStatsForPlan = (plan) => {
-    const signatures = plan?.signatures || [];
+    const signatures = (plan?.signatures || []).filter((signature) => !signature.piggybackOnRunIndex);
     if (signatures.length === 0) return { usedPercent: 0, wastePercent: 0 };
     const weighted = signatures.reduce((acc, signature) => {
       const weight = Math.max(1, Number(signature.printedSheetsForCopies) || 1);
@@ -1229,7 +1229,9 @@ export default function QuotationEditorPage() {
 
   const selectedNestedSignatureGroups = selectedNestedPrintPlan
     ? Array.from(
-        selectedNestedPrintPlan.signatures.reduce((groups, signature) => {
+        selectedNestedPrintPlan.signatures
+          .filter((signature) => !signature.piggybackOnRunIndex)
+          .reduce((groups, signature) => {
           const key = String(signature.signaturePages);
           if (!groups.has(key)) {
             groups.set(key, { signaturePages: signature.signaturePages, signatures: [] });
@@ -1241,7 +1243,7 @@ export default function QuotationEditorPage() {
     : [];
 
   const selectedNestedPlanPreviewScale = selectedNestedPrintPlan
-    ? selectedNestedPrintPlan.signatures.reduce(
+    ? selectedNestedPrintPlan.signatures.filter((signature) => !signature.piggybackOnRunIndex).reduce(
         (scale, signature) => {
           const sides = [signature.imposition.front, signature.imposition.back];
           sides.forEach((sideRows) => {
