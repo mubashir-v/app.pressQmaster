@@ -22,7 +22,6 @@ const ADDRESS_TEMPLATE = { line1: "", line2: "", city: "", region: "", postalCod
 
 const TABS = [
   { id: "laser", label: "Laser Printing", icon: <MdComputer /> },
-  { id: "brochure", label: "Brochure (Center Clip)", icon: <MdLayers /> },
   { id: "offset", label: "Offset Printing", icon: <MdPrint /> }
 ];
 
@@ -123,6 +122,7 @@ export default function QuotationEditorPage() {
   const [brochureColorPagesInput, setBrochureColorPagesInput] = useState("");
   const [brochureIsOnlyClipCharge, setBrochureIsOnlyClipCharge] = useState(false);
   const [brochureOrientation, setBrochureOrientation] = useState("NORMAL");
+  const [bookletBindingType, setBookletBindingType] = useState("CENTER_CLIP");
   const [showBrochureOrientationModal, setShowBrochureOrientationModal] = useState(false);
   const [pendingBrochureSizeId, setPendingBrochureSizeId] = useState(null);
   const [prevBrochureSizeId, setPrevBrochureSizeId] = useState("");
@@ -138,6 +138,8 @@ export default function QuotationEditorPage() {
   const activeOrg = user?.organizations?.find(o => (o.organizationId || o.id) === user.activeOrganizationId);
   const activeOrgName = activeOrg?.name || "PrintQ Client";
   const effectiveBrochureColorMode = brochureColorPagesInput.trim() ? "COLOR" : "BW";
+  const isCenterClipBinding = bookletBindingType === "CENTER_CLIP";
+  const isPerfectBinding = bookletBindingType === "PERFECT_BINDING";
 
   // Navigation Refs
   const phoneInputRef = useRef(null);
@@ -365,6 +367,7 @@ export default function QuotationEditorPage() {
      setBrochureColorPagesInput("");
      setBrochureIsOnlyClipCharge(false);
      setBrochureOrientation("NORMAL");
+     setBookletBindingType("CENTER_CLIP");
 
      setCustomWidth("");
      setCustomBreadth("");
@@ -444,6 +447,7 @@ export default function QuotationEditorPage() {
          setBrochureColorPagesInput(m.brochureColorPagesInput || "");
          setBrochureIsOnlyClipCharge(m.brochureIsOnlyClipCharge ?? false);
          setBrochureOrientation(m.brochureOrientation || "NORMAL");
+         setBookletBindingType(m.bookletBindingType || "CENTER_CLIP");
        }
        setItemTitle(m.itemTitle || "");
      }
@@ -766,7 +770,8 @@ export default function QuotationEditorPage() {
         colorPages: brochureColorPagesInput.trim(),
         sides: "DOUBLE",
         isOnlyClipCharge: brochureIsOnlyClipCharge,
-        pageNumberingOrientation: brochureOrientation
+        pageNumberingOrientation: brochureOrientation,
+        bindingType: bookletBindingType,
       };
 
       const data = await getBrochureLaserQuoteOptions(payload);
@@ -802,7 +807,7 @@ export default function QuotationEditorPage() {
     } finally {
       setBrochureLoading(false);
     }
-  }, [brochureSizeId, brochureStockItemId, brochureCopies, brochurePagesPerBrochure, customWidth, customBreadth, customUnit, sizeList, brochureColorPagesInput, brochureIsOnlyClipCharge, brochureOrientation]);
+  }, [brochureSizeId, brochureStockItemId, brochureCopies, brochurePagesPerBrochure, customWidth, customBreadth, customUnit, sizeList, brochureColorPagesInput, brochureIsOnlyClipCharge, brochureOrientation, bookletBindingType]);
 
   // Effect to trigger calculation
   useEffect(() => {
@@ -826,7 +831,7 @@ export default function QuotationEditorPage() {
       const timer = setTimeout(recalculateBrochurePricing, 500);
       return () => clearTimeout(timer);
     }
-  }, [brochureSizeId, brochureStockItemId, brochureColorPagesInput, brochureCopies, brochurePagesPerBrochure, brochureIsOnlyClipCharge, brochureOrientation, activeTab, customWidth, customBreadth, customUnit, recalculateBrochurePricing]);
+  }, [brochureSizeId, brochureStockItemId, brochureColorPagesInput, brochureCopies, brochurePagesPerBrochure, brochureIsOnlyClipCharge, brochureOrientation, bookletBindingType, activeTab, customWidth, customBreadth, customUnit, recalculateBrochurePricing]);
 
 
 
@@ -852,6 +857,7 @@ export default function QuotationEditorPage() {
   };
 
   const hasLooseCenterClip = (item) => {
+    if (!isCenterClipBinding) return false;
     if (item?.signatures?.length) {
       return item.signatures.some((sig) => Number(sig.signaturePages) <= 2);
     }
@@ -1483,11 +1489,6 @@ export default function QuotationEditorPage() {
                     <div className="min-w-[100px] px-4 py-2 rounded-xl bg-brand-teal text-white shadow-[0_4px_14px_rgba(42,142,158,0.3)] flex items-center justify-center">
                        <span className="text-[11px] font-black tracking-[0.2em]">{quoteNumber || "DRAFT"}</span>
                     </div>
-                    {createdBy && (
-                       <div className="absolute -bottom-5 left-[50px] whitespace-nowrap text-[8px] font-black text-brand-teal uppercase tracking-widest opacity-60">
-                          Owner: {createdBy.displayName || createdBy.name}
-                       </div>
-                    )}
                  </div>
 
               </div>
@@ -1685,7 +1686,7 @@ export default function QuotationEditorPage() {
                   <button
                    key={t.id}
                    onClick={() => setActiveTab(t.id)}
-                   className={`flex items-center gap-2 px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-300 ${activeTab === t.id ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                   className={`flex items-center gap-2 px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-300 ${(t.id === "laser" ? activeTab === "laser" || activeTab === "brochure" : activeTab === t.id) ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
                   >
                     <span className="text-base">{t.icon}</span>
                     {t.label}
@@ -1694,8 +1695,26 @@ export default function QuotationEditorPage() {
              </div>
           </div>
 
-
           <div className="p-6">
+            {(activeTab === "laser" || activeTab === "brochure") && (
+              <div className="mb-5 flex bg-zinc-50 p-1 rounded-2xl border border-brand-navy/5 w-full max-w-[450px]">
+                {[
+                  { id: "laser", label: "Normal Print", icon: <MdComputer /> },
+                  { id: "brochure", label: "Booklet / Book", icon: <MdLayers /> },
+                ].map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setActiveTab(mode.id)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === mode.id ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/30 hover:text-brand-navy/60"}`}
+                  >
+                    <span className="text-sm">{mode.icon}</span>
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {activeTab === "laser" ? (
               <div className="flex flex-col lg:flex-row gap-6">
                   {/* Left: Inputs */}
@@ -2038,6 +2057,30 @@ export default function QuotationEditorPage() {
               <div className="flex flex-col lg:flex-row gap-6 animate-fade-in">
                   {/* Left: Inputs */}
                   <div className="w-full lg:w-[450px] space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Binding Type</label>
+                          <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                            {[
+                              { id: "CENTER_CLIP", label: "Center Clip" },
+                              { id: "PERFECT_BINDING", label: "Perfect Binding" },
+                            ].map((mode) => (
+                              <button
+                                key={mode.id}
+                                type="button"
+                                onClick={() => setBookletBindingType(mode.id)}
+                                className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${bookletBindingType === mode.id ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/30 hover:text-brand-navy/60"}`}
+                              >
+                                {mode.label}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="text-[10px] font-bold text-brand-navy/40 leading-relaxed px-1">
+                            {isCenterClipBinding
+                              ? "Nested center-pin folded signatures with full composition intelligence."
+                              : "Sequential folded stack signatures for perfect binding."}
+                          </div>
+                        </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
                           <TextField 
                             label="Job Title" 
@@ -2150,11 +2193,12 @@ export default function QuotationEditorPage() {
                              onChange={e => setBrochureStockItemId(e.target.value)}
                              onSearch={fetchLaserStocks}
                            />
+
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                            <TextField 
-                              label="Pages per Brochure" 
+                              label="Pages per Booklet" 
                               type="number" 
                               value={brochurePagesPerBrochure} 
                               onChange={e => setBrochurePagesPerBrochure(e.target.value)} 
@@ -2199,7 +2243,6 @@ export default function QuotationEditorPage() {
                                className="w-full flex items-center justify-between bg-zinc-50 p-3 rounded-xl border border-brand-navy/5 hover:border-brand-teal/40 transition-all"
                              >
                                <div className="flex flex-col items-start">
-                                 <span className="text-[9px] font-black text-brand-navy/20 uppercase tracking-widest">Selected</span>
                                  <span className="text-[11px] font-black text-brand-navy">
                                    {brochureOrientation === "ROTATED" ? "Landscape (rotated)" : "Portrait (normal)"}
                                  </span>
@@ -2225,6 +2268,7 @@ export default function QuotationEditorPage() {
                               </div>
                           </div>
                       </div>
+
                   </div>
 
                   {/* Right: Brochure Composition \u0026 Pricing */}
@@ -2233,7 +2277,7 @@ export default function QuotationEditorPage() {
                           <div className="flex items-center gap-2">
                              <MdLayers className="w-5 h-5 text-brand-teal" />
                              <h3 className="text-sm font-black text-brand-navy uppercase tracking-widest">
-                                {!!editingLineId ? "Editing Brochure" : "Composition Options"}
+                                {!!editingLineId ? "Editing Booklet" : "Composition Options"}
                              </h3>
                           </div>
                           {brochureLoading && <div className="w-4 h-4 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
@@ -2244,13 +2288,13 @@ export default function QuotationEditorPage() {
                            <MdWarningAmber className="w-12 h-12 text-red-400 opacity-20" />
                            <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{brochureError}</p>
                         </div>
-                      ) : brochureViews.length === 0 ? (
+                      ) : brochureViews.length === 0 && brochureNestedPrintPlans.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdLayers className={`w-12 h-12 ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400' : 'text-brand-navy/30'}`}>
                              {brochureSizeId && brochureStockItemId && brochureCopies 
-                               ? "No composition possible for this page count" 
-                               : "Configure brochure details to see split options"}
+                               ? "No booklet composition possible for this page count" 
+                               : "Configure booklet details to see options"}
                            </p>
                         </div>
                       ) : (
@@ -2283,7 +2327,7 @@ export default function QuotationEditorPage() {
                              <div className="space-y-3">
                                <div className="flex items-center justify-between px-1">
                                  <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">
-                                   Nested Center Pin Options
+                                   {isPerfectBinding ? "Perfect Binding Options" : "Nested Center Pin Options"}
                                  </h4>
                                  <span className="text-[9px] font-black text-brand-teal uppercase tracking-widest">
                                    {brochureNestedPrintPlans.length} plan{brochureNestedPrintPlans.length === 1 ? "" : "s"}
@@ -2374,7 +2418,11 @@ export default function QuotationEditorPage() {
                                          <div className="flex items-center justify-between gap-4">
                                            <div>
                                              <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">
-                                               {group.signaturePages === 2 ? "2pp Loose Insert" : `${group.signaturePages}pp Fold Print`}
+                                               {isPerfectBinding
+                                                 ? `${group.signaturePages}pp Stack Set`
+                                                 : group.signaturePages === 2
+                                                   ? "2pp Loose Insert"
+                                                   : `${group.signaturePages}pp Fold Print`}
                                              </div>
                                              <div className="text-xs font-black text-brand-navy mt-0.5">
                                                {group.signatures.length} set{group.signatures.length === 1 ? "" : "s"} to print
@@ -2395,7 +2443,7 @@ export default function QuotationEditorPage() {
                                              <div className="flex justify-between gap-4">
                                                <div>
                                                  <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">
-                                                   Set {signature.runIndex}: {nestedRoleLabel(signature.nestRole)}
+                                                   Set {signature.runIndex}: {isPerfectBinding ? "Stack block" : nestedRoleLabel(signature.nestRole)}
                                                  </div>
                                                  <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1">
                                                    Pages {signature.readerPages.join(", ")}
@@ -2464,20 +2512,21 @@ export default function QuotationEditorPage() {
                                        onClick={async () => {
                                          const plan = selectedNestedPrintPlan;
                                          const selPaper = stockItemList.find((s) => s.id === brochureStockItemId);
-                                         let sizeName = "Custom Brochure";
+                                         let sizeName = "Custom Booklet";
                                          if (brochureSizeId === "custom") {
                                            sizeName = `Custom (${customWidth}x${customBreadth}${customUnit})`;
                                          } else {
                                            const selSize = sizeList.find((s) => s.id === brochureSizeId);
-                                           sizeName = selSize ? `${selSize.name}` : "Standard Brochure";
+                                           sizeName = selSize ? `${selSize.name}` : "Standard Booklet";
                                          }
 
                                          const colorPagesSummary = brochureColorPagesInput.trim() || "B&W";
+                                         const bindingLabel = isPerfectBinding ? "Perfect Binding" : "Center Clip";
                                          const newLineItem = {
                                            id: editingLineId || Date.now(),
                                            lineKind: "PRINTING",
-                                           title: itemTitle || `${sizeName} Brochure`,
-                                           description: `BRC • ${brochurePagesPerBrochure}pp • Color pages: ${colorPagesSummary} • ${selPaper?.name || "Standard"} • ${plan.signatures.map((sig) => `${sig.signaturePages}pp`).join("+")}`,
+                                           title: itemTitle || `${sizeName} Booklet`,
+                                           description: `BKT • ${bindingLabel} • ${brochurePagesPerBrochure}pp • Color pages: ${colorPagesSummary} • ${selPaper?.name || "Standard"} • ${plan.signatures.map((sig) => `${sig.signaturePages}pp`).join("+")}`,
                                            quantity: Number(brochureCopies),
                                            meta: {
                                              itemTitle,
@@ -2493,6 +2542,7 @@ export default function QuotationEditorPage() {
                                              brochureColorPagesInput,
                                              brochureIsOnlyClipCharge,
                                              brochureOrientation,
+                                             bookletBindingType,
                                              selectedNestedPlanId: plan.planId,
                                              nestedPrintPlan: plan,
                                            },
@@ -2513,7 +2563,7 @@ export default function QuotationEditorPage() {
                                        className="flex-1 flex items-center justify-center gap-2"
                                      >
                                        {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
-                                       {!!editingLineId ? "Update Brochure" : "Add Brochure to Quotation"}
+                                       {!!editingLineId ? "Update Booklet" : "Add Booklet to Quotation"}
                                      </PrimaryButton>
                                    </div>
                                  </div>
@@ -2692,20 +2742,21 @@ export default function QuotationEditorPage() {
                                             : view.mixedPrinterRanked[selectedBrochureOption.optionIdx];
                                           
                                           const selPaper = stockItemList.find(s => s.id === brochureStockItemId);
-                                          let sizeName = "Custom Brochure";
+                                          let sizeName = "Custom Booklet";
                                           if (brochureSizeId === 'custom') {
                                             sizeName = `Custom (${customWidth}x${customBreadth}${customUnit})`;
                                           } else {
                                             const selSize = sizeList.find(s => s.id === brochureSizeId);
-                                            sizeName = selSize ? `${selSize.name}` : "Standard Brochure";
+                                            sizeName = selSize ? `${selSize.name}` : "Standard Booklet";
                                           }
 
                                           const colorPagesSummary = brochureColorPagesInput.trim() || "B&W";
+                                          const bindingLabel = isPerfectBinding ? "Perfect Binding" : "Center Clip";
                                           const newLineItem = {
                                             id: editingLineId || Date.now(),
                                             lineKind: "PRINTING",
-                                            title: itemTitle || `${sizeName} Brochure`,
-                                            description: `BRC • ${brochurePagesPerBrochure}pp • Color pages: ${colorPagesSummary} • ${selPaper?.name || 'Standard'} • ${view.parts.join('-')} split`,
+                                            title: itemTitle || `${sizeName} Booklet`,
+                                            description: `BKT • ${bindingLabel} • ${brochurePagesPerBrochure}pp • Color pages: ${colorPagesSummary} • ${selPaper?.name || 'Standard'} • ${view.parts.join('-')} split`,
                                             quantity: Number(brochureCopies),
                                             meta: {
                                               itemTitle,
@@ -2715,6 +2766,7 @@ export default function QuotationEditorPage() {
                                               brochureSides: "DOUBLE",
                                               brochureColorPagesInput,
                                               brochureIsOnlyClipCharge, brochureOrientation,
+                                              bookletBindingType,
                                               selectedViewId: view.viewId,
                                               selectedOptionKind: selectedBrochureOption.kind,
                                               selectedOptionIdx: selectedBrochureOption.optionIdx,
@@ -2736,7 +2788,7 @@ export default function QuotationEditorPage() {
                                        className="flex-1 flex items-center justify-center gap-2"
                                      >
                                         {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
-                                        {!!editingLineId ? "Update Brochure" : "Add Brochure to Quotation"}
+                                        {!!editingLineId ? "Update Booklet" : "Add Booklet to Quotation"}
                                      </PrimaryButton>
                                   </div>
                                 )}
