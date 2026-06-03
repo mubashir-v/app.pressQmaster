@@ -131,6 +131,7 @@ export default function QuotationEditorPage() {
   const [selectedNestedPrintPlan, setSelectedNestedPrintPlan] = useState(null);
   const [brochureLoading, setBrochureLoading] = useState(false);
   const [brochureError, setBrochureError] = useState("");
+  const [brochureNotice, setBrochureNotice] = useState("");
 
   const activeOrg = user?.organizations?.find(o => (o.organizationId || o.id) === user.activeOrganizationId);
   const activeOrgName = activeOrg?.name || "PrintQ Client";
@@ -766,6 +767,14 @@ export default function QuotationEditorPage() {
       };
 
       const data = await getBrochureLaserQuoteOptions(payload);
+      if (data.recommendation?.code === "CENTER_CLIP_NO_FIT_USE_PERFECT_BINDING" && bookletBindingType === "CENTER_CLIP") {
+        setBrochureNotice(data.recommendation.message);
+        setBookletBindingType("PERFECT_BINDING");
+        return;
+      }
+      if (bookletBindingType === "CENTER_CLIP") {
+        setBrochureNotice("");
+      }
       if (data.nestedPrintPlans?.length) {
         console.log("[brochure-laser/nested-plans]", data.nestedPrintPlans);
       }
@@ -2272,6 +2281,12 @@ export default function QuotationEditorPage() {
                           </div>
                           {brochureLoading && <div className="w-4 h-4 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
                       </div>
+
+                      {brochureNotice && (
+                        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[10px] font-bold text-amber-800 leading-relaxed">
+                          {brochureNotice}
+                        </div>
+                      )}
 
                       {brochureError ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
