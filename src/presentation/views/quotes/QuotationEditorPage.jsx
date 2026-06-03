@@ -763,6 +763,7 @@ export default function QuotationEditorPage() {
         brochureCopies: parseInt(brochureCopies) || 0,
         stockItemId: brochureStockItemId,
         colorMode: brochureColorPagesInput.trim() ? "COLOR" : "BW",
+        colorPages: brochureColorPagesInput.trim(),
         sides: "DOUBLE",
         isOnlyClipCharge: brochureIsOnlyClipCharge,
         pageNumberingOrientation: brochureOrientation
@@ -842,27 +843,85 @@ export default function QuotationEditorPage() {
     return "Inner insert";
   };
 
+  const brochureWorkflowBadgeMeta = {
+    PRINTING_FRIENDLY: { label: "Printing Friendly", tone: "mint" },
+    POST_PRINT_FRIENDLY: { label: "Post Print Friendly", tone: "amber" },
+    COST_FRIENDLY: { label: "Cost Friendly", tone: "sky" },
+    BALANCED: { label: "Balanced", tone: "slate" },
+    LOOSE_CENTER_CLIP: { label: "Loose Clip", tone: "rose" },
+  };
+
+  const hasLooseCenterClip = (item) => {
+    if (item?.signatures?.length) {
+      return item.signatures.some((sig) => Number(sig.signaturePages) <= 2);
+    }
+    if (item?.parts?.length) {
+      return item.parts.some((part) => Number(part) <= 2);
+    }
+    return false;
+  };
+
+  const brochureWorkflowBadges = (item) => {
+    const tags = item?.workflowTags || [];
+    const displayTags = hasLooseCenterClip(item) && !tags.includes("LOOSE_CENTER_CLIP")
+      ? [...tags, "LOOSE_CENTER_CLIP"]
+      : tags;
+    return displayTags.map((tag) => ({
+      key: tag,
+      label: brochureWorkflowBadgeMeta[tag]?.label || tag,
+      tone: brochureWorkflowBadgeMeta[tag]?.tone || "slate",
+    }));
+  };
+
+  const renderBrochureWorkflowBadge = (badge) => (
+    <span
+      key={badge.key}
+      className={`text-[8px] px-1.5 py-0.5 rounded uppercase tracking-tighter ${
+        badge.tone === "amber"
+          ? "bg-amber-100 text-amber-800"
+          : badge.tone === "sky"
+            ? "bg-sky-100 text-sky-800"
+            : badge.tone === "rose"
+              ? "bg-rose-100 text-rose-800"
+            : badge.tone === "slate"
+              ? "bg-brand-navy/8 text-brand-navy/60"
+              : "bg-brand-mint text-brand-teal"
+      }`}
+    >
+      {badge.label}
+    </span>
+  );
+
   const isPostPrintFriendlyPlan = (plan) => {
+    if (plan?.workflowTags?.includes("POST_PRINT_FRIENDLY")) return true;
     if (!plan?.signatures?.length) return false;
     return plan.signatures.every((sig) => sig.signaturePages === 4);
   };
 
-  const nestedPlanWorkflowBadges = (plan, planIdx) => {
-    const badges = [];
-    if (planIdx === 0) {
-      badges.push({ label: "Printing Friendly", tone: "mint" });
-    }
-    if (isPostPrintFriendlyPlan(plan)) {
-      badges.push({ label: "Post Print Friendly", tone: "amber" });
-    }
-    return badges;
-  };
-
   const nestedPlanInstruction = (plan) => {
+    if (hasLooseCenterClip(plan)) {
+      return "Includes loose 2pp insert sheets; print and clip these with the folded center-pin sets instead of treating the whole plan as a nested fold.";
+    }
+    if (plan?.workflowSummary) return plan.workflowSummary;
     if (isPostPrintFriendlyPlan(plan)) {
       return "Print every small set below. Cut each set, stack from outer to inner, then center pin.";
     }
     return "Print every set below. Fold each set, then nest from outer to inner.";
+  };
+
+  const nestedPlanPrinterNames = (plan) => {
+    const names = plan?.signatures
+      ?.map((signature) => signature.printerModelName)
+      .filter(Boolean) || [];
+    return [...new Set(names)];
+  };
+
+  const nestedPlanPrinterSummary = (plan, maxVisible = 2) => {
+    const names = nestedPlanPrinterNames(plan);
+    if (names.length === 0) return "Printer not selected";
+    const visible = names.slice(0, maxVisible).join(", ");
+    const hiddenCount = names.length - maxVisible;
+    return hiddenCount > 0 ? `${visible} +${hiddenCount} more` : visible;
   };
 
   const parseBrochureColorPages = (value, totalPages) => {
@@ -901,6 +960,77 @@ export default function QuotationEditorPage() {
     isBrochureColorPage(pageNumber)
       ? "border-amber-300 bg-amber-100 text-amber-900 ring-2 ring-amber-300/50"
       : "border-brand-navy/10 bg-zinc-200/80 text-brand-navy";
+
+  const renderBrochurePricingBreakdown = (pricingBreakdown = [], totals = null) => {
+    if (!pricingBreakdown?.length) return null;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">Pricing Breakdown</h4>
+          {totals?.price != null && (
+            <div className="text-lg font-black text-brand-navy">₹{Number(totals.price).toLocaleString()}</div>
+          )}
+        </div>
+        {totals && (
+          <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight px-1">
+            {totals.colorPrints ?? 0} color impression{(totals.colorPrints ?? 0) === 1 ? "" : "s"} • {totals.bwPrints ?? 0} B&amp;W impression{(totals.bwPrints ?? 0) === 1 ? "" : "s"}
+          </div>
+        )}
+        <div className="space-y-2">
+          {pricingBreakdown.map((row) => (
+            <div key={`${row.printerModelId}-${row.pricingKind}`} className="rounded-xl border border-brand-navy/5 bg-white p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-black text-brand-navy">{row.printerModelName}</div>
+                <div className="text-sm font-black text-brand-teal">₹{Number(row.total).toLocaleString()}</div>
+              </div>
+              <div className="mt-2 space-y-1">
+                {row.colorPrints > 0 && (
+                  <div className="flex justify-between text-[10px] font-bold text-brand-navy/50">
+                    <span>Color • {row.colorPrints} × ₹{Number(row.colorUnitCharge).toLocaleString()}</span>
+                    <span>₹{Number(row.colorTotal).toLocaleString()}</span>
+                  </div>
+                )}
+                {row.bwPrints > 0 && (
+                  <div className="flex justify-between text-[10px] font-bold text-brand-navy/50">
+                    <span>B&amp;W • {row.bwPrints} × ₹{Number(row.bwUnitCharge).toLocaleString()}</span>
+                    <span>₹{Number(row.bwTotal).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const buildBrochureChargeComponents = (pricingBreakdown = []) =>
+    pricingBreakdown.flatMap((row) => {
+      const parts = [];
+      if (row.colorPrints > 0) {
+        parts.push({
+          role: "printing",
+          label: `${row.printerModelName} • Color`,
+          amount: row.colorTotal,
+          unitPrice: row.colorUnitCharge,
+          quantity: row.colorPrints,
+          printerModelId: row.printerModelId,
+          meta: { pricingKind: row.pricingKind, bucket: "COLOR" },
+        });
+      }
+      if (row.bwPrints > 0) {
+        parts.push({
+          role: "printing",
+          label: `${row.printerModelName} • B&W`,
+          amount: row.bwTotal,
+          unitPrice: row.bwUnitCharge,
+          quantity: row.bwPrints,
+          printerModelId: row.printerModelId,
+          meta: { pricingKind: row.pricingKind, bucket: "BW" },
+        });
+      }
+      return parts;
+    });
 
   const nestedPreviewMetrics = (signature, sideRows) => {
     const rowCount = Math.max(1, sideRows.length);
@@ -2139,6 +2269,9 @@ export default function QuotationEditorPage() {
                                    className={`flex-shrink-0 px-4 py-3 rounded-xl border transition-all text-left min-w-[140px] ${selectedBrochureView?.viewId === view.viewId ? 'bg-brand-teal text-white border-brand-teal shadow-lg shadow-brand-teal/20' : 'bg-white text-brand-navy border-brand-navy/5 hover:border-brand-teal/30'}`}
                                  >
                                     <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Split</div>
+                                    <div className="flex items-center gap-1 flex-wrap mb-1">
+                                      {brochureWorkflowBadges(view).map((badge) => renderBrochureWorkflowBadge(badge))}
+                                    </div>
                                     <div className="text-sm font-black">[{view.parts.join(', ')}]</div>
                                     <div className="text-[9px] font-bold uppercase tracking-tighter mt-1 opacity-80">{view.physicalSheetsPerBrochure} Sheets</div>
                                  </button>
@@ -2166,28 +2299,24 @@ export default function QuotationEditorPage() {
                                     className={`p-3 rounded-xl border bg-white text-left transition-all ${selectedNestedPrintPlan?.planId === plan.planId ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/2' : 'border-brand-navy/5 hover:border-brand-teal/40'}`}
                                    >
                                      <div className="flex items-start justify-between gap-4">
-                                      <div className="min-w-0">
+                                      <div className="min-w-0 flex-1">
                                          <div className="flex items-center gap-2 flex-wrap">
                                            <span className="text-xs font-black text-brand-navy">Option {planIdx + 1}</span>
-                                           {nestedPlanWorkflowBadges(plan, planIdx).map((badge) => (
-                                             <span
-                                               key={`${plan.planId}-${badge.label}`}
-                                               className={`text-[8px] px-1.5 py-0.5 rounded uppercase tracking-tighter ${
-                                                 badge.tone === "amber"
-                                                   ? "bg-amber-100 text-amber-800"
-                                                   : "bg-brand-mint text-brand-teal"
-                                               }`}
-                                             >
-                                               {badge.label}
-                                             </span>
-                                           ))}
+                                           {brochureWorkflowBadges(plan).map((badge) => renderBrochureWorkflowBadge(badge))}
                                          </div>
                                         <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 truncate">
-                                          {plan.printRunCount} run{plan.printRunCount === 1 ? "" : "s"} • {plan.physicalSheetsPerBrochure} sheet{plan.physicalSheetsPerBrochure === 1 ? "" : "s"} • {plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}
+                                          {plan.physicalSheetsPerBrochure} sheet{plan.physicalSheetsPerBrochure === 1 ? "" : "s"} • {plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}
+                                         </div>
+                                        <div className="text-[10px] font-black text-brand-teal uppercase tracking-tight mt-1 truncate">
+                                          Printer: {nestedPlanPrinterSummary(plan, 3)}
                                          </div>
                                         <div className="flex flex-wrap gap-1 mt-2">
                                           {plan.signatures.slice(0, 8).map((sig) => (
-                                            <span key={`${plan.planId}-${sig.runIndex}`} className="px-1.5 py-0.5 rounded-md bg-brand-navy/3 text-[8px] font-black text-brand-navy/45 uppercase tracking-tight">
+                                            <span
+                                              key={`${plan.planId}-${sig.runIndex}`}
+                                              title={sig.printerModelName || "Printer"}
+                                              className="px-1.5 py-0.5 rounded-md bg-brand-navy/3 text-[8px] font-black text-brand-navy/45 uppercase tracking-tight"
+                                            >
                                               {sig.runIndex}:{sig.signaturePages}pp
                                             </span>
                                           ))}
@@ -2198,8 +2327,13 @@ export default function QuotationEditorPage() {
                                           )}
                                          </div>
                                        </div>
-                                      <div className="shrink-0 text-right text-[9px] font-black text-brand-navy/30 uppercase tracking-widest">
-                                         {plan.signatures[0]?.printerModelName || "Printer"}
+                                      <div className="shrink-0 text-right">
+                                         {plan.totals?.price != null && (
+                                           <div className="text-sm font-black text-brand-navy">₹{Number(plan.totals.price).toLocaleString()}</div>
+                                         )}
+                                         <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest mt-1">
+                                           {nestedPlanPrinterNames(plan).length === 1 ? "Single Printer" : "Multi Printer"}
+                                         </div>
                                        </div>
                                      </div>
                                    </button>
@@ -2229,6 +2363,11 @@ export default function QuotationEditorPage() {
                                      {nestedPlanInstruction(selectedNestedPrintPlan)}
                                    </div>
 
+                                   {renderBrochurePricingBreakdown(
+                                     selectedNestedPrintPlan.pricingBreakdown,
+                                     selectedNestedPrintPlan.totals,
+                                   )}
+
                                    <div className="space-y-5">
                                      {selectedNestedSignatureGroups.map((group) => (
                                        <div key={`${selectedNestedPrintPlan.planId}-${group.signaturePages}`} className="bg-white rounded-2xl border border-brand-navy/5 p-4 space-y-4">
@@ -2241,8 +2380,13 @@ export default function QuotationEditorPage() {
                                                {group.signatures.length} set{group.signatures.length === 1 ? "" : "s"} to print
                                              </div>
                                            </div>
-                                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest">
-                                             {group.signaturePages / 2} pages per side
+                                          <div className="text-right">
+                                            <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest">
+                                               {group.signaturePages / 2} pages per side
+                                            </div>
+                                            <div className="text-[9px] font-black text-brand-teal uppercase tracking-tight mt-1 max-w-[180px] truncate">
+                                              Printer: {nestedPlanPrinterSummary({ signatures: group.signatures }, 2)}
+                                            </div>
                                            </div>
                                          </div>
 
@@ -2255,6 +2399,9 @@ export default function QuotationEditorPage() {
                                                  </div>
                                                  <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1">
                                                    Pages {signature.readerPages.join(", ")}
+                                                 </div>
+                                                 <div className="text-[10px] font-black text-brand-teal uppercase tracking-tight mt-1">
+                                                   Printer: {signature.printerModelName || "not selected"}
                                                  </div>
                                                  {signature.signaturePages === 2 && signature.imposition?.note && (
                                                    <p className="text-[10px] font-bold text-amber-700/80 normal-case tracking-normal mt-2 leading-relaxed">
@@ -2303,6 +2450,72 @@ export default function QuotationEditorPage() {
                                        </div>
                                      ))}
                                    </div>
+
+                                   <div className="pt-4 border-t border-brand-navy/5 flex gap-3">
+                                     {editingLineId && (
+                                       <button
+                                         onClick={resetCalculator}
+                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/30 hover:text-red-400 transition-colors"
+                                       >
+                                         Cancel
+                                       </button>
+                                     )}
+                                     <PrimaryButton
+                                       onClick={async () => {
+                                         const plan = selectedNestedPrintPlan;
+                                         const selPaper = stockItemList.find((s) => s.id === brochureStockItemId);
+                                         let sizeName = "Custom Brochure";
+                                         if (brochureSizeId === "custom") {
+                                           sizeName = `Custom (${customWidth}x${customBreadth}${customUnit})`;
+                                         } else {
+                                           const selSize = sizeList.find((s) => s.id === brochureSizeId);
+                                           sizeName = selSize ? `${selSize.name}` : "Standard Brochure";
+                                         }
+
+                                         const colorPagesSummary = brochureColorPagesInput.trim() || "B&W";
+                                         const newLineItem = {
+                                           id: editingLineId || Date.now(),
+                                           lineKind: "PRINTING",
+                                           title: itemTitle || `${sizeName} Brochure`,
+                                           description: `BRC • ${brochurePagesPerBrochure}pp • Color pages: ${colorPagesSummary} • ${selPaper?.name || "Standard"} • ${plan.signatures.map((sig) => `${sig.signaturePages}pp`).join("+")}`,
+                                           quantity: Number(brochureCopies),
+                                           meta: {
+                                             itemTitle,
+                                             brochureStockItemId,
+                                             brochureSizeId,
+                                             customWidth,
+                                             customBreadth,
+                                             customUnit,
+                                             brochurePagesPerBrochure,
+                                             brochureCopies,
+                                             brochureColorMode: effectiveBrochureColorMode,
+                                             brochureSides: "DOUBLE",
+                                             brochureColorPagesInput,
+                                             brochureIsOnlyClipCharge,
+                                             brochureOrientation,
+                                             selectedNestedPlanId: plan.planId,
+                                             nestedPrintPlan: plan,
+                                           },
+                                           chargeComponents: buildBrochureChargeComponents(plan.pricingBreakdown),
+                                         };
+
+                                         let newList;
+                                         if (editingLineId) {
+                                           newList = lineItems.map((item) =>
+                                             String(item.id || item._id) === String(editingLineId) ? newLineItem : item,
+                                           );
+                                         } else {
+                                           newList = [...lineItems, newLineItem];
+                                         }
+                                         await syncLineItems(newList);
+                                         resetCalculator();
+                                       }}
+                                       className="flex-1 flex items-center justify-center gap-2"
+                                     >
+                                       {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
+                                       {!!editingLineId ? "Update Brochure" : "Add Brochure to Quotation"}
+                                     </PrimaryButton>
+                                   </div>
                                  </div>
                                )}
                              </div>
@@ -2317,8 +2530,13 @@ export default function QuotationEditorPage() {
                                       <span className="text-[10px] font-black text-brand-navy/40 uppercase tracking-widest">Composition Strategy</span>
                                    </div>
                                    <p className="text-[11px] font-bold text-brand-navy/70 leading-relaxed italic">
-                                      "{selectedBrochureView.intelligence.humanSummary}"
+                                      "{selectedBrochureView.workflowSummary || selectedBrochureView.intelligence.humanSummary}"
                                    </p>
+                                   {selectedBrochureView.workflowTags?.length > 0 && (
+                                     <div className="flex flex-wrap gap-1 mt-2">
+                                       {brochureWorkflowBadges(selectedBrochureView).map((badge) => renderBrochureWorkflowBadge(badge))}
+                                     </div>
+                                   )}
                                 </div>
 
                                 {/* Ranked Printers */}
@@ -2338,7 +2556,7 @@ export default function QuotationEditorPage() {
                                                  {oIdx === 0 && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Value</span>}
                                               </div>
                                               <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1">
-                                                 Single Printer Workflow • {opt.totals.prints} Prints • {opt.totals.parentSheets} Stocks
+                                                 Single Printer Workflow • {opt.totals.prints} Prints • {opt.totals.colorPrints ?? 0} Color / {opt.totals.bwPrints ?? 0} B&amp;W
                                               </div>
                                            </div>
                                            <div className="text-right">
@@ -2360,7 +2578,7 @@ export default function QuotationEditorPage() {
                                                  <span className="text-[8px] px-1.5 py-0.5 bg-brand-navy text-white rounded uppercase tracking-tighter">Hybrid</span>
                                               </div>
                                               <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1">
-                                                 Optimized per segment • {opt.totals.prints} Prints • {opt.totals.parentSheets} Stocks
+                                                 Optimized per segment • {opt.totals.prints} Prints • {opt.totals.colorPrints ?? 0} Color / {opt.totals.bwPrints ?? 0} B&amp;W
                                               </div>
                                            </div>
                                            <div className="text-right">
@@ -2372,6 +2590,15 @@ export default function QuotationEditorPage() {
                                 </div>
 
                                 {/* Segment Details (Visual Breakdown) */}
+                                {selectedBrochureOption && renderBrochurePricingBreakdown(
+                                  (selectedBrochureOption.kind === "SINGLE"
+                                    ? selectedBrochureView.singlePrinterRanked[selectedBrochureOption.optionIdx]?.pricingBreakdown
+                                    : selectedBrochureView.mixedPrinterRanked[selectedBrochureOption.optionIdx]?.pricingBreakdown) || [],
+                                  selectedBrochureOption.kind === "SINGLE"
+                                    ? selectedBrochureView.singlePrinterRanked[selectedBrochureOption.optionIdx]?.totals
+                                    : selectedBrochureView.mixedPrinterRanked[selectedBrochureOption.optionIdx]?.totals,
+                                )}
+
                                 <div className="space-y-3">
                                    <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em] px-1">Segment Breakdown</h4>
                                    <div className="space-y-4">
@@ -2428,9 +2655,13 @@ export default function QuotationEditorPage() {
                                                            <span className="text-brand-navy/40">Impressions</span>
                                                            <span className="text-brand-navy">{optData.laserOption?.prints || '--'} prints</span>
                                                         </div>
-                                                        <div className="flex justify-between text-[10px] font-black pt-1 border-t border-brand-teal/10">
-                                                           <span className="text-brand-teal">Cost</span>
-                                                           <span className="text-brand-navy">₹{optData.laserOption?.pricing?.total?.toLocaleString() || '--'}</span>
+                                                        <div className="flex justify-between text-[10px] font-bold">
+                                                           <span className="text-brand-navy/40">Front Side</span>
+                                                           <span className="text-brand-navy">{seg.sideClassification?.frontSideMode || 'BW'}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-[10px] font-bold">
+                                                           <span className="text-brand-navy/40">Back Side</span>
+                                                           <span className="text-brand-navy">{seg.sideClassification?.backSideMode || 'BW'}</span>
                                                         </div>
                                                      </div>
                                                   </div>
@@ -2490,14 +2721,7 @@ export default function QuotationEditorPage() {
                                               viewData: view,
                                               optionData: opt
                                             },
-                                            chargeComponents: opt.segments.map((s, idx) => ({
-                                              role: "printing",
-                                              label: `${view.parts[idx]}pp Segment - ${s.printerModelName || opt.printerModelName}`,
-                                              amount: s.laserOption.pricing.total,
-                                              unitPrice: s.laserOption.pricing.perPrintCharge,
-                                              quantity: s.laserOption.prints,
-                                              meta: s.laserOption.pricing
-                                            }))
+                                            chargeComponents: buildBrochureChargeComponents(opt.pricingBreakdown),
                                           };
 
                                           let newList;
