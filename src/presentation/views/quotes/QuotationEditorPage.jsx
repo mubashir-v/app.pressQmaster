@@ -844,6 +844,29 @@ export default function QuotationEditorPage() {
     return "Inner insert";
   };
 
+  const isPostPrintFriendlyPlan = (plan) => {
+    if (!plan?.signatures?.length) return false;
+    return plan.signatures.every((sig) => sig.signaturePages === 4);
+  };
+
+  const nestedPlanWorkflowBadges = (plan, planIdx) => {
+    const badges = [];
+    if (planIdx === 0) {
+      badges.push({ label: "Printing Friendly", tone: "mint" });
+    }
+    if (isPostPrintFriendlyPlan(plan)) {
+      badges.push({ label: "Post Print Friendly", tone: "amber" });
+    }
+    return badges;
+  };
+
+  const nestedPlanInstruction = (plan) => {
+    if (isPostPrintFriendlyPlan(plan)) {
+      return "Print every small set below. Cut each set, stack from outer to inner, then center pin.";
+    }
+    return "Print every set below. Fold each set, then nest from outer to inner.";
+  };
+
   const nestedPreviewMetrics = (signature, sideRows) => {
     const rowCount = Math.max(1, sideRows.length);
     const colCount = Math.max(1, sideRows[0]?.length || 1);
@@ -2120,13 +2143,20 @@ export default function QuotationEditorPage() {
                                    >
                                      <div className="flex items-start justify-between gap-4">
                                       <div className="min-w-0">
-                                         <div className="flex items-center gap-2">
+                                         <div className="flex items-center gap-2 flex-wrap">
                                            <span className="text-xs font-black text-brand-navy">Option {planIdx + 1}</span>
-                                           {planIdx === 0 && (
-                                             <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">
-                                               Best Nest
+                                           {nestedPlanWorkflowBadges(plan, planIdx).map((badge) => (
+                                             <span
+                                               key={`${plan.planId}-${badge.label}`}
+                                               className={`text-[8px] px-1.5 py-0.5 rounded uppercase tracking-tighter ${
+                                                 badge.tone === "amber"
+                                                   ? "bg-amber-100 text-amber-800"
+                                                   : "bg-brand-mint text-brand-teal"
+                                               }`}
+                                             >
+                                               {badge.label}
                                              </span>
-                                           )}
+                                           ))}
                                          </div>
                                         <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 truncate">
                                           {plan.printRunCount} run{plan.printRunCount === 1 ? "" : "s"} • {plan.physicalSheetsPerBrochure} sheet{plan.physicalSheetsPerBrochure === 1 ? "" : "s"} • {plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}
@@ -2172,7 +2202,7 @@ export default function QuotationEditorPage() {
                                    </div>
 
                                    <div className="text-[10px] font-bold text-brand-navy/45 uppercase tracking-tight">
-                                     Print every set below. Fold each set, then nest from outer to inner.
+                                     {nestedPlanInstruction(selectedNestedPrintPlan)}
                                    </div>
 
                                    <div className="space-y-5">
