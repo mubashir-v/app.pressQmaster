@@ -120,8 +120,7 @@ export default function QuotationEditorPage() {
   const [brochureStockItemId, setBrochureStockItemId] = useState("");
   const [brochurePagesPerBrochure, setBrochurePagesPerBrochure] = useState("8");
   const [brochureCopies, setBrochureCopies] = useState("100");
-  const [brochureColorMode, setBrochureColorMode] = useState("COLOR");
-  const [brochureSides, setBrochureSides] = useState("DOUBLE");
+  const [brochureColorPagesInput, setBrochureColorPagesInput] = useState("");
   const [brochureIsOnlyClipCharge, setBrochureIsOnlyClipCharge] = useState(false);
   const [brochureOrientation, setBrochureOrientation] = useState("NORMAL");
   const [showBrochureOrientationModal, setShowBrochureOrientationModal] = useState(false);
@@ -138,6 +137,7 @@ export default function QuotationEditorPage() {
 
   const activeOrg = user?.organizations?.find(o => (o.organizationId || o.id) === user.activeOrganizationId);
   const activeOrgName = activeOrg?.name || "PrintQ Client";
+  const effectiveBrochureColorMode = brochureColorPagesInput.trim() ? "COLOR" : "BW";
 
   // Navigation Refs
   const phoneInputRef = useRef(null);
@@ -362,8 +362,7 @@ export default function QuotationEditorPage() {
      setBrochureStockItemId("");
      setBrochurePagesPerBrochure("8");
      setBrochureCopies("100");
-     setBrochureColorMode("COLOR");
-     setBrochureSides("DOUBLE");
+     setBrochureColorPagesInput("");
      setBrochureIsOnlyClipCharge(false);
      setBrochureOrientation("NORMAL");
 
@@ -442,8 +441,7 @@ export default function QuotationEditorPage() {
          setCustomUnit(m.customUnit || user.settings?.defaultLengthUnit || "mm");
          setBrochurePagesPerBrochure(m.brochurePagesPerBrochure?.toString() || "8");
          setBrochureCopies(m.brochureCopies?.toString() || "100");
-         setBrochureColorMode(m.brochureColorMode || "COLOR");
-         setBrochureSides(m.brochureSides || "DOUBLE");
+         setBrochureColorPagesInput(m.brochureColorPagesInput || "");
          setBrochureIsOnlyClipCharge(m.brochureIsOnlyClipCharge ?? false);
          setBrochureOrientation(m.brochureOrientation || "NORMAL");
        }
@@ -764,8 +762,8 @@ export default function QuotationEditorPage() {
         pagesPerBrochure: parseInt(brochurePagesPerBrochure) || 0,
         brochureCopies: parseInt(brochureCopies) || 0,
         stockItemId: brochureStockItemId,
-        colorMode: brochureColorMode,
-        sides: brochureSides,
+        colorMode: brochureColorPagesInput.trim() ? "COLOR" : "BW",
+        sides: "DOUBLE",
         isOnlyClipCharge: brochureIsOnlyClipCharge,
         pageNumberingOrientation: brochureOrientation
       };
@@ -803,7 +801,7 @@ export default function QuotationEditorPage() {
     } finally {
       setBrochureLoading(false);
     }
-  }, [brochureSizeId, brochureStockItemId, brochureCopies, brochurePagesPerBrochure, customWidth, customBreadth, customUnit, sizeList, brochureColorMode, brochureSides, brochureIsOnlyClipCharge, brochureOrientation]);
+  }, [brochureSizeId, brochureStockItemId, brochureCopies, brochurePagesPerBrochure, customWidth, customBreadth, customUnit, sizeList, brochureColorPagesInput, brochureIsOnlyClipCharge, brochureOrientation]);
 
   // Effect to trigger calculation
   useEffect(() => {
@@ -827,7 +825,7 @@ export default function QuotationEditorPage() {
       const timer = setTimeout(recalculateBrochurePricing, 500);
       return () => clearTimeout(timer);
     }
-  }, [brochureSizeId, brochureStockItemId, brochureColorMode, brochureSides, brochureCopies, brochurePagesPerBrochure, brochureIsOnlyClipCharge, brochureOrientation, activeTab, customWidth, customBreadth, customUnit, recalculateBrochurePricing]);
+  }, [brochureSizeId, brochureStockItemId, brochureColorPagesInput, brochureCopies, brochurePagesPerBrochure, brochureIsOnlyClipCharge, brochureOrientation, activeTab, customWidth, customBreadth, customUnit, recalculateBrochurePricing]);
 
 
 
@@ -866,6 +864,43 @@ export default function QuotationEditorPage() {
     }
     return "Print every set below. Fold each set, then nest from outer to inner.";
   };
+
+  const parseBrochureColorPages = (value, totalPages) => {
+    const total = Number.parseInt(totalPages, 10) || 0;
+    const normalized = String(value || "").trim().toUpperCase();
+    if (!normalized || total <= 0) return new Set();
+    if (normalized === "ALL") {
+      return new Set(Array.from({ length: total }, (_, index) => index + 1));
+    }
+
+    const pages = new Set();
+    normalized.split(",").forEach((part) => {
+      const token = part.trim();
+      if (!token) return;
+      const rangeMatch = token.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (rangeMatch) {
+        const start = Number.parseInt(rangeMatch[1], 10);
+        const end = Number.parseInt(rangeMatch[2], 10);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        const from = Math.max(1, Math.min(start, end));
+        const to = Math.min(total, Math.max(start, end));
+        for (let page = from; page <= to; page += 1) pages.add(page);
+        return;
+      }
+      if (!/^\d+$/.test(token)) return;
+      const page = Number.parseInt(token, 10);
+      if (Number.isFinite(page) && page >= 1 && page <= total) pages.add(page);
+    });
+    return pages;
+  };
+
+  const brochureColorPageSet = parseBrochureColorPages(brochureColorPagesInput, brochurePagesPerBrochure);
+  const isBrochureColorPage = (pageNumber) => brochureColorPageSet.has(Number(pageNumber));
+
+  const brochurePreviewPageClass = (pageNumber) =>
+    isBrochureColorPage(pageNumber)
+      ? "border-amber-300 bg-amber-100 text-amber-900 ring-2 ring-amber-300/50"
+      : "border-brand-navy/10 bg-zinc-200/80 text-brand-navy";
 
   const nestedPreviewMetrics = (signature, sideRows) => {
     const rowCount = Math.max(1, sideRows.length);
@@ -917,8 +952,8 @@ export default function QuotationEditorPage() {
             row.map((cell, ci) => (
               <div
                 key={`${ri}-${ci}-${cell.pageNumber}`}
-                title={`${cell.designOrientation.toLowerCase()} page design`}
-                className="flex items-center justify-center rounded-sm border border-brand-navy/10 bg-zinc-200/80 text-brand-navy shadow-sm"
+                title={`${cell.designOrientation.toLowerCase()} page design${isBrochureColorPage(cell.pageNumber) ? " • color page" : ""}`}
+                className={`flex items-center justify-center rounded-sm border shadow-sm ${brochurePreviewPageClass(cell.pageNumber)}`}
               >
                 <span
                   className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
@@ -975,7 +1010,8 @@ export default function QuotationEditorPage() {
             row.map((pageNumber, ci) => (
               <div
                 key={`${ri}-${ci}-${pageNumber}`}
-                className="flex items-center justify-center rounded-sm border border-brand-navy/10 bg-zinc-200/80 text-brand-navy shadow-sm"
+                title={isBrochureColorPage(pageNumber) ? "Color page" : "Black and white page"}
+                className={`flex items-center justify-center rounded-sm border shadow-sm ${brochurePreviewPageClass(pageNumber)}`}
               >
                 <span
                   className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
@@ -2002,22 +2038,27 @@ export default function QuotationEditorPage() {
                            />
                       </div>
 
-                      <div className="flex gap-4">
-                          <div className="flex-1 space-y-2">
-                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Colour Mode</label>
-                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
-                                {['COLOR', 'BW'].map(m => (
-                                  <button
-                                    key={m}
-                                    onClick={() => setBrochureColorMode(m)}
-                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
-                                  >
-                                    {m === 'BW' ? 'B&W' : 'Multicolor'}
-                                  </button>
-                                ))}
-                             </div>
-                          </div>
-                          <div className="flex-1 space-y-2">
+                      <label className="block">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-sm font-medium text-brand-navy/80">Color Pages</span>
+                          <span className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-widest">
+                            blank = all B&W
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          value={brochureColorPagesInput}
+                          onChange={e => setBrochureColorPagesInput(e.target.value)}
+                          placeholder="ALL or 1,6,8 or 1-6,56,20-25"
+                          className="w-full rounded-xl border border-brand-navy/15 bg-white px-4 py-2.5 text-brand-navy placeholder:text-brand-navy/35 outline-none transition-all focus:border-brand-teal/40 focus:ring-4 focus:ring-brand-teal/10 shadow-sm"
+                        />
+                        <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-800 leading-relaxed">
+                          Enter color reader pages as <span className="font-black">ALL</span>, individual pages like <span className="font-black">1,6,8</span>, ranges like <span className="font-black">1-6</span>, or mixed like <span className="font-black">1-6,56,20-25</span>. Marked pages are highlighted in the print previews.
+                        </div>
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
                              <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Orientation</label>
                              <button
                                type="button"
@@ -2036,9 +2077,6 @@ export default function QuotationEditorPage() {
                                <span className="text-[10px] font-black text-brand-teal uppercase tracking-widest">Change</span>
                              </button>
                           </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
                           <div className="flex flex-col gap-2">
                               <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
                               <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
@@ -2055,20 +2093,6 @@ export default function QuotationEditorPage() {
                                    </button>
                                  ))}
                               </div>
-                          </div>
-                          <div className="flex flex-col gap-2">
-                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Sides (2pp)</label>
-                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
-                                {['SINGLE', 'DOUBLE'].map(s => (
-                                  <button
-                                    key={s}
-                                    onClick={() => setBrochureSides(s)}
-                                    className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
-                                  >
-                                    {s === 'SINGLE' ? 'Front' : 'F&B'}
-                                  </button>
-                                ))}
-                             </div>
                           </div>
                       </div>
                   </div>
@@ -2445,16 +2469,20 @@ export default function QuotationEditorPage() {
                                             sizeName = selSize ? `${selSize.name}` : "Standard Brochure";
                                           }
 
+                                          const colorPagesSummary = brochureColorPagesInput.trim() || "B&W";
                                           const newLineItem = {
                                             id: editingLineId || Date.now(),
                                             lineKind: "PRINTING",
                                             title: itemTitle || `${sizeName} Brochure`,
-                                            description: `BRC • ${brochurePagesPerBrochure}pp • ${brochureColorMode} • ${selPaper?.name || 'Standard'} • ${view.parts.join('-')} split`,
+                                            description: `BRC • ${brochurePagesPerBrochure}pp • Color pages: ${colorPagesSummary} • ${selPaper?.name || 'Standard'} • ${view.parts.join('-')} split`,
                                             quantity: Number(brochureCopies),
                                             meta: {
                                               itemTitle,
                                               brochureStockItemId, brochureSizeId, customWidth, customBreadth, customUnit,
-                                              brochurePagesPerBrochure, brochureCopies, brochureColorMode, brochureSides,
+                                              brochurePagesPerBrochure, brochureCopies,
+                                              brochureColorMode: effectiveBrochureColorMode,
+                                              brochureSides: "DOUBLE",
+                                              brochureColorPagesInput,
                                               brochureIsOnlyClipCharge, brochureOrientation,
                                               selectedViewId: view.viewId,
                                               selectedOptionKind: selectedBrochureOption.kind,
