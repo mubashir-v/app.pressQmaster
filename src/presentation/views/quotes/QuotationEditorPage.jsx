@@ -982,6 +982,18 @@ export default function QuotationEditorPage() {
     };
   };
 
+  const nestedPlanPaperUsageLabel = (plan) => {
+    if (plan?.printedSheetsForCopies != null) {
+      return `${plan.printedSheetsForCopies} print sheet${plan.printedSheetsForCopies === 1 ? "" : "s"} for job`;
+    }
+    const sheetsPerBook = Number(plan?.physicalSheetsPerBrochure);
+    if (!Number.isFinite(sheetsPerBook)) return "Paper usage pending";
+    const formatted = Number.isInteger(sheetsPerBook)
+      ? String(sheetsPerBook)
+      : sheetsPerBook.toFixed(2);
+    return `${formatted} sheet${sheetsPerBook === 1 ? "" : "s"} per booklet`;
+  };
+
   const parseBrochureColorPages = (value, totalPages) => {
     const total = Number.parseInt(totalPages, 10) || 0;
     const normalized = String(value || "").trim().toUpperCase();
@@ -2382,7 +2394,7 @@ export default function QuotationEditorPage() {
                                            {brochureWorkflowBadges(plan).map((badge) => renderBrochureWorkflowBadge(badge))}
                                          </div>
                                         <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 truncate">
-                                          {plan.physicalSheetsPerBrochure} sheet{plan.physicalSheetsPerBrochure === 1 ? "" : "s"} • {plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}
+                                          {nestedPlanPaperUsageLabel(plan)} • {plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}
                                          </div>
                                         <div className="text-[10px] font-black text-brand-teal uppercase tracking-tight mt-1 truncate">
                                           Printer: {nestedPlanPrinterSummary(plan, 3)}
