@@ -123,9 +123,6 @@ export default function QuotationEditorPage() {
   const [brochureIsOnlyClipCharge, setBrochureIsOnlyClipCharge] = useState(false);
   const [brochureOrientation, setBrochureOrientation] = useState("NORMAL");
   const [bookletBindingType, setBookletBindingType] = useState("CENTER_CLIP");
-  const [showBrochureOrientationModal, setShowBrochureOrientationModal] = useState(false);
-  const [pendingBrochureSizeId, setPendingBrochureSizeId] = useState(null);
-  const [prevBrochureSizeId, setPrevBrochureSizeId] = useState("");
 
   const [brochureViews, setBrochureViews] = useState([]);
   const [selectedBrochureView, setSelectedBrochureView] = useState(null);
@@ -164,6 +161,7 @@ export default function QuotationEditorPage() {
   const [activeEditId, setActiveEditId] = useState(null);
   const [activeEditValue, setActiveEditValue] = useState("");
   const syncDebounceRef = useRef(null);
+  const skipNextBrochureAutoRecalcRef = useRef(false);
   const [selectedLaserOption, setSelectedLaserOption] = useState(null);
   const [shareError, setShareError] = useState("");
 
@@ -183,13 +181,6 @@ export default function QuotationEditorPage() {
       setLoading(false);
     }
   }, [id, location.state]);
-
-  const openBrochureOrientationModal = useCallback((params) => {
-    const { nextSizeId, prevSizeId } = params || {};
-    setPrevBrochureSizeId(prevSizeId ?? brochureSizeId ?? "");
-    setPendingBrochureSizeId(nextSizeId ?? brochureSizeId ?? "");
-    setShowBrochureOrientationModal(true);
-  }, [brochureSizeId]);
 
   function applyQuotationData(q) {
      setQuoteNumber(q.quoteNumber || "DRAFT");
@@ -745,7 +736,7 @@ export default function QuotationEditorPage() {
     }
   }, [offsetSizeId, offsetStockItemId, offsetCopies, customWidth, customBreadth, customUnit, sizeList, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetWaste]);
 
-  const recalculateBrochurePricing = useCallback(async () => {
+  const recalculateBrochurePricing = useCallback(async (overrides = {}) => {
     if (!brochureSizeId || !brochureStockItemId || !brochureCopies || !brochurePagesPerBrochure) return;
 
     let sizePayload;
@@ -770,7 +761,7 @@ export default function QuotationEditorPage() {
         colorPages: brochureColorPagesInput.trim(),
         sides: "DOUBLE",
         isOnlyClipCharge: brochureIsOnlyClipCharge,
-        pageNumberingOrientation: brochureOrientation,
+        pageNumberingOrientation: overrides.brochureOrientation ?? brochureOrientation,
         bindingType: bookletBindingType,
       };
 
@@ -809,6 +800,26 @@ export default function QuotationEditorPage() {
     }
   }, [brochureSizeId, brochureStockItemId, brochureCopies, brochurePagesPerBrochure, customWidth, customBreadth, customUnit, sizeList, brochureColorPagesInput, brochureIsOnlyClipCharge, brochureOrientation, bookletBindingType]);
 
+  const handleBrochureOrientationChange = useCallback((nextOrientation) => {
+    if (brochureOrientation === nextOrientation) return;
+    setBrochureOrientation(nextOrientation);
+
+    if (activeTab === "brochure" && brochureSizeId && brochureStockItemId && brochureCopies && brochurePagesPerBrochure) {
+      skipNextBrochureAutoRecalcRef.current = true;
+      window.setTimeout(() => {
+        recalculateBrochurePricing({ brochureOrientation: nextOrientation });
+      }, 0);
+    }
+  }, [
+    activeTab,
+    brochureCopies,
+    brochureOrientation,
+    brochurePagesPerBrochure,
+    brochureSizeId,
+    brochureStockItemId,
+    recalculateBrochurePricing,
+  ]);
+
   // Effect to trigger calculation
   useEffect(() => {
     setSelectedLaserOption(null); // Clear selection on input change
@@ -828,6 +839,10 @@ export default function QuotationEditorPage() {
 
   useEffect(() => {
     if (activeTab === "brochure" && brochureSizeId && brochureStockItemId && brochureCopies && brochurePagesPerBrochure) {
+      if (skipNextBrochureAutoRecalcRef.current) {
+        skipNextBrochureAutoRecalcRef.current = false;
+        return;
+      }
       const timer = setTimeout(recalculateBrochurePricing, 500);
       return () => clearTimeout(timer);
     }
@@ -2095,20 +2110,14 @@ export default function QuotationEditorPage() {
                              placeholder="Search Size Chart..."
                              onChange={e => {
                                const next = e.target.value;
-                               const prev = brochureSizeId;
                                if (!next) return;
                                if (next === "custom") {
-                                 setPrevBrochureSizeId(prev);
-                                 setPendingBrochureSizeId("custom");
                                  setBrochureSizeId("custom");
                                  setCustomWidth("");
                                  setCustomBreadth("");
                                  return;
                                }
-                               setPendingBrochureSizeId(next);
-                               setPrevBrochureSizeId(prev);
-                               // Do not commit the size until the user explicitly chooses orientation.
-                               openBrochureOrientationModal({ nextSizeId: next, prevSizeId: prev });
+                               setBrochureSizeId(next);
                              }}
                            />
 
@@ -2119,23 +2128,7 @@ export default function QuotationEditorPage() {
                                     type="number"
                                     placeholder="Width"
                                     value={customWidth}
-                                    onChange={e => {
-                                      const v = e.target.value;
-                                      setCustomWidth(v);
-                                      if (pendingBrochureSizeId === "custom") {
-                                        const w = Number(v);
-                                        const b = Number(customBreadth);
-                                        if (
-                                          Number.isFinite(w) &&
-                                          Number.isFinite(b) &&
-                                          w > 0 &&
-                                          b > 0 &&
-                                          !showBrochureOrientationModal
-                                        ) {
-                                          setShowBrochureOrientationModal(true);
-                                        }
-                                      }
-                                    }}
+                                    onChange={e => setCustomWidth(e.target.value)}
                                     className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
                                   />
                                </div>
@@ -2145,36 +2138,14 @@ export default function QuotationEditorPage() {
                                     type="number"
                                     placeholder="Breadth"
                                     value={customBreadth}
-                                    onChange={e => {
-                                      const v = e.target.value;
-                                      setCustomBreadth(v);
-                                      if (pendingBrochureSizeId === "custom") {
-                                        const w = Number(customWidth);
-                                        const b = Number(v);
-                                        if (
-                                          Number.isFinite(w) &&
-                                          Number.isFinite(b) &&
-                                          w > 0 &&
-                                          b > 0 &&
-                                          !showBrochureOrientationModal
-                                        ) {
-                                          setShowBrochureOrientationModal(true);
-                                        }
-                                      }
-                                    }}
+                                    onChange={e => setCustomBreadth(e.target.value)}
                                     className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
                                   />
                                </div>
                                <div className="w-16">
                                   <select
                                     value={customUnit}
-                                    onChange={e => {
-                                      setCustomUnit(e.target.value);
-                                      // If custom size is pending, require orientation selection again (dimensions context changed).
-                                      if (pendingBrochureSizeId === "custom") {
-                                        setShowBrochureOrientationModal(false);
-                                      }
-                                    }}
+                                    onChange={e => setCustomUnit(e.target.value)}
                                     className="w-full bg-transparent outline-none text-[10px] font-black text-brand-teal uppercase tracking-widest cursor-pointer"
                                   >
                                      <option value="mm">mm</option>
@@ -2184,6 +2155,45 @@ export default function QuotationEditorPage() {
                                </div>
                             </div>
                           )}
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Orientation</label>
+                            <div className="rounded-2xl border border-brand-navy/5 bg-zinc-50 p-1">
+                              <div className="flex items-center justify-between gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleBrochureOrientationChange("NORMAL")}
+                                  className={`flex-1 rounded-xl p-3 text-left transition-all ${brochureOrientation === "NORMAL" ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/30 hover:text-brand-navy/60"}`}
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                      <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Portrait</div>
+                                      <div className="text-[9px] font-bold text-brand-navy/40 mt-1">Normal page reading</div>
+                                    </div>
+                                    <div className="w-8 h-10 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center">
+                                      <span className="text-xl font-black text-brand-teal">A</span>
+                                    </div>
+                                  </div>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleBrochureOrientationChange("ROTATED")}
+                                  className={`flex-1 rounded-xl p-3 text-left transition-all ${brochureOrientation === "ROTATED" ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/30 hover:text-brand-navy/60"}`}
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                      <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Landscape</div>
+                                      <div className="text-[9px] font-bold text-brand-navy/40 mt-1">Rotated page reading</div>
+                                    </div>
+                                    <div className="w-10 h-8 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center">
+                                      <span className="text-xl font-black text-brand-teal rotate-90 inline-block">A</span>
+                                    </div>
+                                  </div>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
 
                           <SearchableSelect
                              label="Paper / Stock"
@@ -2231,41 +2241,21 @@ export default function QuotationEditorPage() {
                         </div>
                       </label>
 
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Orientation</label>
-                             <button
-                               type="button"
-                               onClick={() => {
-                                 if (!brochureSizeId) return;
-                                 openBrochureOrientationModal({ nextSizeId: brochureSizeId, prevSizeId: brochureSizeId });
-                               }}
-                               className="w-full flex items-center justify-between bg-zinc-50 p-3 rounded-xl border border-brand-navy/5 hover:border-brand-teal/40 transition-all"
-                             >
-                               <div className="flex flex-col items-start">
-                                 <span className="text-[11px] font-black text-brand-navy">
-                                   {brochureOrientation === "ROTATED" ? "Landscape (rotated)" : "Portrait (normal)"}
-                                 </span>
-                               </div>
-                               <span className="text-[10px] font-black text-brand-teal uppercase tracking-widest">Change</span>
-                             </button>
-                          </div>
-                          <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
-                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
-                                 {[
-                                   { id: true, label: "Printing Only" },
-                                   { id: false, label: "Slab Charge" }
-                                 ].map(m => (
-                                   <button
-                                     key={m.label}
-                                     onClick={() => setBrochureIsOnlyClipCharge(m.id)}
-                                     className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureIsOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
-                                   >
-                                     {m.label}
-                                   </button>
-                                 ))}
-                              </div>
+                      <div className="flex flex-col gap-2">
+                          <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
+                          <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                             {[
+                               { id: true, label: "Printing Only" },
+                               { id: false, label: "Slab Charge" }
+                             ].map(m => (
+                               <button
+                                 key={m.label}
+                                 onClick={() => setBrochureIsOnlyClipCharge(m.id)}
+                                 className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureIsOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                               >
+                                 {m.label}
+                               </button>
+                             ))}
                           </div>
                       </div>
 
@@ -3111,128 +3101,6 @@ export default function QuotationEditorPage() {
       </section>
 
 
-
-      {/* 4. Brochure Orientation Modal */}
-      {showBrochureOrientationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-brand-navy/40 backdrop-blur-md" />
-          <div className="w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden flex flex-col animate-fade-in">
-            <div className="p-8 border-b border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
-                  <MdLayers className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-brand-teal leading-none mb-1">Select Orientation</h2>
-                  <p className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">
-                    Pick how the content should read on the selected page size
-                  </p>
-                </div>
-              </div>
-              <div className="text-[10px] font-black text-brand-navy/20 uppercase tracking-widest">
-                required
-              </div>
-            </div>
-
-            <div className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBrochureOrientation("NORMAL");
-                    if (pendingBrochureSizeId && pendingBrochureSizeId !== "custom") {
-                      setBrochureSizeId(pendingBrochureSizeId);
-                    }
-                    setPendingBrochureSizeId(null);
-                    setShowBrochureOrientationModal(false);
-                  }}
-                  className="group rounded-3xl border border-brand-navy/10 bg-white hover:border-brand-teal/40 hover:shadow-xl hover:shadow-brand-teal/10 transition-all overflow-hidden text-left"
-                >
-                  <div className="p-6 flex items-center justify-between">
-                    <div>
-                      <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">
-                        Portrait
-                      </div>
-                      <div className="text-sm font-black text-brand-navy mt-1">Normal (not rotated)</div>
-                      <div className="text-[10px] font-bold text-brand-navy/40 mt-2">
-                        Content reads like a normal book page.
-                      </div>
-                    </div>
-                    <div className="w-20 h-24 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center">
-                      <span className="text-5xl font-black text-brand-teal">A</span>
-                    </div>
-                  </div>
-                  <div className="px-6 pb-6">
-                    <div className="h-2 w-full bg-brand-teal/10 rounded-full overflow-hidden">
-                      <div className="h-full w-0 group-hover:w-full bg-brand-teal/40 transition-all" />
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBrochureOrientation("ROTATED");
-                    if (pendingBrochureSizeId && pendingBrochureSizeId !== "custom") {
-                      setBrochureSizeId(pendingBrochureSizeId);
-                    }
-                    setPendingBrochureSizeId(null);
-                    setShowBrochureOrientationModal(false);
-                  }}
-                  className="group rounded-3xl border border-brand-navy/10 bg-white hover:border-brand-teal/40 hover:shadow-xl hover:shadow-brand-teal/10 transition-all overflow-hidden text-left"
-                >
-                  <div className="p-6 flex items-center justify-between">
-                    <div>
-                      <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">
-                        Landscape
-                      </div>
-                      <div className="text-sm font-black text-brand-navy mt-1">Rotated</div>
-                      <div className="text-[10px] font-bold text-brand-navy/40 mt-2">
-                        Content is opposite of the page’s long side.
-                      </div>
-                    </div>
-                    <div className="w-32 h-18 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center">
-                      <span className="text-5xl font-black text-brand-teal rotate-90 inline-block">A</span>
-                    </div>
-                  </div>
-                  <div className="px-6 pb-6">
-                    <div className="h-2 w-full bg-brand-teal/10 rounded-full overflow-hidden">
-                      <div className="h-full w-0 group-hover:w-full bg-brand-teal/40 transition-all" />
-                    </div>
-                  </div>
-                </button>
-              </div>
-
-              <div className="p-4 bg-brand-navy/[0.03] rounded-2xl border border-brand-navy/5 text-[11px] font-bold text-brand-navy/60 leading-relaxed">
-                This controls center-clip page numbering / imposition. If your proof comes out sideways, pick
-                <span className="font-black text-brand-teal"> Rotated</span>.
-              </div>
-            </div>
-
-            <div className="p-8 border-t border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
-              <button
-                type="button"
-                onClick={() => {
-                  // Cancel keeps the previous committed size selection.
-                  if (pendingBrochureSizeId === "custom") {
-                    setBrochureSizeId(prevBrochureSizeId || "");
-                    setCustomWidth("");
-                    setCustomBreadth("");
-                  }
-                  setPendingBrochureSizeId(null);
-                  setShowBrochureOrientationModal(false);
-                }}
-                className="px-6 py-3 text-[10px] font-black text-brand-navy/30 hover:text-brand-navy transition-all uppercase tracking-widest"
-              >
-                Cancel
-              </button>
-              <div className="text-[10px] font-black text-brand-navy/20 uppercase tracking-widest">
-                Choose Portrait or Landscape to continue
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 4. New Customer Modal */}
       {showNewCustModal && (
