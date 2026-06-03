@@ -954,6 +954,34 @@ export default function QuotationEditorPage() {
     return hiddenCount > 0 ? `${visible} +${hiddenCount} more` : visible;
   };
 
+  const paperWasteStatsForSignature = (signature) => {
+    const utilization = Number(signature?.fit?.utilization);
+    const usedRatio = Number.isFinite(utilization) ? Math.max(0, Math.min(1, utilization)) : 0;
+    const usedPercent = Math.round(usedRatio * 100);
+    return {
+      usedPercent,
+      wastePercent: Math.max(0, 100 - usedPercent),
+    };
+  };
+
+  const paperWasteStatsForPlan = (plan) => {
+    const signatures = plan?.signatures || [];
+    if (signatures.length === 0) return { usedPercent: 0, wastePercent: 0 };
+    const weighted = signatures.reduce((acc, signature) => {
+      const weight = Math.max(1, Number(signature.printedSheetsForCopies) || 1);
+      const stats = paperWasteStatsForSignature(signature);
+      return {
+        used: acc.used + stats.usedPercent * weight,
+        weight: acc.weight + weight,
+      };
+    }, { used: 0, weight: 0 });
+    const usedPercent = weighted.weight > 0 ? Math.round(weighted.used / weighted.weight) : 0;
+    return {
+      usedPercent,
+      wastePercent: Math.max(0, 100 - usedPercent),
+    };
+  };
+
   const parseBrochureColorPages = (value, totalPages) => {
     const total = Number.parseInt(totalPages, 10) || 0;
     const normalized = String(value || "").trim().toUpperCase();
@@ -2359,6 +2387,9 @@ export default function QuotationEditorPage() {
                                         <div className="text-[10px] font-black text-brand-teal uppercase tracking-tight mt-1 truncate">
                                           Printer: {nestedPlanPrinterSummary(plan, 3)}
                                          </div>
+                                        <div className="text-[9px] font-black text-amber-700 uppercase tracking-tight mt-1">
+                                          Trim waste: {paperWasteStatsForPlan(plan).wastePercent}% · Paper used: {paperWasteStatsForPlan(plan).usedPercent}%
+                                        </div>
                                         <div className="flex flex-wrap gap-1 mt-2">
                                           {plan.signatures.slice(0, 8).map((sig) => (
                                             <span
@@ -2391,7 +2422,7 @@ export default function QuotationEditorPage() {
 
                                {selectedNestedPrintPlan && (
                                  <div className="bg-brand-navy/2 rounded-2xl border border-brand-navy/5 p-4 space-y-4">
-                                   <div className="grid grid-cols-3 gap-2">
+                                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                                      <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
                                        <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Print Sets</div>
                                        <div className="text-lg font-black text-brand-navy mt-1">{selectedNestedPrintPlan.printRunCount}</div>
@@ -2405,6 +2436,10 @@ export default function QuotationEditorPage() {
                                      <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
                                        <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Plan</div>
                                        <div className="text-sm font-black text-brand-teal mt-1">{selectedNestedPrintPlan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}</div>
+                                     </div>
+                                     <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+                                       <div className="text-[8px] font-black text-amber-700/70 uppercase tracking-widest">Trim Waste</div>
+                                       <div className="text-lg font-black text-amber-800 mt-1">{paperWasteStatsForPlan(selectedNestedPrintPlan).wastePercent}%</div>
                                      </div>
                                    </div>
 
@@ -2470,6 +2505,9 @@ export default function QuotationEditorPage() {
                                                  <div className="text-[9px] font-bold text-brand-navy/30 uppercase mt-0.5">
                                                    {signature.gridOnPortion.across}×{signature.gridOnPortion.down}
                                                  </div>
+                                                 <div className="text-[9px] font-black text-amber-700 uppercase mt-1">
+                                                   Used {paperWasteStatsForSignature(signature).usedPercent}% · Waste {paperWasteStatsForSignature(signature).wastePercent}%
+                                                 </div>
                                                  {signature.copiesPerPrintedSheet > 1 && (
                                                    <div className="text-[9px] font-black text-brand-teal uppercase mt-1">
                                                      {signature.copiesPerPrintedSheet} sets / print
@@ -2490,11 +2528,21 @@ export default function QuotationEditorPage() {
 
                                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                                <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                                                 <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest mb-2">Front Side</div>
+                                                 <div className="flex items-center justify-between gap-2 mb-2">
+                                                   <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Front Side</div>
+                                                   <div className="text-[8px] font-black text-amber-700 uppercase tracking-tight">
+                                                     Trim waste {paperWasteStatsForSignature(signature).wastePercent}%
+                                                   </div>
+                                                 </div>
                                                 {renderNestedImpositionSide(signature, signature.imposition.front, "teal", selectedNestedPlanPreviewScale)}
                                                </div>
                                                <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                                                 <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest mb-2">Back Side</div>
+                                                 <div className="flex items-center justify-between gap-2 mb-2">
+                                                   <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Back Side</div>
+                                                   <div className="text-[8px] font-black text-amber-700 uppercase tracking-tight">
+                                                     Paper used {paperWasteStatsForSignature(signature).usedPercent}%
+                                                   </div>
+                                                 </div>
                                                 {renderNestedImpositionSide(signature, signature.imposition.back, "navy", selectedNestedPlanPreviewScale)}
                                                </div>
                                              </div>
