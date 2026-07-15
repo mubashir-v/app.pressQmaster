@@ -25,6 +25,10 @@ const TABS = [
   { id: "offset", label: "Offset Printing", icon: <MdPrint /> }
 ];
 
+const QUOTE_FORM_COLUMN_CLASS = "w-full lg:flex-[1_1_0] lg:min-w-[440px] space-y-4";
+const QUOTE_INPUT_GRID_CLASS = "grid grid-cols-1 md:grid-cols-2 gap-5";
+const QUOTE_OPTIONS_PANEL_CLASS = "w-full lg:flex-[0_0_25%] lg:min-w-[260px] lg:max-w-[360px] lg:hover:flex-[1_1_65%] lg:focus-within:flex-[1_1_65%] lg:hover:max-w-none lg:focus-within:max-w-none lg:hover:z-20 lg:focus-within:z-20 lg:hover:shadow-2xl lg:focus-within:shadow-2xl transition-[flex,max-width,box-shadow] duration-300 ease-out";
+
 
 export default function QuotationEditorPage() {
   const { id } = useParams();
@@ -1036,13 +1040,13 @@ export default function QuotationEditorPage() {
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
-          <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">Pricing Breakdown</h4>
+          <h4 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em]">Pricing Breakdown</h4>
           {totals?.price != null && (
             <div className="text-lg font-black text-brand-navy">₹{Number(totals.price).toLocaleString()}</div>
           )}
         </div>
         {totals && (
-          <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight px-1">
+          <div className="text-[10px] font-bold text-brand-navy/70 uppercase tracking-tight px-1">
             {totals.colorPrints ?? 0} color impression{(totals.colorPrints ?? 0) === 1 ? "" : "s"} • {totals.bwPrints ?? 0} B&amp;W impression{(totals.bwPrints ?? 0) === 1 ? "" : "s"}
           </div>
         )}
@@ -1284,10 +1288,10 @@ export default function QuotationEditorPage() {
              
              <div className="text-right">
                 <div className="text-3xl font-black text-brand-navy uppercase tracking-tighter mb-1">Quotation</div>
-                <div className="text-[11px] font-black text-brand-navy/40 uppercase tracking-widest leading-relaxed">
+                <div className="text-[11px] font-black text-brand-navy/70 uppercase tracking-widest leading-relaxed">
                    No: {quoteNumber || "DRAFT"}
                 </div>
-                <div className="text-[11px] font-black text-brand-navy/40 uppercase tracking-widest mt-0.5">
+                <div className="text-[11px] font-black text-brand-navy/70 uppercase tracking-widest mt-0.5">
                    Date: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
                 {createdBy && (
@@ -1301,13 +1305,13 @@ export default function QuotationEditorPage() {
           
           <div className="mt-8 grid grid-cols-2 gap-12">
              <div className="space-y-1">
-                <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">Quoted For:</div>
+                <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest">Quoted For:</div>
                 <div className="text-sm font-black text-brand-navy">{selectedCustomer?.name || 'Valued Customer'}</div>
                 {selectedCustomer?.companyName && <div className="text-xs font-bold text-brand-navy/60">{selectedCustomer.companyName}</div>}
              </div>
              
              <div className="text-right space-y-1">
-                <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">Validity:</div>
+                <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest">Validity:</div>
                 <div className="text-sm font-black text-brand-navy">{validUntil || '---'}</div>
                 <div className="text-xs font-bold text-brand-navy/60">Subject to terms and conditions</div>
              </div>
@@ -1315,11 +1319,11 @@ export default function QuotationEditorPage() {
           
           <div className="mt-8 p-4 bg-zinc-50 rounded-xl border border-zinc-100 flex justify-between items-center">
              <div className="flex-1">
-                <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest mb-1">Subject:</div>
+                <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest mb-1">Subject:</div>
                 <div className="text-sm font-bold text-brand-navy italic">"{title || 'General Printing Quotation'}"</div>
              </div>
              <div className="text-right">
-                <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest mb-1">Grand Total:</div>
+                <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest mb-1">Grand Total:</div>
                 <div className="text-xl font-black text-brand-navy">{currency} {lineItems.reduce((acc, curr) => acc + (curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0), 0).toLocaleString()}</div>
              </div>
          </div>
@@ -1332,7 +1336,7 @@ export default function QuotationEditorPage() {
           <div className="flex items-center gap-6">
               <button
                 onClick={() => navigate("/dashboard/quotes")}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-navy/30 hover:bg-zinc-100 hover:text-brand-navy transition-all"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-navy/60 hover:bg-zinc-100 hover:text-brand-navy transition-all"
                 title="Back to list"
               >
                 <MdArrowBack className="w-5 h-5" />
@@ -1341,13 +1345,13 @@ export default function QuotationEditorPage() {
               {/* Focused Customer Information Card */}
           <div className="w-[360px] border border-brand-navy/10 rounded-xl p-4 bg-white shadow-sm relative group">
               <div className="flex justify-between items-center mb-3">
-                 <span className="text-[9px] font-black text-brand-navy/20 uppercase tracking-[0.2em]">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                 <span className="text-[9px] font-black text-brand-navy/55 uppercase tracking-[0.2em]">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                  {busy && <div className="w-3 h-3 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
               </div>
 
               <div className="space-y-1.5">
                   <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-bold text-brand-navy/40 w-12">Cust :</span>
+                      <span className="text-[10px] font-bold text-brand-navy/70 w-12">Cust :</span>
                      <div className="relative flex-1 flex flex-col items-start">
                         <div className="w-full flex items-center gap-2">
                            {!selectedCustomer ? (
@@ -1410,7 +1414,7 @@ export default function QuotationEditorPage() {
 
 
                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-bold text-brand-navy/40 w-16">Phone :</span>
+                    <span className="text-[11px] font-bold text-brand-navy/70 w-16">Phone :</span>
                     {!selectedCustomer && customerSearch.trim() ? (
                         <input
                            ref={phoneInputRef}
@@ -1433,7 +1437,7 @@ export default function QuotationEditorPage() {
                  </div>
 
                  <div className="flex items-start gap-3">
-                    <span className="text-[11px] font-bold text-brand-navy/40 w-16 mt-0.5">Address :</span>
+                    <span className="text-[11px] font-bold text-brand-navy/70 w-16 mt-0.5">Address :</span>
                     {!selectedCustomer && customerSearch.trim() ? (
                         <input
                            ref={addressInputRef}
@@ -1476,11 +1480,11 @@ export default function QuotationEditorPage() {
                {!selectedCustomer && customerSearch.trim() && (
                  <div className="mt-4 pt-4 border-t border-brand-teal/5 flex flex-col items-center gap-1.5 animate-fade-in">
                     <div className="flex items-center gap-4 text-[7px] font-black uppercase tracking-[0.2em]">
-                       <span className={document.activeElement?.placeholder?.includes('account') ? 'text-brand-teal' : 'text-brand-navy/20'}>1. Name</span>
-                       <span className="text-brand-navy/10">→</span>
-                       <span className={document.activeElement?.placeholder?.includes('phone') ? 'text-brand-teal' : 'text-brand-navy/20'}>2. Phone</span>
-                       <span className="text-brand-navy/10">→</span>
-                       <span className={document.activeElement?.placeholder?.includes('address') ? 'text-brand-teal' : 'text-brand-navy/20'}>3. Address</span>
+                       <span className={document.activeElement?.placeholder?.includes('account') ? 'text-brand-teal' : 'text-brand-navy/55'}>1. Name</span>
+                       <span className="text-brand-navy/35">→</span>
+                       <span className={document.activeElement?.placeholder?.includes('phone') ? 'text-brand-teal' : 'text-brand-navy/55'}>2. Phone</span>
+                       <span className="text-brand-navy/35">→</span>
+                       <span className={document.activeElement?.placeholder?.includes('address') ? 'text-brand-teal' : 'text-brand-navy/55'}>3. Address</span>
                     </div>
                     <div className="text-[8px] font-black text-brand-teal uppercase tracking-widest animate-pulse">
                        {document.activeElement?.placeholder?.includes('address') ? 'Press Enter to Finish' : 'Press Enter to Continue'}
@@ -1493,7 +1497,7 @@ export default function QuotationEditorPage() {
           {/* Middle: Integrated Inputs */}
           <div className="flex-1 flex items-center gap-8 max-w-3xl">
               <div className="flex flex-col gap-1.5 flex-1">
-                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] ml-1">Subject</label>
+                 <label className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] ml-1">Subject</label>
                  <input
                    type="text"
                    placeholder="Enter descriptive title..."
@@ -1513,7 +1517,7 @@ export default function QuotationEditorPage() {
                </div>
 
               <div className="flex flex-col gap-1.5 w-28">
-                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] ml-1">Status</label>
+                 <label className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] ml-1">Status</label>
                  <select
                    value={status}
                    onChange={(e) => {
@@ -1533,7 +1537,7 @@ export default function QuotationEditorPage() {
               </div>
 
               <div className="flex flex-col gap-1.5 w-28 pl-4 border-l border-brand-navy/5">
-                 <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] ml-1">Valid Till</label>
+                 <label className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] ml-1">Valid Till</label>
                  <input
                    type="date"
                    value={validUntil}
@@ -1594,11 +1598,11 @@ export default function QuotationEditorPage() {
                    <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b-2 border-brand-navy/10">
-                            <th className="py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest pl-4">#</th>
-                            <th className="py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest text-left">Line Description & Specifications</th>
-                            <th className="py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest w-20 text-center">Qty</th>
-                            <th className="py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest w-40 text-right pr-4">Total (₹)</th>
-                            <th className="no-print py-2 text-[9px] font-black text-brand-navy/40 uppercase tracking-widest w-24 text-right pr-4">Actions</th>
+                            <th className="py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest pl-4">#</th>
+                            <th className="py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest text-left">Line Description & Specifications</th>
+                            <th className="py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest w-20 text-center">Qty</th>
+                            <th className="py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest w-40 text-right pr-4">Total (₹)</th>
+                            <th className="no-print py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest w-24 text-right pr-4">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-brand-navy/5">
@@ -1609,7 +1613,7 @@ export default function QuotationEditorPage() {
 
                           return (
                             <tr key={item.id || item._id} className="group hover:bg-zinc-50/50 transition-colors">
-                              <td className="py-2.5 pl-4 text-xs font-black text-brand-navy/10 tabular-nums align-top">{idx + 1}</td>
+                              <td className="py-2.5 pl-4 text-xs font-black text-brand-navy/45 tabular-nums align-top">{idx + 1}</td>
                               
                               {/* Description Column */}
                               <td className="py-2.5 align-top">
@@ -1658,7 +1662,7 @@ export default function QuotationEditorPage() {
                                        onWheel={(e) => e.currentTarget.blur()}
                                        className="w-32 bg-transparent border-none text-right text-sm font-black text-brand-teal focus:ring-0 p-0 hover:bg-brand-teal/5 rounded transition-all tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
-                                    <div className="text-[8px] font-bold text-brand-navy/20 uppercase tracking-widest mt-1">
+                                    <div className="text-[8px] font-bold text-brand-navy/55 uppercase tracking-widest mt-1">
                                        Subtotal {currency}
                                     </div>
                                  </div>
@@ -1701,7 +1705,7 @@ export default function QuotationEditorPage() {
                      )}
                      <button
                        onClick={handleWhatsAppShare}
-                       className={`no-print flex items-center gap-3 px-4 py-2 rounded-xl border-2 transition-all font-black uppercase tracking-widest shadow-sm ${shareError ? 'border-red-400 text-red-500 bg-red-50 animate-shake' : 'border-brand-navy/5 bg-white text-brand-navy/40 hover:text-brand-teal hover:border-brand-teal/30'}`}
+                       className={`no-print flex items-center gap-3 px-4 py-2 rounded-xl border-2 transition-all font-black uppercase tracking-widest shadow-sm ${shareError ? 'border-red-400 text-red-500 bg-red-50 animate-shake' : 'border-brand-navy/5 bg-white text-brand-navy/70 hover:text-brand-teal hover:border-brand-teal/30'}`}
                      >
                         <FaWhatsapp className="w-4 h-4" />
                         <span className="text-[10px]">WhatsApp</span>
@@ -1709,7 +1713,7 @@ export default function QuotationEditorPage() {
 
                      <button
                        onClick={() => window.print()}
-                       className="no-print flex items-center gap-3 px-4 py-2 rounded-xl border-2 border-brand-navy/5 bg-white text-brand-navy/40 hover:text-brand-teal hover:border-brand-teal/30 transition-all font-black uppercase tracking-widest shadow-sm"
+                       className="no-print flex items-center gap-3 px-4 py-2 rounded-xl border-2 border-brand-navy/5 bg-white text-brand-navy/70 hover:text-brand-teal hover:border-brand-teal/30 transition-all font-black uppercase tracking-widest shadow-sm"
                      >
                         <MdPrint className="w-4 h-4" />
                         <span className="text-[10px]">Print Quotation</span>
@@ -1717,11 +1721,11 @@ export default function QuotationEditorPage() {
 
                      <div className="flex gap-10">
                         <div>
-                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] mb-1.5">Line Items</div>
+                           <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] mb-1.5">Line Items</div>
                            <div className="text-xl font-black text-brand-navy">{lineItems.length}</div>
                         </div>
                         <div>
-                           <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-[0.2em] mb-1.5">Quote Status</div>
+                           <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] mb-1.5">Quote Status</div>
                            <div className="flex">
                               <span className="text-[10px] font-black uppercase bg-brand-mint text-brand-teal px-3 py-1 rounded-full border border-brand-teal/10">{status}</span>
                            </div>
@@ -1730,9 +1734,9 @@ export default function QuotationEditorPage() {
                   </div>
 
                   <div className="text-right">
-                      <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.3em] mb-2">Grand Total</div>
+                      <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.3em] mb-2">Grand Total</div>
                       <div className="text-4xl font-black text-brand-navy flex items-center justify-end gap-3">
-                        <span className="text-[14px] text-brand-navy/20 font-bold uppercase tracking-widest mt-1.5">{currency}</span>
+                        <span className="text-[14px] text-brand-navy/55 font-bold uppercase tracking-widest mt-1.5">{currency}</span>
                         {lineItems.reduce((acc, curr) => {
                           const itemTotal = curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0;
                           return acc + itemTotal;
@@ -1752,7 +1756,7 @@ export default function QuotationEditorPage() {
                   <button
                    key={t.id}
                    onClick={() => setActiveTab(t.id)}
-                   className={`flex items-center gap-2 px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-300 ${(t.id === "laser" ? activeTab === "laser" || activeTab === "brochure" : activeTab === t.id) ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                   className={`flex items-center gap-2 px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-300 ${(t.id === "laser" ? activeTab === "laser" || activeTab === "brochure" : activeTab === t.id) ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
                   >
                     <span className="text-base">{t.icon}</span>
                     {t.label}
@@ -1772,7 +1776,7 @@ export default function QuotationEditorPage() {
                     key={mode.id}
                     type="button"
                     onClick={() => setActiveTab(mode.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === mode.id ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/30 hover:text-brand-navy/60"}`}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === mode.id ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/60 hover:text-brand-navy/80"}`}
                   >
                     <span className="text-sm">{mode.icon}</span>
                     {mode.label}
@@ -1782,10 +1786,10 @@ export default function QuotationEditorPage() {
             )}
 
             {activeTab === "laser" ? (
-              <div className="flex flex-col lg:flex-row gap-6">
+              <div className="flex flex-col lg:flex-row items-start gap-6">
                   {/* Left: Inputs */}
-                  <div className="w-full lg:w-[450px] space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
+                  <div className={QUOTE_FORM_COLUMN_CLASS}>
+                      <div className={QUOTE_INPUT_GRID_CLASS}>
                           <TextField 
                             label="Job Title" 
                             ref={itemTitleRef}
@@ -1832,10 +1836,10 @@ export default function QuotationEditorPage() {
                                     }}
                                     value={customWidth}
                                     onChange={e => setCustomWidth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
                                   />
                                </div>
-                               <span className="text-[10px] font-black text-brand-navy/20">×</span>
+                               <span className="text-[10px] font-black text-brand-navy/55">×</span>
                                <div className="flex-1">
                                   <input
                                     type="number"
@@ -1849,7 +1853,7 @@ export default function QuotationEditorPage() {
                                     }}
                                     value={customBreadth}
                                     onChange={e => setCustomBreadth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
                                   />
                                </div>
                                <div className="w-16">
@@ -1898,7 +1902,7 @@ export default function QuotationEditorPage() {
                               }}
                            />
                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
+                              <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Charge Method</label>
                               <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
                                  {[
                                    { id: true, label: "Printing Only" },
@@ -1907,7 +1911,7 @@ export default function QuotationEditorPage() {
                                    <button
                                      key={m.label}
                                      onClick={() => setIsOnlyClipCharge(m.id)}
-                                     className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${isOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                     className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${isOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
                                    >
                                      {m.label}
                                    </button>
@@ -1919,13 +1923,13 @@ export default function QuotationEditorPage() {
                    
                       <div className="flex gap-4">
                           <div className="flex-1 space-y-2">
-                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Colour Mode</label>
+                             <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Colour Mode</label>
                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
                                 {['COLOR', 'BW'].map(m => (
                                   <button
                                     key={m}
                                     onClick={() => setLaserColorMode(m)}
-                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${laserColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${laserColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
                                   >
                                     {m === 'BW' ? 'B&W' : 'Multicolor'}
                                   </button>
@@ -1933,13 +1937,13 @@ export default function QuotationEditorPage() {
                              </div>
                           </div>
                           <div className="flex-1 space-y-2">
-                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Sides</label>
+                             <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Sides</label>
                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
                                 {['SINGLE', 'DOUBLE'].map(s => (
                                   <button
                                     key={s}
                                     onClick={() => setLaserSides(s)}
-                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${laserSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${laserSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
                                   >
                                     {s === 'SINGLE' ? 'Front Only' : 'Front & Back'}
                                   </button>
@@ -1950,7 +1954,7 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Pricing Preview */}
-                  <div className={`flex-1 rounded-2xl border-2 p-5 min-h-[300px] flex flex-col relative transition-all duration-300 ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} rounded-2xl border-2 p-5 min-h-[300px] flex flex-col relative ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
                        <div className="mb-4 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                              <MdOutlineAnalytics className="w-5 h-5 text-brand-teal" />
@@ -1969,7 +1973,7 @@ export default function QuotationEditorPage() {
                       ) : laserPricingOptions.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdComputer className={`w-12 h-12 ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400' : 'text-brand-navy/30'}`}>
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400' : 'text-brand-navy/65'}`}>
                              {laserSizeId && laserStockItemId && laserCopies 
                                ? "No printer available to print this configuration" 
                                : "Select dimensions and stock to see machine comparisons"}
@@ -1998,7 +2002,7 @@ export default function QuotationEditorPage() {
                                             {idx === 0 && isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Value</span>}
                                             {!isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-red-500 text-white rounded uppercase tracking-tighter shadow-sm">Non-Printable</span>}
                                          </div>
-                                         <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
+                                         <div className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
                                             {isPrintable ? (
                                               <>
                                                 <span>{opt.pricing.kind} Charge</span>
@@ -2041,7 +2045,7 @@ export default function QuotationEditorPage() {
                                 {editingLineId && (
                                   <button
                                     onClick={resetCalculator}
-                                    className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/30 hover:text-red-400 transition-colors"
+                                    className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/65 hover:text-red-400 transition-colors"
                                   >
                                     Cancel
                                   </button>
@@ -2120,11 +2124,11 @@ export default function QuotationEditorPage() {
                   </div>
               </div>
             ) : activeTab === "brochure" ? (
-              <div className="flex flex-col lg:flex-row gap-6 animate-fade-in">
+              <div className="flex flex-col lg:flex-row items-start gap-6 animate-fade-in">
                   {/* Left: Inputs */}
-                  <div className="w-full lg:w-[450px] space-y-4">
+                  <div className={QUOTE_FORM_COLUMN_CLASS}>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Binding Type</label>
+                          <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Binding Type</label>
                           <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
                             {[
                               { id: "CENTER_CLIP", label: "Center Clip" },
@@ -2134,20 +2138,20 @@ export default function QuotationEditorPage() {
                                 key={mode.id}
                                 type="button"
                                 onClick={() => setBookletBindingType(mode.id)}
-                                className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${bookletBindingType === mode.id ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/30 hover:text-brand-navy/60"}`}
+                                className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${bookletBindingType === mode.id ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/60 hover:text-brand-navy/80"}`}
                               >
                                 {mode.label}
                               </button>
                             ))}
                           </div>
-                          <div className="text-[10px] font-bold text-brand-navy/40 leading-relaxed px-1">
+                          <div className="text-[10px] font-bold text-brand-navy/70 leading-relaxed px-1">
                             {isCenterClipBinding
                               ? "Nested center-pin folded signatures with full composition intelligence."
                               : "Sequential folded stack signatures for perfect binding."}
                           </div>
                         </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
+                      <div className={QUOTE_INPUT_GRID_CLASS}>
                           <TextField 
                             label="Job Title" 
                             placeholder="e.g. Annual Report, Booklet..." 
@@ -2180,17 +2184,17 @@ export default function QuotationEditorPage() {
                                     placeholder="Width"
                                     value={customWidth}
                                     onChange={e => setCustomWidth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
                                   />
                                </div>
-                               <span className="text-[10px] font-black text-brand-navy/20">×</span>
+                               <span className="text-[10px] font-black text-brand-navy/55">×</span>
                                <div className="flex-1">
                                   <input
                                     type="number"
                                     placeholder="Breadth"
                                     value={customBreadth}
                                     onChange={e => setCustomBreadth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
                                   />
                                </div>
                                <div className="w-16">
@@ -2208,18 +2212,18 @@ export default function QuotationEditorPage() {
                           )}
 
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Orientation</label>
+                            <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Orientation</label>
                             <div className="rounded-2xl border border-brand-navy/5 bg-zinc-50 p-1">
                               <div className="flex items-center justify-between gap-3">
                                 <button
                                   type="button"
                                   onClick={() => handleBrochureOrientationChange("NORMAL")}
-                                  className={`flex-1 rounded-xl p-3 text-left transition-all ${brochureOrientation === "NORMAL" ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/30 hover:text-brand-navy/60"}`}
+                                  className={`flex-1 rounded-xl p-3 text-left transition-all ${brochureOrientation === "NORMAL" ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/60 hover:text-brand-navy/80"}`}
                                 >
                                   <div className="flex items-center justify-between gap-3">
                                     <div>
                                       <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Portrait</div>
-                                      <div className="text-[9px] font-bold text-brand-navy/40 mt-1">Normal page reading</div>
+                                      <div className="text-[9px] font-bold text-brand-navy/70 mt-1">Normal page reading</div>
                                     </div>
                                     <div className="w-8 h-10 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center">
                                       <span className="text-xl font-black text-brand-teal">A</span>
@@ -2230,12 +2234,12 @@ export default function QuotationEditorPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleBrochureOrientationChange("ROTATED")}
-                                  className={`flex-1 rounded-xl p-3 text-left transition-all ${brochureOrientation === "ROTATED" ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/30 hover:text-brand-navy/60"}`}
+                                  className={`flex-1 rounded-xl p-3 text-left transition-all ${brochureOrientation === "ROTATED" ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/60 hover:text-brand-navy/80"}`}
                                 >
                                   <div className="flex items-center justify-between gap-3">
                                     <div>
                                       <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Landscape</div>
-                                      <div className="text-[9px] font-bold text-brand-navy/40 mt-1">Rotated page reading</div>
+                                      <div className="text-[9px] font-bold text-brand-navy/70 mt-1">Rotated page reading</div>
                                     </div>
                                     <div className="w-10 h-8 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center">
                                       <span className="text-xl font-black text-brand-teal rotate-90 inline-block">A</span>
@@ -2276,7 +2280,7 @@ export default function QuotationEditorPage() {
                       <label className="block">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-sm font-medium text-brand-navy/80">Color Pages</span>
-                          <span className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-widest">
+                          <span className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-widest">
                             blank = all B&W
                           </span>
                         </div>
@@ -2293,7 +2297,7 @@ export default function QuotationEditorPage() {
                       </label>
 
                       <div className="flex flex-col gap-2">
-                          <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Charge Method</label>
+                          <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Charge Method</label>
                           <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
                              {[
                                { id: true, label: "Printing Only" },
@@ -2302,7 +2306,7 @@ export default function QuotationEditorPage() {
                                <button
                                  key={m.label}
                                  onClick={() => setBrochureIsOnlyClipCharge(m.id)}
-                                 className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureIsOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                 className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureIsOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
                                >
                                  {m.label}
                                </button>
@@ -2313,7 +2317,7 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Brochure Composition \u0026 Pricing */}
-                  <div className={`flex-1 rounded-2xl border-2 p-5 min-h-[400px] flex flex-col relative transition-all duration-300 ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} rounded-2xl border-2 p-5 min-h-[400px] flex flex-col relative ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
                       <div className="mb-4 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                              <MdLayers className="w-5 h-5 text-brand-teal" />
@@ -2338,7 +2342,7 @@ export default function QuotationEditorPage() {
                       ) : brochureViews.length === 0 && brochureNestedPrintPlans.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdLayers className={`w-12 h-12 ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400' : 'text-brand-navy/30'}`}>
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400' : 'text-brand-navy/65'}`}>
                              {brochureSizeId && brochureStockItemId && brochureCopies 
                                ? "No booklet composition possible for this page count" 
                                : "Configure booklet details to see options"}
@@ -2373,7 +2377,7 @@ export default function QuotationEditorPage() {
                            {brochureNestedPrintPlans.length > 0 && (
                              <div className="space-y-3">
                                <div className="flex items-center justify-between px-1">
-                                 <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">
+                                 <h4 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em]">
                                    {isPerfectBinding ? "Perfect Binding Options" : "Nested Center Pin Options"}
                                  </h4>
                                  <span className="text-[9px] font-black text-brand-teal uppercase tracking-widest">
@@ -2395,7 +2399,7 @@ export default function QuotationEditorPage() {
                                            <span className="text-xs font-black text-brand-navy">Option {planIdx + 1}</span>
                                            {brochureWorkflowBadges(plan).map((badge) => renderBrochureWorkflowBadge(badge))}
                                          </div>
-                                        <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1 truncate">
+                                        <div className="text-[10px] font-bold text-brand-navy/70 uppercase tracking-tight mt-1 truncate">
                                           {nestedPlanPaperUsageLabel(plan)} • {plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}
                                          </div>
                                         <div className="text-[10px] font-black text-brand-teal uppercase tracking-tight mt-1 truncate">
@@ -2425,7 +2429,7 @@ export default function QuotationEditorPage() {
                                          {plan.totals?.price != null && (
                                            <div className="text-sm font-black text-brand-navy">₹{Number(plan.totals.price).toLocaleString()}</div>
                                          )}
-                                         <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest mt-1">
+                                         <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-widest mt-1">
                                            {nestedPlanPrinterNames(plan).length === 1 ? "Single Printer" : "Multi Printer"}
                                          </div>
                                        </div>
@@ -2438,17 +2442,17 @@ export default function QuotationEditorPage() {
                                  <div className="bg-brand-navy/2 rounded-2xl border border-brand-navy/5 p-4 space-y-4">
                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                                      <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
-                                       <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Print Sets</div>
+                                       <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Print Sets</div>
                                        <div className="text-lg font-black text-brand-navy mt-1">{selectedNestedPrintPlan.printRunCount}</div>
                                      </div>
                                      <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
-                                      <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Print Sheets</div>
+                                      <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Print Sheets</div>
                                       <div className="text-lg font-black text-brand-navy mt-1">
                                         {selectedNestedPrintPlan.printedSheetsForCopies ?? selectedNestedPrintPlan.physicalSheetsPerBrochure}
                                       </div>
                                      </div>
                                      <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
-                                       <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Plan</div>
+                                       <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Plan</div>
                                        <div className="text-sm font-black text-brand-teal mt-1">{selectedNestedPrintPlan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}</div>
                                      </div>
                                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
@@ -2483,7 +2487,7 @@ export default function QuotationEditorPage() {
                                              </div>
                                            </div>
                                           <div className="text-right">
-                                            <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest">
+                                            <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-widest">
                                                {group.signaturePages / 2} pages per side
                                             </div>
                                             <div className="text-[9px] font-black text-brand-teal uppercase tracking-tight mt-1 max-w-[180px] truncate">
@@ -2499,7 +2503,7 @@ export default function QuotationEditorPage() {
                                                  <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">
                                                    Set {signature.runIndex}: {isPerfectBinding ? "Stack block" : nestedRoleLabel(signature.nestRole)}
                                                  </div>
-                                                 <div className="text-[10px] font-bold text-brand-navy/40 uppercase tracking-tight mt-1">
+                                                 <div className="text-[10px] font-bold text-brand-navy/70 uppercase tracking-tight mt-1">
                                                    Pages {signature.readerPages.join(", ")}
                                                  </div>
                                                  <div className="text-[10px] font-black text-brand-teal uppercase tracking-tight mt-1">
@@ -2512,11 +2516,11 @@ export default function QuotationEditorPage() {
                                                  )}
                                                </div>
                                                <div className="text-right">
-                                                 <div className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest">Portion</div>
+                                                 <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-widest">Portion</div>
                                                  <div className="text-[11px] font-black text-brand-navy">
                                                    {signature.portion.width}×{signature.portion.breadth}{signature.portion.unit}
                                                  </div>
-                                                 <div className="text-[9px] font-bold text-brand-navy/30 uppercase mt-0.5">
+                                                 <div className="text-[9px] font-bold text-brand-navy/65 uppercase mt-0.5">
                                                    {signature.gridOnPortion.across}×{signature.gridOnPortion.down}
                                                  </div>
                                                  <div className="text-[9px] font-black text-amber-700 uppercase mt-1">
@@ -2543,7 +2547,7 @@ export default function QuotationEditorPage() {
                                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                                <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
                                                  <div className="flex items-center justify-between gap-2 mb-2">
-                                                   <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Front Side</div>
+                                                   <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Front Side</div>
                                                    <div className="text-[8px] font-black text-amber-700 uppercase tracking-tight">
                                                      Trim waste {paperWasteStatsForSignature(signature).wastePercent}%
                                                    </div>
@@ -2552,7 +2556,7 @@ export default function QuotationEditorPage() {
                                                </div>
                                                <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
                                                  <div className="flex items-center justify-between gap-2 mb-2">
-                                                   <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest">Back Side</div>
+                                                   <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Back Side</div>
                                                    <div className="text-[8px] font-black text-amber-700 uppercase tracking-tight">
                                                      Paper used {paperWasteStatsForSignature(signature).usedPercent}%
                                                    </div>
@@ -2570,7 +2574,7 @@ export default function QuotationEditorPage() {
                                      {editingLineId && (
                                        <button
                                          onClick={resetCalculator}
-                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/30 hover:text-red-400 transition-colors"
+                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/65 hover:text-red-400 transition-colors"
                                        >
                                          Cancel
                                        </button>
@@ -2644,7 +2648,7 @@ export default function QuotationEditorPage() {
                                 <div className="p-4 bg-brand-navy/[0.03] rounded-xl border border-brand-navy/5">
                                    <div className="flex items-center gap-2 mb-2">
                                       <MdInfo className="w-4 h-4 text-brand-teal" />
-                                      <span className="text-[10px] font-black text-brand-navy/40 uppercase tracking-widest">Composition Strategy</span>
+                                      <span className="text-[10px] font-black text-brand-navy/70 uppercase tracking-widest">Composition Strategy</span>
                                    </div>
                                    <p className="text-[11px] font-bold text-brand-navy/70 leading-relaxed italic">
                                       "{selectedBrochureView.workflowSummary || selectedBrochureView.intelligence.humanSummary}"
@@ -2658,7 +2662,7 @@ export default function QuotationEditorPage() {
 
                                 {/* Ranked Printers */}
                                 <div className="space-y-3">
-                                   <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em] px-1">Printer Options</h4>
+                                   <h4 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em] px-1">Printer Options</h4>
                                    <div className="grid grid-cols-1 gap-3">
                                       {/* Single Printer Options */}
                                       {selectedBrochureView.singlePrinterRanked.map((opt, oIdx) => (
@@ -2672,7 +2676,7 @@ export default function QuotationEditorPage() {
                                                  {opt.printerModelName}
                                                  {oIdx === 0 && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Value</span>}
                                               </div>
-                                              <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1">
+                                              <div className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-tight mt-1">
                                                  Single Printer Workflow • {opt.totals.prints} Prints • {opt.totals.colorPrints ?? 0} Color / {opt.totals.bwPrints ?? 0} B&amp;W
                                               </div>
                                            </div>
@@ -2694,7 +2698,7 @@ export default function QuotationEditorPage() {
                                                  Mixed Machines
                                                  <span className="text-[8px] px-1.5 py-0.5 bg-brand-navy text-white rounded uppercase tracking-tighter">Hybrid</span>
                                               </div>
-                                              <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1">
+                                              <div className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-tight mt-1">
                                                  Optimized per segment • {opt.totals.prints} Prints • {opt.totals.colorPrints ?? 0} Color / {opt.totals.bwPrints ?? 0} B&amp;W
                                               </div>
                                            </div>
@@ -2717,7 +2721,7 @@ export default function QuotationEditorPage() {
                                 )}
 
                                 <div className="space-y-3">
-                                   <h4 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em] px-1">Segment Breakdown</h4>
+                                   <h4 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em] px-1">Segment Breakdown</h4>
                                    <div className="space-y-4">
                                       {selectedBrochureView.segments.map((seg, sIdx) => {
                                         const optData = selectedBrochureOption?.kind === 'SINGLE' 
@@ -2733,7 +2737,7 @@ export default function QuotationEditorPage() {
                                                    <h5 className="text-xs font-black text-brand-navy mt-0.5">{seg.layoutSummary}</h5>
                                                 </div>
                                                 <div className="text-right">
-                                                   <div className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">Spread Size</div>
+                                                   <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest">Spread Size</div>
                                                    <div className="text-[11px] font-black text-brand-navy">{seg.spreadSize.width}×{seg.spreadSize.breadth}{seg.spreadSize.unit}</div>
                                                 </div>
                                              </div>
@@ -2742,17 +2746,17 @@ export default function QuotationEditorPage() {
                                                 {/* Page Numbering Grids */}
                                                 {seg.pageNumbering && (
                                                   <div className="space-y-2 md:col-span-2">
-                                                     <div className="text-[9px] font-black text-brand-navy/20 uppercase tracking-widest">Imposition ({seg.pageNumbering.orientation})</div>
+                                                     <div className="text-[9px] font-black text-brand-navy/55 uppercase tracking-widest">Imposition ({seg.pageNumbering.orientation})</div>
                                                      {seg.partPages === 2 && (
                                                        <p className="text-[10px] font-bold text-amber-700/80 leading-relaxed">{seg.layoutSummary}</p>
                                                      )}
                                                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                                         <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                                                           <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest mb-2">Front</div>
+                                                           <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest mb-2">Front</div>
                                                            {renderBrochureImpositionSide(seg, seg.pageNumbering.front, "teal")}
                                                         </div>
                                                         <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                                                           <div className="text-[8px] font-black text-brand-navy/30 uppercase tracking-widest mb-2">Back</div>
+                                                           <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest mb-2">Back</div>
                                                            {renderBrochureImpositionSide(seg, seg.pageNumbering.back, "navy")}
                                                         </div>
                                                      </div>
@@ -2765,19 +2769,19 @@ export default function QuotationEditorPage() {
                                                      <div className="text-[9px] font-black text-brand-teal/60 uppercase tracking-widest mb-2">Segment Run</div>
                                                      <div className="space-y-1.5">
                                                         <div className="flex justify-between text-[10px] font-bold">
-                                                           <span className="text-brand-navy/40">Yield</span>
+                                                           <span className="text-brand-navy/70">Yield</span>
                                                            <span className="text-brand-navy">{optData.laserOption?.piecesPerSheet || '--'} up</span>
                                                         </div>
                                                         <div className="flex justify-between text-[10px] font-bold">
-                                                           <span className="text-brand-navy/40">Impressions</span>
+                                                           <span className="text-brand-navy/70">Impressions</span>
                                                            <span className="text-brand-navy">{optData.laserOption?.prints || '--'} prints</span>
                                                         </div>
                                                         <div className="flex justify-between text-[10px] font-bold">
-                                                           <span className="text-brand-navy/40">Front Side</span>
+                                                           <span className="text-brand-navy/70">Front Side</span>
                                                            <span className="text-brand-navy">{seg.sideClassification?.frontSideMode || 'BW'}</span>
                                                         </div>
                                                         <div className="flex justify-between text-[10px] font-bold">
-                                                           <span className="text-brand-navy/40">Back Side</span>
+                                                           <span className="text-brand-navy/70">Back Side</span>
                                                            <span className="text-brand-navy">{seg.sideClassification?.backSideMode || 'BW'}</span>
                                                         </div>
                                                      </div>
@@ -2796,7 +2800,7 @@ export default function QuotationEditorPage() {
                                      {editingLineId && (
                                        <button
                                          onClick={resetCalculator}
-                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/30 hover:text-red-400 transition-colors"
+                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/65 hover:text-red-400 transition-colors"
                                        >
                                          Cancel
                                        </button>
@@ -2870,14 +2874,14 @@ export default function QuotationEditorPage() {
                   <MdLayers className="w-16 h-16 text-brand-navy/10" />
                   <div>
                      <h3 className="text-sm font-black text-brand-navy uppercase tracking-[0.2em]">Bookwork Module</h3>
-                     <p className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-widest mt-2">Coming Soon • Advanced gathered \u0026 perfect bound quoting</p>
+                     <p className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-widest mt-2">Coming Soon • Advanced gathered \u0026 perfect bound quoting</p>
                   </div>
                </div>
             ) : (
-              <div className="flex flex-col lg:flex-row gap-6 animate-fade-in">
+              <div className="flex flex-col lg:flex-row items-start gap-6 animate-fade-in">
                   {/* Left: Inputs */}
-                  <div className="w-full lg:w-[450px] space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
+                  <div className={QUOTE_FORM_COLUMN_CLASS}>
+                      <div className={QUOTE_INPUT_GRID_CLASS}>
                           <TextField 
                             label="Job Title" 
                             placeholder="e.g. Notice, Poster..." 
@@ -2901,17 +2905,17 @@ export default function QuotationEditorPage() {
                                     placeholder="Width"
                                     value={customWidth}
                                     onChange={e => setCustomWidth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
                                   />
                                </div>
-                               <span className="text-[10px] font-black text-brand-navy/20">×</span>
+                               <span className="text-[10px] font-black text-brand-navy/55">×</span>
                                <div className="flex-1">
                                   <input
                                     type="number"
                                     placeholder="Breadth"
                                     value={customBreadth}
                                     onChange={e => setCustomBreadth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/20 py-1"
+                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
                                   />
                                </div>
                                <div className="w-16">
@@ -2942,13 +2946,13 @@ export default function QuotationEditorPage() {
                           <TextField label="Copies" type="number" value={offsetCopies} onChange={e => setOffsetCopies(e.target.value)} />
                           <TextField label="Waste Imp." type="number" value={offsetWaste} onChange={e => setOffsetWaste(e.target.value)} />
                           <div className="flex flex-col gap-2">
-                             <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Sides</label>
+                             <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Sides</label>
                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
                                 {['SINGLE', 'DOUBLE'].map(s => (
                                   <button
                                     key={s}
                                     onClick={() => setOffsetSides(s)}
-                                    className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${offsetSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                    className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${offsetSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
                                   >
                                     {s === 'SINGLE' ? 'Front' : 'F&B'}
                                   </button>
@@ -2957,10 +2961,10 @@ export default function QuotationEditorPage() {
                           </div>
                           {offsetSides === 'DOUBLE' && (
                              <div className="flex flex-col gap-2 animate-fade-in">
-                                <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Diff Content?</label>
+                                <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Diff Content?</label>
                                 <button
                                   onClick={() => setOffsetIsBackSideDifferent(!offsetIsBackSideDifferent)}
-                                  className={`h-11 rounded-xl border flex items-center justify-center transition-all ${offsetIsBackSideDifferent ? 'bg-brand-mint/10 border-brand-mint text-brand-teal' : 'bg-white border-brand-navy/10 text-brand-navy/40'}`}
+                                  className={`h-11 rounded-xl border flex items-center justify-center transition-all ${offsetIsBackSideDifferent ? 'bg-brand-mint/10 border-brand-mint text-brand-teal' : 'bg-white border-brand-navy/10 text-brand-navy/70'}`}
                                   title="Check if back side content is different (requires 2 plate sets)"
                                 >
                                    <span className="text-[10px] font-black uppercase tracking-tighter">{offsetIsBackSideDifferent ? 'Yes (2 Plates)' : 'No (1 Plate)'}</span>
@@ -2970,13 +2974,13 @@ export default function QuotationEditorPage() {
                       </div>
 
                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">Colour Mode</label>
+                         <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Colour Mode</label>
                          <div className="flex flex-wrap bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
                             {['Single', 'Two Colour', 'Three Colour', 'Multi'].map(m => (
                               <button
                                 key={m}
                                 onClick={() => setOffsetColorMode(m)}
-                                className={`flex-1 py-2 px-2 text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all whitespace-nowrap ${offsetColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/30 hover:text-brand-navy/60'}`}
+                                className={`flex-1 py-2 px-2 text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all whitespace-nowrap ${offsetColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
                               >
                                 {m}
                               </button>
@@ -2986,7 +2990,7 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Results Mirror Laser pattern */}
-                  <div className="flex-1 flex flex-col min-w-0 bg-zinc-50/50 rounded-3xl border border-brand-navy/5 p-5 relative overflow-hidden">
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} flex flex-col min-w-0 bg-zinc-50/50 rounded-3xl border border-brand-navy/5 p-5 relative overflow-hidden`}>
                        <div className="mb-4 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                              <MdOutlineAnalytics className="w-5 h-5 text-brand-teal" />
@@ -3013,7 +3017,7 @@ export default function QuotationEditorPage() {
                       ) : offsetPricingOptions.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdPrint className={`w-12 h-12 ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400' : 'text-brand-navy/30'}`}>
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400' : 'text-brand-navy/65'}`}>
                               {offsetSizeId && offsetStockItemId && offsetCopies 
                                 ? "No printer available to print this configuration" 
                                 : "Select dimensions and offset stock to see machine comparisons"}
@@ -3040,7 +3044,7 @@ export default function QuotationEditorPage() {
                                              {idx === 0 && isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Match</span>}
                                              {!isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-red-500 text-white rounded uppercase tracking-tighter shadow-sm">Geometric Error</span>}
                                           </div>
-                                          <div className="text-[10px] font-bold text-brand-navy/30 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
+                                          <div className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
                                              {isPrintable ? (
                                                <>
                                                  <span>{opt.piecesPerSheet} Up</span>
@@ -3054,7 +3058,7 @@ export default function QuotationEditorPage() {
                                                    <div className="w-full mt-2 pt-2 border-t border-brand-navy/5 flex flex-wrap gap-x-4 gap-y-1">
                                                       {opt.pricing.chargeComponents.map(c => (
                                                         <div key={c.role} className="flex items-center gap-1.5">
-                                                           <span className="text-[8px] font-black uppercase text-brand-navy/20 tracking-tighter">{c.role === 'printing' ? 'Print' : 'Paper'} :</span>
+                                                           <span className="text-[8px] font-black uppercase text-brand-navy/55 tracking-tighter">{c.role === 'printing' ? 'Print' : 'Paper'} :</span>
                                                            <span className={`text-[9px] font-black ${c.role === 'printing' ? 'text-brand-navy/60' : 'text-brand-teal'}`}>₹{c.amount.toLocaleString()}</span>
                                                         </div>
                                                       ))}
@@ -3095,7 +3099,7 @@ export default function QuotationEditorPage() {
                                  {editingLineId && (
                                    <button
                                      onClick={resetCalculator}
-                                     className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/30 hover:text-red-400 transition-colors"
+                                     className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/65 hover:text-red-400 transition-colors"
                                    >
                                      Cancel
                                    </button>
@@ -3189,10 +3193,10 @@ export default function QuotationEditorPage() {
                     <div className="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20"><MdPersonAdd className="w-6 h-6"/></div>
                     <div>
                        <h2 className="text-xl font-black text-brand-teal leading-none mb-1">New Customer</h2>
-                       <p className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest">Register and link to this quote</p>
+                       <p className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest">Register and link to this quote</p>
                     </div>
                  </div>
-                 <button onClick={() => setShowNewCustModal(false)} className="text-brand-navy/40 hover:bg-zinc-100 p-2 rounded-full transition-colors"><MdClose className="w-5 h-5"/></button>
+                 <button onClick={() => setShowNewCustModal(false)} className="text-brand-navy/70 hover:bg-zinc-100 p-2 rounded-full transition-colors"><MdClose className="w-5 h-5"/></button>
               </div>
 
               <div className="p-8 space-y-6 overflow-y-auto no-scrollbar max-h-[60vh]">
@@ -3211,7 +3215,7 @@ export default function QuotationEditorPage() {
                  </div>
 
                  <div className="space-y-4 pt-4 border-t border-brand-navy/5">
-                    <h3 className="text-[10px] font-black text-brand-navy/30 uppercase tracking-widest leading-none mb-4">Billing Address</h3>
+                    <h3 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest leading-none mb-4">Billing Address</h3>
                     <TextField label="Address Line 1" value={newCustAddress.line1} onChange={e => setNewCustAddress({...newCustAddress, line1: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.line1?.[0]} />
                     <div className="grid grid-cols-2 gap-4">
                        <TextField label="City" value={newCustAddress.city} onChange={e => setNewCustAddress({...newCustAddress, city: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.city?.[0]} />
@@ -3226,7 +3230,7 @@ export default function QuotationEditorPage() {
 
 
               <div className="p-8 border-t border-brand-navy/5 bg-zinc-50/50 flex justify-end gap-3">
-                 <button onClick={() => setShowNewCustModal(false)} className="px-6 py-3 text-[10px] font-black text-brand-navy/30 hover:text-brand-navy transition-all uppercase tracking-widest">Cancel</button>
+                 <button onClick={() => setShowNewCustModal(false)} className="px-6 py-3 text-[10px] font-black text-brand-navy/65 hover:text-brand-navy transition-all uppercase tracking-widest">Cancel</button>
                  <PrimaryButton onClick={handleCreateNewCustomer} disabled={busy}>{busy ? "Registering..." : "Create & Link"}</PrimaryButton>
               </div>
            </div>
@@ -3248,12 +3252,12 @@ export default function QuotationEditorPage() {
                     </div>
                     <div>
                        <h2 className="text-xl font-bold text-brand-navy leading-none mb-1">Layout Inspection</h2>
-                       <p className="text-[10px] font-black text-brand-navy/30 uppercase tracking-[0.2em]">{previewingLayoutOption.printerModelName}</p>
+                       <p className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em]">{previewingLayoutOption.printerModelName}</p>
                     </div>
                  </div>
                  <button
                   onClick={() => setPreviewingLayoutOption(null)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-brand-navy/30 hover:bg-zinc-100 hover:text-brand-navy transition-all"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-brand-navy/60 hover:bg-zinc-100 hover:text-brand-navy transition-all"
                  >
                     <MdClose className="w-6 h-6" />
                  </button>
@@ -3302,7 +3306,7 @@ export default function QuotationEditorPage() {
                             <span className="text-[9px] font-bold text-brand-teal uppercase tracking-widest mt-1">Pricing & Logic Blueprint</span>
                        </div>
                       </div>
-                      <button onClick={() => setShowOffsetHelp(false)} className="w-10 h-10 flex items-center justify-center rounded-xl text-brand-navy/20 hover:text-brand-navy hover:bg-zinc-100 transition-all">
+                      <button onClick={() => setShowOffsetHelp(false)} className="w-10 h-10 flex items-center justify-center rounded-xl text-brand-navy/55 hover:text-brand-navy hover:bg-zinc-100 transition-all">
                          <MdClose className="w-5 h-5" />
                       </button>
                    </div>
@@ -3328,7 +3332,7 @@ export default function QuotationEditorPage() {
 
                       {/* Section 2: Material Calculation */}
                       <div className="space-y-4">
-                         <h3 className="text-[11px] font-black text-brand-navy/40 uppercase tracking-[0.2em]">02. Material (Paper Sheets)</h3>
+                         <h3 className="text-[11px] font-black text-brand-navy/70 uppercase tracking-[0.2em]">02. Material (Paper Sheets)</h3>
                          <div className="p-5 bg-zinc-50 rounded-2xl border border-brand-navy/5 space-y-4">
                             <div className="flex items-start gap-3">
                                <div className="w-6 h-6 rounded-lg bg-brand-teal/10 text-brand-teal flex items-center justify-center text-[10px] font-black flex-shrink-0">A</div>
@@ -3362,7 +3366,7 @@ export default function QuotationEditorPage() {
 
                       {/* Section 3: Machine Setup (Plates) */}
                       <div className="space-y-4">
-                         <h3 className="text-[11px] font-black text-brand-navy/40 uppercase tracking-[0.2em]">03. Machine Run (Logic)</h3>
+                         <h3 className="text-[11px] font-black text-brand-navy/70 uppercase tracking-[0.2em]">03. Machine Run (Logic)</h3>
                          <div className="p-5 bg-brand-mint/50 rounded-2xl border border-brand-teal/10 relative overflow-hidden space-y-6">
                             <div className="absolute top-0 right-0 p-3 opacity-10">
                                <MdLayers className="w-12 h-12 text-brand-teal" />
@@ -3398,7 +3402,7 @@ export default function QuotationEditorPage() {
 
                       {/* Section 4: Bulk Threshold Boundary */}
                       <div className="space-y-4">
-                         <h3 className="text-[11px] font-black text-brand-navy/40 uppercase tracking-[0.2em]">04. Bulk Threshold Boundary</h3>
+                         <h3 className="text-[11px] font-black text-brand-navy/70 uppercase tracking-[0.2em]">04. Bulk Threshold Boundary</h3>
                          <div className="p-6 bg-brand-mint text-brand-teal rounded-3xl relative overflow-hidden border border-brand-teal/20">
                             <div className="text-sm font-black mb-1 uppercase tracking-tighter">The "Inclusive Switch"</div>
                             <p className="text-[10px] font-bold opacity-60 mb-6 uppercase tracking-widest leading-none">Status based on Billed Impressions</p>
@@ -3425,7 +3429,7 @@ export default function QuotationEditorPage() {
                             
                             <div className="mt-8 space-y-3">
                                <div className="p-3 bg-white/60 rounded-xl border border-brand-teal/10">
-                                  <div className="text-[9px] font-black uppercase text-brand-navy/40 mb-1 text-center">Boundary Comparison (Example)</div>
+                                  <div className="text-[9px] font-black uppercase text-brand-navy/70 mb-1 text-center">Boundary Comparison (Example)</div>
                                   <div className="flex items-center justify-between text-[11px]">
                                      <span className="font-bold">9,999 Imp. <span className="opacity-30">(Standard)</span></span>
                                      <span className="font-black text-red-500">₹ 3,800</span>
@@ -3445,7 +3449,7 @@ export default function QuotationEditorPage() {
 
                    <div className="p-8 border-t border-brand-navy/5 bg-zinc-50/50 flex flex-col gap-1">
                       <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Need more detail?</div>
-                      <div className="text-[11px] font-medium text-brand-navy/40">The machine rates shown are final calculations based on the printer's current tiered configuration.</div>
+                      <div className="text-[11px] font-medium text-brand-navy/70">The machine rates shown are final calculations based on the printer's current tiered configuration.</div>
                    </div>
                </div>
            </div>
@@ -3458,7 +3462,7 @@ export default function QuotationEditorPage() {
 function CompactInput({ label, value, onChange, isAmount = false }) {
   return (
     <div className="flex flex-col gap-1.5 flex-1 min-w-[100px]">
-       <label className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest pl-1">{label}</label>
+       <label className="text-[9px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">{label}</label>
        <input
         type="text"
         placeholder={label}
