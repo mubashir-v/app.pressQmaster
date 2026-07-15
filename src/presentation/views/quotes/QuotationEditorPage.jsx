@@ -25,9 +25,10 @@ const TABS = [
   { id: "offset", label: "Offset Printing", icon: <MdPrint /> }
 ];
 
-const QUOTE_FORM_COLUMN_CLASS = "w-full lg:flex-[1_1_0] lg:min-w-[440px] space-y-4";
+const QUOTE_FORM_COLUMN_CLASS = "w-full lg:flex-[1_1_0] lg:min-w-[440px] lg:sticky lg:top-4 lg:self-start space-y-4";
 const QUOTE_INPUT_GRID_CLASS = "grid grid-cols-1 md:grid-cols-2 gap-5";
-const QUOTE_OPTIONS_PANEL_CLASS = "w-full lg:flex-[0_0_25%] lg:min-w-[260px] lg:max-w-[360px] lg:hover:flex-[1_1_65%] lg:focus-within:flex-[1_1_65%] lg:hover:max-w-none lg:focus-within:max-w-none lg:hover:z-20 lg:focus-within:z-20 lg:hover:shadow-2xl lg:focus-within:shadow-2xl transition-[flex,max-width,box-shadow] duration-300 ease-out";
+const QUOTE_OPTIONS_PANEL_CLASS = "w-full lg:flex-[0_0_25%] lg:min-w-[260px] lg:max-w-[360px] lg:max-h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar lg:hover:flex-[1_1_65%] lg:focus-within:flex-[1_1_65%] lg:hover:max-w-none lg:focus-within:max-w-none lg:hover:z-20 lg:focus-within:z-20 lg:hover:shadow-2xl lg:focus-within:shadow-2xl transition-[flex,max-width,box-shadow] duration-300 ease-out";
+const QUOTE_SECTION_LABEL_CLASS = "text-[10px] font-black text-brand-navy/70 uppercase tracking-[0.25em]";
 
 
 export default function QuotationEditorPage() {
@@ -1273,7 +1274,7 @@ export default function QuotationEditorPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-stretch overflow-x-hidden animate-fade-in select-none">
+    <div className="min-h-screen bg-[#F1F4F9] print:bg-white flex flex-col items-stretch overflow-x-hidden animate-fade-in select-none">
 
        {/* Professional Printable Letterhead (Only visible in Print) */}
        <div className="print-only w-full mb-12">
@@ -1331,7 +1332,11 @@ export default function QuotationEditorPage() {
       </div>
 
        {/* 1. Technical Header */}
-       <section className="no-print px-10 py-6 border-b border-brand-navy/5 flex items-center justify-between gap-12 bg-[#FDFDFD]">
+       <section className="no-print relative m-4 mb-0 rounded-4xl border border-brand-navy/15 bg-white px-8 pt-9 pb-5 shadow-md shadow-brand-navy/5 flex items-center justify-between gap-12">
+          <div className={`${QUOTE_SECTION_LABEL_CLASS} absolute left-8 top-3 flex items-center gap-2`}>
+             <span className="h-1.5 w-1.5 rounded-full bg-brand-teal" />
+             Quote Details
+          </div>
           {/* Left: Navigation & Customer Cluster */}
           <div className="flex items-center gap-6">
               <button
@@ -1584,8 +1589,15 @@ export default function QuotationEditorPage() {
       </section>
 
       {/* 2. High-Density Preview Area (Relocated Above Calculator) */}
-      <section className="bg-[#F1F4F9] print:bg-white p-2 lg:p-4 print:p-0 border-b border-brand-navy/5 print:border-none">
-          <div className="w-full bg-white rounded-3xl print:rounded-none shadow-inner print:shadow-none border border-brand-navy/5 print:border-none overflow-hidden flex flex-col">
+      <section className="bg-[#F1F4F9] print:bg-white px-4 pb-4 pt-3 print:p-0 border-b border-brand-navy/5 print:border-none">
+          <div className="w-full bg-white rounded-3xl print:rounded-none shadow-sm print:shadow-none border border-brand-navy/10 print:border-none overflow-hidden flex flex-col">
+              <div className="no-print px-5 py-3 border-b border-brand-navy/10 bg-white flex items-center justify-between">
+                 <div className={`${QUOTE_SECTION_LABEL_CLASS} flex items-center gap-2`}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand-teal" />
+                    Quotation Items
+                 </div>
+                 <span className="text-[10px] font-black text-brand-teal uppercase tracking-widest">{lineItems.length} item{lineItems.length === 1 ? "" : "s"}</span>
+              </div>
               <div className={`overflow-y-auto no-scrollbar p-2 md:p-4 print:p-0 ${lineItems.length === 0 ? 'max-h-[200px]' : 'max-h-[None] print:max-h-none'}`}>
                  {lineItems.length === 0 ? (
                    <div className="py-10 flex items-center justify-center">
@@ -1748,9 +1760,16 @@ export default function QuotationEditorPage() {
       </section>
 
       {/* 2. Compact Calculator Bar */}
-      <section id="calc-top" className="no-print border-b border-brand-navy/5 bg-white">
+      <section id="calc-top" className="no-print m-4 mt-0 rounded-4xl border border-brand-navy/15 bg-white shadow-md shadow-brand-navy/5 overflow-hidden">
+          <div className="px-6 pt-4 pb-3 border-b border-brand-navy/10 bg-zinc-50/80 flex items-center justify-between">
+             <div className={`${QUOTE_SECTION_LABEL_CLASS} flex items-center gap-2`}>
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-teal" />
+                Print Configuration & Pricing
+             </div>
+             <span className="text-[10px] font-black text-brand-navy/60 uppercase tracking-widest">Configure print details and pricing</span>
+          </div>
           {/* Tabs - Redesigned to be rounded and thematic */}
-          <div className="px-6 py-2 bg-zinc-50/50 flex">
+          <div className="px-6 py-3 bg-zinc-50/60 flex">
              <div className="flex bg-zinc-200/50 p-1 rounded-2xl border border-zinc-200/50">
                 {TABS.map(t => (
                   <button
@@ -2990,7 +3009,7 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Results Mirror Laser pattern */}
-                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} flex flex-col min-w-0 bg-zinc-50/50 rounded-3xl border border-brand-navy/5 p-5 relative overflow-hidden`}>
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} flex flex-col min-w-0 bg-zinc-50/50 rounded-3xl border border-brand-navy/5 p-5 relative`}>
                        <div className="mb-4 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                              <MdOutlineAnalytics className="w-5 h-5 text-brand-teal" />
