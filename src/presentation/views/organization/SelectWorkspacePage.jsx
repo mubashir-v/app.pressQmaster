@@ -32,29 +32,29 @@ export default function SelectWorkspacePage() {
         <Link to="/" className="inline-flex items-center gap-3">
           <BrandLogo className="w-10 h-10 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[12px]" />
           <div className="leading-tight">
-            <div className="text-lg font-bold tracking-tight text-brand-navy">printQ</div>
+            <div className="text-lg font-bold tracking-tight text-gov-blue">printQ</div>
           </div>
         </Link>
 
-        <h1 className="mt-8 text-3xl font-bold leading-tight tracking-tight text-brand-navy sm:text-4xl lg:text-3xl">Select Workspace</h1>
-        <p className="mt-2 text-sm text-brand-navy/60">Choose which organization context to load.</p>
+        <h1 className="mt-8 text-3xl font-bold leading-tight tracking-tight text-gov-blue sm:text-4xl lg:text-3xl">Select Workspace</h1>
+        <p className="mt-2 text-sm text-gov-blue/60">Choose which organization context to load.</p>
 
-        <div className="mt-8 rounded-[2rem] border border-brand-navy/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
+        <div className="mt-8 rounded-[2rem] border border-gov-blue/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
           <div className="grid gap-3">
             {user.organizations.map((org, idx) => (
               <button
                 key={org.id || org.organizationId || idx}
                 onClick={() => handleOrgSelection(org.id || org.organizationId)}
-                className="w-full p-4 flex items-center gap-4 text-left border border-brand-navy/10 hover:border-brand-teal transition-all rounded-xl hover:shadow-md hover:shadow-brand-teal/10 group bg-white"
+                className="w-full p-4 flex items-center gap-4 text-left border border-gov-blue/10 hover:border-gov-blue transition-all rounded-xl hover:shadow-md hover:shadow-gov-blue/10 group bg-white"
               >
-                <div className="h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-full bg-brand-navy/5 text-brand-navy group-hover:bg-brand-mint text-lg font-bold tracking-tight transition-colors">
+                <div className="h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-full bg-brand-navy/5 text-gov-blue group-hover:bg-gov-blue-light text-lg font-bold tracking-tight transition-colors">
                   {getInitials(org.organizationName)}
                 </div>
                 <div>
-                  <div className="font-bold text-brand-navy group-hover:text-brand-teal transition-colors">
+                  <div className="font-bold text-gov-blue group-hover:text-gov-blue transition-colors">
                     {org.organizationName}
                   </div>
-                  <div className="text-xs font-semibold text-brand-navy/50 uppercase tracking-widest mt-0.5">
+                  <div className="text-xs font-semibold text-gov-blue/50 uppercase tracking-widest mt-0.5">
                     {org.role} Role
                   </div>
                 </div>

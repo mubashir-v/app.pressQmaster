@@ -8,7 +8,7 @@ export default function WelcomePage() {
         {/* Background Image & Overlay */}
         <div className="absolute inset-0 w-full h-full">
           <img src="/hero-press.png" alt="CMYK Offset Printing" className="absolute inset-0 w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-navy via-brand-navy/90 to-brand-navy/20"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-gov-blue via-gov-blue/90 to-gov-blue/20"></div>
         </div>
 
         {/* Content */}
@@ -25,10 +25,10 @@ export default function WelcomePage() {
             </p>
 
             <div className="mt-10 flex flex-wrap gap-4">
-              <Link to="/signup" className="rounded-xl bg-brand-teal px-8 py-4 text-sm font-bold text-white transition-all hover:bg-brand-teal-dark shadow-lg shadow-brand-teal/30 hover:shadow-brand-teal/40">
+              <Link to="/signup" className="bg-gov-blue px-8 py-4 text-sm font-bold text-white transition-all hover:bg-gov-blue-dark">
                 Get Started Free
               </Link>
-              <Link to="/login" className="rounded-xl px-8 py-4 text-sm font-bold text-white bg-white/10 backdrop-blur-md border border-white/10 transition-all hover:bg-white/20">
+              <Link to="/login" className="px-8 py-4 text-sm font-bold text-white bg-white/10 border border-white/20 transition-all hover:bg-white/20">
                 Login to Portal
               </Link>
             </div>
@@ -38,48 +38,48 @@ export default function WelcomePage() {
 
       <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-5">
         <div className="text-center mb-16">
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-teal">Features</span>
-          <h2 className="mt-4 text-3xl font-bold text-brand-navy sm:text-4xl">Built for the printing press floor.</h2>
-          <p className="mt-4 text-brand-navy/60 max-w-2xl mx-auto">Scale your press output with an organized job tracking framework that completely removes quotation bottlenecks.</p>
+          <span className="text-xs font-bold uppercase tracking-widest text-gov-blue">Features</span>
+          <h2 className="mt-4 text-3xl font-bold text-gov-blue sm:text-4xl">Built for the printing press floor.</h2>
+          <p className="mt-4 text-gray-600 max-w-2xl mx-auto">Scale your press output with an organized job tracking framework that completely removes quotation bottlenecks.</p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
-          <div className="p-8 rounded-3xl bg-white border border-brand-navy/5 shadow-xl shadow-brand-navy/5">
-            <div className="h-12 w-12 rounded-xl bg-brand-mint flex items-center justify-center text-brand-teal mb-6 text-xl">⚡</div>
-            <h3 className="text-lg font-bold text-brand-navy mb-2">Instant Quotations</h3>
-            <p className="text-sm text-brand-navy/60 leading-relaxed">Calculate complex jobs factoring in paper stock, plates, CMYK impressions, and post-press finishing instantly.</p>
+          <div className="p-8 bg-white border border-gov-border">
+            <div className="h-12 w-12 bg-gov-blue-light flex items-center justify-center text-gov-blue mb-6 text-xl">⚡</div>
+            <h3 className="text-lg font-bold text-gov-blue mb-2">Instant Quotations</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">Calculate complex jobs factoring in paper stock, plates, CMYK impressions, and post-press finishing instantly.</p>
           </div>
-          <div className="p-8 rounded-3xl bg-white border border-brand-navy/5 shadow-xl shadow-brand-navy/5">
-            <div className="h-12 w-12 rounded-xl bg-brand-mint flex items-center justify-center text-brand-teal mb-6 text-xl">📦</div>
-            <h3 className="text-lg font-bold text-brand-navy mb-2">Work Monitoring</h3>
-            <p className="text-sm text-brand-navy/60 leading-relaxed">Ensure production managers and machine operators align on job routing from CTP (plates) to delivery.</p>
+          <div className="p-8 bg-white border border-gov-border">
+            <div className="h-12 w-12 bg-gov-blue-light flex items-center justify-center text-gov-blue mb-6 text-xl">📦</div>
+            <h3 className="text-lg font-bold text-gov-blue mb-2">Work Monitoring</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">Ensure production managers and machine operators align on job routing from CTP (plates) to delivery.</p>
           </div>
-          <div className="p-8 rounded-3xl bg-white border border-brand-navy/5 shadow-xl shadow-brand-navy/5">
-            <div className="h-12 w-12 rounded-xl bg-brand-mint flex items-center justify-center text-brand-teal mb-6 text-xl">🧾</div>
-            <h3 className="text-lg font-bold text-brand-navy mb-2">Seamless Billing</h3>
-            <p className="text-sm text-brand-navy/60 leading-relaxed">Generate invoices and challans directly from approved quotes avoiding repetitive manual data entry.</p>
+          <div className="p-8 bg-white border border-gov-border">
+            <div className="h-12 w-12 bg-gov-blue-light flex items-center justify-center text-gov-blue mb-6 text-xl">🧾</div>
+            <h3 className="text-lg font-bold text-gov-blue mb-2">Seamless Billing</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">Generate invoices and challans directly from approved quotes avoiding repetitive manual data entry.</p>
           </div>
         </div>
       </section>
 
-      <section className="bg-brand-navy text-white">
+      <section className="bg-gov-blue text-white">
         <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-5">
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-teal text-white/50">LITE CRM</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-gov-blue-light">LITE CRM</span>
           <h2 className="mt-4 text-3xl font-bold sm:text-4xl lg:text-5xl max-w-3xl leading-tight">
             Maximize printing efficiency and stop losing quotes to slow responses.
           </h2>
           <div className="mt-12 grid md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-              <div className="text-4xl font-light text-brand-teal/50 mb-4">1</div>
+            <div className="p-6 bg-white/5 border border-white/10">
+              <div className="text-4xl font-light text-gov-blue-light/60 mb-4">1</div>
               <h3 className="text-lg font-semibold mb-2">Create Organization</h3>
               <p className="text-sm text-white/60">Set up your press profile, paper costs, and machine capacities.</p>
             </div>
-            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-              <div className="text-4xl font-light text-brand-teal/50 mb-4">2</div>
+            <div className="p-6 bg-white/5 border border-white/10">
+              <div className="text-4xl font-light text-gov-blue-light/60 mb-4">2</div>
               <h3 className="text-lg font-semibold mb-2">Quote & Approve</h3>
               <p className="text-sm text-white/60">Send PDF quotes to customers in seconds. Proceed upon approval.</p>
             </div>
-            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-              <div className="text-4xl font-light text-brand-teal/50 mb-4">3</div>
+            <div className="p-6 bg-white/5 border border-white/10">
+              <div className="text-4xl font-light text-gov-blue-light/60 mb-4">3</div>
               <h3 className="text-lg font-semibold mb-2">Deliver & Bill</h3>
               <p className="text-sm text-white/60">Log finished items into delivery challans and finalize payments.</p>
             </div>

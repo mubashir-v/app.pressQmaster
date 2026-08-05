@@ -64,18 +64,18 @@ export default function SignupPage() {
     <AuthShellLayout>
       <div className="w-full max-w-md">
         <Link to="/" className="inline-flex items-center gap-3">
-          <BrandLogo className="w-10 h-10 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[12px]" />
+          <BrandLogo className="w-10 h-10" />
           <div className="leading-tight">
-            <div className="text-sm font-bold tracking-wide text-brand-navy">printQ</div>
+            <div className="text-sm font-bold tracking-wide text-gov-blue">printQ</div>
           </div>
         </Link>
 
 
-        <div className="mt-8 rounded-[2rem] border border-brand-navy/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
+        <div className="mt-8 border border-gov-border bg-white p-6 sm:p-8">
           <div className="grid gap-4">
 
             {globalError && (
-              <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-100 mb-2">
+              <div className="bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 mb-2">
                 {globalError}
               </div>
             )}
@@ -105,15 +105,15 @@ export default function SignupPage() {
             </PrimaryButton>
           </div>
 
-          <div className="mt-6 text-center text-sm text-brand-navy/70">
+          <div className="mt-6 text-center text-sm text-gov-blue/70">
             Already have an account?{" "}
-            <Link to="/login" className="font-semibold text-brand-teal hover:text-brand-teal-dark hover:underline">
+            <Link to="/login" className="font-semibold text-gov-blue hover:text-gov-blue-dark hover:underline">
               Login
             </Link>
           </div>
         </div>
 
-        <p className="mt-6 text-xs text-brand-navy/50 text-center">
+        <p className="mt-6 text-xs text-gov-blue/50 text-center">
           By continuing you agree to organization-based access. The first user becomes the organization owner.
         </p>
       </div>

@@ -5,24 +5,23 @@ import React, { useState, useRef, useEffect } from "react";
 const InfoTooltip = ({ content }) => {
   return (
     <div className="group/itooltip relative flex items-center ml-1.5">
-      <MdInfo className="w-3.5 h-3.5 text-brand-navy/60 cursor-help hover:text-brand-teal transition-colors" />
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-brand-teal text-[10px] font-bold text-white leading-relaxed rounded-xl opacity-0 group-hover/itooltip:opacity-100 pointer-events-none transition-all shadow-2xl z-[110] uppercase tracking-widest border border-white/10 backdrop-blur-md">
+      <MdInfo className="w-3.5 h-3.5 text-gray-500 cursor-help hover:text-gov-blue transition-colors" />
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gov-blue text-[10px] font-semibold text-white leading-relaxed opacity-0 group-hover/itooltip:opacity-100 pointer-events-none transition-all z-[110] border border-gov-border">
         {content}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-brand-teal" />
       </div>
     </div>
   );
 };
 
-export const TextField = React.forwardRef(({ label, type = "text", placeholder, value, onChange, onKeyDown, error, info }, ref) => {
+export const TextField = React.forwardRef(({ label, type = "text", placeholder, value, onChange, onKeyDown, error, info, disabled, required }, ref) => {
   return (
     <label className="block">
-      <div className="flex justify-between items-center mb-1.5">
+      <div className="flex justify-between items-center mb-1">
         <div className="flex items-center">
-          <span className="text-sm font-medium text-brand-navy/80">{label}</span>
+          <span className={`text-sm font-medium text-gray-700 ${required ? "gov-required" : ""}`}>{label}</span>
           {info && <InfoTooltip content={info} />}
         </div>
-        {error && <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider animate-shake">{error}</span>}
+        {error && <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider animate-shake">{error}</span>}
       </div>
       <input
         ref={ref}
@@ -31,24 +30,25 @@ export const TextField = React.forwardRef(({ label, type = "text", placeholder, 
         value={value}
         onChange={onChange}
         onKeyDown={onKeyDown}
-        className={`w-full rounded-xl border bg-white px-4 py-2.5 text-brand-navy placeholder:text-brand-navy/60 outline-none transition-all ${error ? 'border-red-300 ring-4 ring-red-500/10' : 'border-brand-navy/15 focus:border-brand-teal/40 focus:ring-4 focus:ring-brand-teal/10 shadow-sm'}`}
+        disabled={disabled}
+        className={`gov-input ${error ? "border-red-400" : ""} ${disabled ? "bg-gov-disabled" : ""}`}
       />
     </label>
   );
 });
 
-export function SelectField({ label, options, value, onChange, disabled, children, info }) {
+export function SelectField({ label, options, value, onChange, disabled, children, info, required }) {
   return (
     <label className="block">
-      <div className="flex items-center mb-1.5">
-        <span className="text-sm font-medium text-brand-navy/80">{label}</span>
+      <div className="flex items-center mb-1">
+        <span className={`text-sm font-medium text-gray-700 ${required ? "gov-required" : ""}`}>{label}</span>
         {info && <InfoTooltip content={info} />}
       </div>
       <select
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className="mt-2 w-full rounded-xl border border-brand-navy/15 bg-white px-4 py-2.5 text-brand-navy outline-none focus:border-brand-teal/40 focus:ring-4 focus:ring-brand-teal/10 transition-shadow appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.5rem_center] bg-no-repeat"
+        className={`gov-input appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.5rem_center] bg-no-repeat ${disabled ? "bg-gov-disabled" : ""}`}
       >
         {options ? options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -60,15 +60,14 @@ export function SelectField({ label, options, value, onChange, disabled, childre
   );
 }
 
-
-export const SearchableSelect = React.forwardRef(({ label, options, value, onChange, disabled, placeholder = "Search...", onSearch, onKeyDown, info }, ref) => {
+export const SearchableSelect = React.forwardRef(({ label, options, value, onChange, disabled, placeholder = "Search...", onSearch, onKeyDown, info, required }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const localRef = useRef(null);
   const compositeRef = ref || localRef;
 
   const selectedOption = options.find(opt => opt.value === value);
-  const filteredOptions = onSearch ? options : options.filter(opt => 
+  const filteredOptions = onSearch ? options : options.filter(opt =>
     opt.label.toLowerCase().includes(query.toLowerCase())
   );
 
@@ -85,9 +84,7 @@ export const SearchableSelect = React.forwardRef(({ label, options, value, onCha
 
   useEffect(() => {
     if (onSearch) {
-      const timer = setTimeout(() => {
-        onSearch(query);
-      }, 300);
+      const timer = setTimeout(() => onSearch(query), 300);
       return () => clearTimeout(timer);
     }
   }, [query, onSearch]);
@@ -104,57 +101,54 @@ export const SearchableSelect = React.forwardRef(({ label, options, value, onCha
   return (
     <div className="relative w-full" ref={compositeRef}>
       {label && (
-        <div className="flex items-center mb-1.5">
-          <span className="text-sm font-medium text-brand-navy/80">{label}</span>
+        <div className="flex items-center mb-1">
+          <span className={`text-sm font-medium text-gray-700 ${required ? "gov-required" : ""}`}>{label}</span>
           {info && <InfoTooltip content={info} />}
         </div>
       )}
-      <div 
+      <div
         tabIndex={disabled ? -1 : 0}
         onKeyDown={handleKeyDown}
-        className={`mt-2 relative w-full rounded-xl border transition-all cursor-pointer bg-white group outline-none ${isOpen ? 'border-brand-teal/40 ring-4 ring-brand-teal/10' : 'border-brand-navy/15 hover:border-brand-navy/30 focus:border-brand-teal/40 focus:ring-4 focus:ring-brand-teal/10'}`}
+        className={`relative w-full border transition-colors cursor-pointer bg-white outline-none ${isOpen ? "border-gov-blue" : "border-gov-border hover:border-gray-400 focus:border-gov-blue"} ${disabled ? "bg-gov-disabled cursor-not-allowed" : ""}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
-        <div className="flex items-center justify-between px-4 py-2.5 min-h-[46px]">
-          <span className={`text-brand-navy overflow-hidden text-ellipsis whitespace-nowrap ${!selectedOption ? 'text-brand-navy/60' : 'font-medium'}`}>
+        <div className="flex items-center justify-between px-3 py-2 min-h-[38px]">
+          <span className={`text-sm overflow-hidden text-ellipsis whitespace-nowrap ${!selectedOption ? "text-gray-400" : "text-gray-800"}`}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <MdKeyboardArrowDown className={`w-5 h-5 text-brand-navy/60 transition-transform ${isOpen ? 'rotate-180 text-brand-teal' : ''}`} />
+          <MdKeyboardArrowDown className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
         </div>
       </div>
 
       {isOpen && (
-        <div className="absolute z-[100] mt-2 w-full bg-white rounded-2xl shadow-2xl border border-brand-navy/10 overflow-hidden animate-slide-up flex flex-col max-h-64">
-          <div className="p-3 border-b border-brand-navy/5 bg-zinc-50/50 flex items-center gap-2">
-            <MdSearch className="w-5 h-5 text-brand-navy/50" />
-            <input 
+        <div className="absolute z-[100] mt-0 w-full bg-white border border-gov-border shadow-md flex flex-col max-h-64">
+          <div className="p-2 border-b border-gov-border bg-gray-50 flex items-center gap-2">
+            <MdSearch className="w-4 h-4 text-gray-400" />
+            <input
               autoFocus
-              type="text" 
-              placeholder="Type to filter..." 
+              type="text"
+              placeholder="Type to filter..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="bg-transparent border-none outline-none text-sm font-medium text-brand-navy w-full placeholder:text-brand-navy/55"
+              className="bg-transparent border-none outline-none text-sm text-gray-800 w-full placeholder:text-gray-400"
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && filteredOptions.length > 0) {
                   e.preventDefault();
                   e.stopPropagation();
-                  const firstOpt = filteredOptions[0];
-                  onChange({ target: { value: firstOpt.value } });
+                  onChange({ target: { value: filteredOptions[0].value } });
                   setIsOpen(false);
                   setQuery("");
                 }
               }}
             />
           </div>
-          <div className="overflow-y-auto no-scrollbar py-2">
+          <div className="overflow-y-auto py-1">
             {filteredOptions.length === 0 ? (
-              <div className="px-4 py-6 text-center text-xs font-bold text-brand-navy/60 uppercase tracking-widest">
-                No matches found
-              </div>
+              <div className="px-4 py-4 text-center text-xs text-gray-400">No matches found</div>
             ) : (
               filteredOptions.map((opt) => (
-                <div 
+                <div
                   key={opt.value}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -162,32 +156,27 @@ export const SearchableSelect = React.forwardRef(({ label, options, value, onCha
                     setIsOpen(false);
                     setQuery("");
                   }}
-                  className={`px-4 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${value === opt.value ? 'bg-brand-teal/5 text-brand-teal' : 'hover:bg-zinc-50 text-brand-navy'}`}
+                  className={`px-3 py-2 flex items-center justify-between cursor-pointer text-sm ${value === opt.value ? "bg-blue-50 text-gov-blue font-semibold" : "hover:bg-gray-50 text-gray-800"}`}
                 >
-                  <span className={`text-sm ${value === opt.value ? 'font-semibold' : 'font-medium'}`}>
-                    {opt.label}
-                  </span>
+                  <span>{opt.label}</span>
                   {value === opt.value && <MdCheck className="w-4 h-4" />}
                 </div>
               ))
             )}
           </div>
         </div>
-
       )}
     </div>
   );
 });
 
-
-
-export function PrimaryButton({ children, onClick, disabled }) {
+export function PrimaryButton({ children, onClick, disabled, className = "" }) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex w-full items-center justify-center rounded-xl bg-brand-teal px-4 py-2.5 font-semibold text-white shadow-[0_4px_14px_0_rgba(42,142,158,0.39)] hover:bg-brand-teal-dark hover:shadow-[0_6px_20px_rgba(42,142,158,0.23)] active:bg-brand-teal disabled:cursor-not-allowed disabled:opacity-60 transition-all duration-200"
+      className={`gov-btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
     >
       {children}
     </button>
@@ -200,9 +189,9 @@ export function GoogleButton({ children, onClick, disabled }) {
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-navy/15 bg-white px-4 py-2.5 font-semibold text-brand-navy hover:bg-brand-mint/50 active:bg-brand-mint/80 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+      className="gov-btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-60"
     >
-      <FaGooglePlusG className="w-6 h-6 text-brand-teal" />
+      <FaGooglePlusG className="w-5 h-5 text-gov-blue" />
       {children}
     </button>
   );
@@ -211,9 +200,9 @@ export function GoogleButton({ children, onClick, disabled }) {
 export function Divider() {
   return (
     <div className="flex items-center gap-3 py-4">
-      <div className="h-px flex-1 bg-brand-navy/10" />
-      <span className="text-xs font-medium text-brand-navy/50">or</span>
-      <div className="h-px flex-1 bg-brand-navy/10" />
+      <div className="h-px flex-1 bg-gov-border" />
+      <span className="text-xs font-medium text-gray-400">or</span>
+      <div className="h-px flex-1 bg-gov-border" />
     </div>
   );
 }

@@ -42,19 +42,19 @@ export default function OnboardingPage() {
     <AuthShellLayout>
       <div className="w-full max-w-md">
         <div className="inline-flex items-center gap-3">
-          <BrandLogo className="w-10 h-10 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[12px]" />
+          <BrandLogo className="w-10 h-10" />
           <div className="leading-tight">
-            <div className="text-sm font-bold tracking-wide text-brand-navy">printQ</div>
+            <div className="text-sm font-bold tracking-wide text-gov-blue">printQ</div>
           </div>
         </div>
 
-        <h1 className="mt-8 text-3xl font-bold leading-tight tracking-tight text-brand-navy sm:text-4xl lg:text-3xl">Let's set up your Press</h1>
-        <p className="mt-2 text-sm text-brand-navy/60">Finalize your organization workspace.</p>
+        <h1 className="mt-8 text-3xl font-bold leading-tight tracking-tight text-gov-blue sm:text-4xl lg:text-3xl">Let's set up your Press</h1>
+        <p className="mt-2 text-sm text-gov-blue/60">Finalize your organization workspace.</p>
 
-        <div className="mt-8 rounded-[2rem] border border-brand-navy/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
+        <div className="mt-8 border border-gov-border bg-white p-6 sm:p-8">
           <div className="grid gap-4">
             {errorMsg && (
-              <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-100">
+              <div className="bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200">
                 {errorMsg}
               </div>
             )}

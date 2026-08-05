@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getStockItems, createStockItem, updateStockItem, deleteStockItem, getStockPricingRule, upsertStockPricingRule } from "../../../infrastructure/api/backendService.js";
 import { PrimaryButton, TextField, SelectField, SearchableSelect } from "../../components/auth/AuthFormPrimitives.jsx";
+import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import { MdAdd, MdClose, MdEdit, MdSell, MdSettings, MdLayers, MdContentCopy, MdOutlineDelete, MdSearch, MdChevronLeft, MdChevronRight, MdCloudDownload, MdFileUpload } from "react-icons/md";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 
@@ -430,83 +431,79 @@ export default function StocksManagementPage() {
 
 
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in relative pb-12">
-      {/* Header */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-           <h1 className="text-3xl font-bold text-brand-navy tracking-tight">Paper & Stock</h1>
-           <p className="mt-2 text-brand-navy/60 font-medium">Manage your material inventory and dynamic pricing strategy.</p>
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="relative group">
-            <MdSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-navy/20 group-focus-within:text-brand-teal transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Search stock..." 
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-11 pr-4 py-3 bg-white border border-brand-navy/10 rounded-xl text-sm font-semibold text-brand-navy placeholder:text-brand-navy/20 outline-none focus:border-brand-teal/40 focus:ring-4 focus:ring-brand-teal/5 transition-all w-full sm:w-64"
-            />
-          </div>
-          {canEdit && (
-            <button 
-               onClick={() => { resetForm(); setShowModal(true); }}
-               className="flex items-center gap-2 px-6 py-3 bg-brand-teal hover:bg-brand-teal-dark text-white font-semibold rounded-xl shadow-lg transition-all active:scale-95 whitespace-nowrap"
-            >
-               <MdAdd className="w-5 h-5" />
-               Add New Stock
-            </button>
-          )}
-        </div>
-      </div>
-
+    <div className="relative pb-12">
       {errorText && (
-         <div className="mb-8 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-600 border border-red-100 flex gap-3 items-center">
-            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+         <div className="mb-4 bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 flex gap-3 items-center">
             {errorText}
          </div>
       )}
 
+      <div className="gov-panel">
+        <div className="gov-panel-header flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h2 className="text-lg font-bold text-gray-900">Paper & Stock</h2>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative">
+              <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search stock..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="gov-input pl-9 w-full sm:w-64"
+              />
+            </div>
+            {canEdit && (
+              <button
+                onClick={() => { resetForm(); setShowModal(true); }}
+                className="gov-btn-primary whitespace-nowrap"
+              >
+                <MdAdd className="w-4 h-4" />
+                Add New Stock
+              </button>
+            )}
+          </div>
+        </div>
+
       {loading ? (
           <div className="flex justify-center p-20">
-             <div className="w-10 h-10 border-4 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>
+             <div className="w-8 h-8 border-2 border-gov-border border-t-gov-blue animate-spin"></div>
           </div>
       ) : (
-          <div className="bg-white rounded-2xl border border-brand-navy/5 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto no-scrollbar">
-                  <table className="w-full text-left border-collapse">
+          <>
+              <div className="overflow-x-auto">
+                  <table className="gov-table">
                       <thead>
-                          <tr className="bg-zinc-50/50 border-b border-brand-navy/5">
-                              <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider">Item Name</th>
-                              <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider">Type</th>
-                              <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider">Specs (GSM/Size)</th>
-                              <th className="px-6 py-4 text-xs font-bold text-brand-navy/40 uppercase tracking-wider text-right">Actions</th>
+                          <tr>
+                              <th>Item Name</th>
+                              <th>Type</th>
+                              <th>Specs (GSM/Size)</th>
+                              <th className="text-right">Actions</th>
                           </tr>
                       </thead>
-                      <tbody className="divide-y divide-brand-navy/5">
+                      <tbody>
                           {items.length === 0 ? (
                               <tr>
-                                  <td colSpan="4" className="px-6 py-12 text-center text-brand-navy/40 font-bold">No stock items provisioned yet.</td>
+                                  <td colSpan="4" className="px-6 py-12 text-center text-gov-blue/40 font-bold">No stock items provisioned yet.</td>
                               </tr>
                           ) : (
                               items.map(item => (
-                                  <tr key={item.id} className="hover:bg-zinc-50/50 transition-colors">
+                                  <tr key={item.id}>
                                       <td className="px-6 py-4">
-                                          <div className="font-bold text-brand-navy">{item.name}</div>
-                                          <div className={`text-[10px] font-bold uppercase ${item.isActive ? 'text-brand-teal' : 'text-brand-navy/40'}`}>
+                                          <div className="font-bold text-gov-blue">{item.name}</div>
+                                          <div className={`text-[10px] font-bold uppercase ${item.isActive ? 'text-gov-blue' : 'text-gov-blue/40'}`}>
                                               {item.isActive ? 'Active' : 'Archived'}
                                           </div>
                                       </td>
                                       <td className="px-6 py-4">
-                                          <span className="px-3 py-1 rounded-full bg-brand-navy/5 text-brand-navy text-[11px] font-bold border border-brand-navy/5">
+                                          <span className="px-3 py-1 rounded-full bg-brand-navy/5 text-gov-blue text-[11px] font-bold border border-gov-blue/5">
                                               {ITEM_TYPES.find(t => t.value === item.itemType)?.label || item.itemType}
                                           </span>
                                       </td>
                                       <td className="px-6 py-4">
-                                          <div className="text-sm font-medium text-brand-navy/80">
+                                          <div className="text-sm font-medium text-gov-blue/80">
                                               {item.gsm ? `${item.gsm} GSM` : "N/A"}
                                           </div>
-                                          <div className="text-xs text-brand-navy/40">
+                                          <div className="text-xs text-gov-blue/40">
                                               {item.dimensions ? `${item.dimensions.length}×${item.dimensions.breadth} ${item.dimensions.unit}` : ""}
                                           </div>
                                       </td>
@@ -517,7 +514,7 @@ export default function StocksManagementPage() {
                                                     onClick={() => handleEditClick(item)}
                                                     disabled={busy}
                                                     title="Edit Catalog & Pricing"
-                                                    className="p-2 text-brand-navy/40 hover:text-brand-navy hover:bg-brand-navy/5 rounded-full transition-all disabled:opacity-50"
+                                                    className="p-2 text-gray-400 hover:text-gov-blue hover:bg-gray-50 transition-colors disabled:opacity-50"
                                                   >
                                                       <MdEdit className="w-5 h-5" />
                                                   </button>
@@ -525,7 +522,7 @@ export default function StocksManagementPage() {
                                                     onClick={() => { setDeleteTargetItem(item); setShowDeleteModal(true); }}
                                                     disabled={busy}
                                                     title="Delete Item"
-                                                    className="p-2 text-red-400/60 hover:text-red-500 hover:bg-red-50 rounded-full transition-all disabled:opacity-50"
+                                                    className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
                                                   >
                                                       <MdOutlineDelete className="w-5 h-5" />
                                                   </button>
@@ -541,30 +538,29 @@ export default function StocksManagementPage() {
 
               {/* Pagination Controls */}
               {totalItems > 0 && (
-                  <div className="px-6 py-4 bg-zinc-50/50 border-t border-brand-navy/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="text-xs font-bold text-brand-navy/40 uppercase tracking-widest">
+                  <div className="px-4 py-3 bg-gray-50 border-t border-gov-border flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="text-xs font-semibold text-gray-500">
                           Showing {Math.min((currentPage - 1) * pageSize + 1, totalItems)}–{Math.min(currentPage * pageSize, totalItems)} of {totalItems} items
                       </div>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                           <button 
                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                             disabled={currentPage === 1 || loading}
-                            className="p-2 rounded-lg border border-brand-navy/10 text-brand-navy/60 hover:bg-white hover:text-brand-teal transition-all disabled:opacity-30 disabled:pointer-events-none"
+                            className="p-2 border border-gov-border disabled:opacity-30 hover:bg-gray-100"
                           >
                               <MdChevronLeft className="w-5 h-5" />
                           </button>
                           
                           <div className="flex items-center gap-1">
-                              {/* Simple pagination logic for numbers */}
                               {Array.from({ length: Math.ceil(totalItems / pageSize) }, (_, i) => i + 1)
                                 .filter(p => p === 1 || p === Math.ceil(totalItems / pageSize) || Math.abs(p - currentPage) <= 1)
                                 .map((p, i, arr) => (
                                     <React.Fragment key={p}>
-                                        {i > 0 && arr[i-1] !== p - 1 && <span className="px-2 text-brand-navy/20 font-black">...</span>}
+                                        {i > 0 && arr[i-1] !== p - 1 && <span className="px-2 text-gray-400 font-black">...</span>}
                                         <button 
                                           onClick={() => setCurrentPage(p)}
-                                          className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${currentPage === p ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' : 'text-brand-navy/40 hover:bg-white'}`}
+                                          className={`w-8 h-8 text-xs font-black border border-gov-border transition-all ${currentPage === p ? 'bg-gov-blue text-white' : 'text-gray-500 hover:bg-gray-100'}`}
                                         >
                                             {p}
                                         </button>
@@ -575,45 +571,40 @@ export default function StocksManagementPage() {
                           <button 
                             onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalItems / pageSize), prev + 1))}
                             disabled={currentPage === Math.ceil(totalItems / pageSize) || loading}
-                            className="p-2 rounded-lg border border-brand-navy/10 text-brand-navy/60 hover:bg-white hover:text-brand-teal transition-all disabled:opacity-30 disabled:pointer-events-none"
+                            className="p-2 border border-gov-border disabled:opacity-30 hover:bg-gray-100"
                           >
                               <MdChevronRight className="w-5 h-5" />
                           </button>
                       </div>
                   </div>
               )}
-          </div>
+          </>
       )}
+      </div>
 
 
-      {/* Add Stock Modal */}
-      {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-brand-navy/40 backdrop-blur-sm transition-opacity" onClick={() => !busy && setShowModal(false)}></div>
-              
-              <div className="w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-fade-in">
-                  <div className="p-6 border-b border-brand-navy/5 flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${modalStep === 1 ? 'bg-brand-navy text-white' : 'bg-brand-mint text-brand-teal'}`}>
-                              {modalStep === 1 ? <MdLayers /> : <MdSell />}
-                          </div>
-                          <div>
-                              <h2 className="text-xl font-bold text-brand-navy">
-                                  {editingItemId ? "Edit Stock Item" : (modalStep === 1 ? "New Stock Item" : "Configure Rules")}
-                              </h2>
-                              <p className="text-xs text-brand-navy/60 font-semibold tracking-tight uppercase">
-                                  Step {modalStep} of 2 • {modalStep === 1 ? "Properties" : "Pricing Strategy"}
-                              </p>
-                          </div>
-                      </div>
-                      <button onClick={() => !busy && setShowModal(false)} className="w-10 h-10 rounded-full flex items-center justify-center text-brand-navy/40 hover:bg-zinc-100 transition-colors">
-                          <MdClose className="w-6 h-6" />
-                      </button>
-                  </div>
-
-                  <div className="overflow-y-auto p-8 flex-1 space-y-6 no-scrollbar">
+      <FormDrawer
+        open={showModal}
+        onClose={() => !busy && setShowModal(false)}
+        disableClose={busy}
+        maxWidth="max-w-2xl"
+        title={editingItemId ? "Edit Stock Item" : modalStep === 1 ? "New Stock Item" : "Configure Rules"}
+        subtitle={`Step ${modalStep} of 2 · ${modalStep === 1 ? "Properties" : "Pricing Strategy"}`}
+        icon={modalStep === 1 ? <MdLayers className="w-4 h-4" /> : <MdSell className="w-4 h-4" />}
+        footer={
+          <>
+            <button type="button" onClick={() => !busy && setShowModal(false)} className="gov-btn-secondary" disabled={busy}>Cancel</button>
+            <PrimaryButton
+              onClick={modalStep === 1 ? handleCreateItem : handleSavePricing}
+              disabled={busy || !name || (modalStep === 2 && pricingType === "FIXED" && !fixedPrice)}
+            >
+              {busy ? "Processing..." : modalStep === 1 ? (editingItemId ? "Update Properties" : "Next: Configure Pricing") : (editingItemId ? "Update Pricing Rules" : "Finalize Stock Item")}
+            </PrimaryButton>
+          </>
+        }
+      >
                       {modalError && (
-                          <div className="p-4 rounded-xl bg-red-50 text-red-600 text-sm font-bold border border-red-100">{modalError}</div>
+                          <div className="p-3 bg-red-50 text-red-600 text-sm font-bold border border-red-200">{modalError}</div>
                       )}
 
                       {modalStep === 1 ? (
@@ -638,7 +629,7 @@ export default function StocksManagementPage() {
                               </div>
 
 
-                              <div className="grid grid-cols-1 gap-6 pt-4 border-t border-brand-navy/5">
+                              <div className="grid grid-cols-1 gap-6 pt-4 border-t border-gov-blue/5">
                                   <div>
                                       <TextField label="GSM (Optional)" placeholder="90" value={gsm} onChange={e => setGsm(e.target.value)} disabled={busy} />
                                   </div>
@@ -646,11 +637,11 @@ export default function StocksManagementPage() {
 
 
                               <div className="space-y-3">
-                                  <label className="block text-sm font-bold text-brand-navy">Physical Dimensions (Optional)</label>
+                                  <label className="block text-sm font-bold text-gov-blue">Physical Dimensions (Optional)</label>
                                   <div className="flex gap-4 items-center">
-                                      <input type="text" placeholder="Width" value={dimLength} onChange={e => setDimLength(e.target.value)} className="w-full h-12 px-4 rounded-xl border border-brand-navy/15 bg-white text-brand-navy text-sm font-semibold outline-none focus:border-brand-teal/40 transition-all" disabled={busy} />
-                                      <span className="text-brand-navy/20 font-bold">×</span>
-                                      <input type="text" placeholder="Height" value={dimBreadth} onChange={e => setDimBreadth(e.target.value)} className="w-full h-12 px-4 rounded-xl border border-brand-navy/15 bg-white text-brand-navy text-sm font-semibold outline-none focus:border-brand-teal/40 transition-all" disabled={busy} />
+                                      <input type="text" placeholder="Width" value={dimLength} onChange={e => setDimLength(e.target.value)} className="w-full gov-input" disabled={busy} />
+                                      <span className="text-gov-blue/20 font-bold">×</span>
+                                      <input type="text" placeholder="Height" value={dimBreadth} onChange={e => setDimBreadth(e.target.value)} className="w-full gov-input" disabled={busy} />
                                       <div className="w-32">
                                           <SearchableSelect 
                                               options={[{ value: 'mm', label: 'mm' }, { value: 'cm', label: 'cm' }, { value: 'in', label: 'in' }]} 
@@ -666,13 +657,13 @@ export default function StocksManagementPage() {
                           </>
                       ) : (
                           <div className="space-y-8 animate-slide-up">
-                              <div className="p-4 bg-brand-mint/10 border border-brand-mint rounded-2xl flex items-center gap-4">
-                                  <MdSettings className="w-6 h-6 text-brand-teal" />
+                              <div className="p-4 bg-gov-blue-light/10 border border-brand-mint rounded-2xl flex items-center gap-4">
+                                  <MdSettings className="w-6 h-6 text-gov-blue" />
                                   <div>
-                                      <div className="font-bold text-sm text-brand-navy">
+                                      <div className="font-bold text-sm text-gov-blue">
                                         {editingItemId ? "Modification provisioned" : "Identity provisioned"}
                                       </div>
-                                      <div className="text-[10px] uppercase font-bold text-brand-teal tracking-widest">
+                                      <div className="text-[10px] uppercase font-bold text-gov-blue tracking-widest">
                                         {name} {editingItemId ? "updated" : "identified"} / Now binding pricing rules
                                       </div>
                                   </div>
@@ -680,10 +671,10 @@ export default function StocksManagementPage() {
 
                               {pricingType === "SLAB_BASED" ? (
                                   <div className="space-y-4">
-                                      <div className="flex justify-between items-center bg-zinc-50/50 p-4 rounded-2xl border border-brand-navy/5">
+                                      <div className="flex justify-between items-center bg-zinc-50/50 p-4 rounded-2xl border border-gov-blue/5">
                                           <div className="flex flex-col">
-                                              <label className="text-sm font-bold text-brand-navy">Bulk Slab Setup</label>
-                                              <span className="text-[9px] font-black text-brand-navy/30 uppercase tracking-widest mt-0.5">Excel-ready Import/Export</span>
+                                              <label className="text-sm font-bold text-gov-blue">Bulk Slab Setup</label>
+                                              <span className="text-[9px] font-black text-gov-blue/30 uppercase tracking-widest mt-0.5">Excel-ready Import/Export</span>
                                           </div>
                                           <div className="flex gap-2">
                                               <input 
@@ -695,7 +686,7 @@ export default function StocksManagementPage() {
                                               />
                                               <button 
                                                 onClick={downloadSlabTemplateCSV}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-navy/10 text-[10px] font-black text-brand-navy/60 hover:bg-white hover:text-brand-teal transition-all uppercase tracking-widest"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gov-blue/10 text-[10px] font-black text-gov-blue/60 hover:bg-white hover:text-gov-blue transition-all uppercase tracking-widest"
                                               >
                                                   <MdCloudDownload className="w-3.5 h-3.5" />
                                                   Template
@@ -712,15 +703,15 @@ export default function StocksManagementPage() {
 
                                       <div className="flex justify-between items-center px-2">
                                           <div className="flex flex-col">
-                                              <label className="text-[10px] font-black text-brand-navy opacity-40 uppercase tracking-widest">Slab Configuration</label>
-                                              {itemType === "LASER_PAPER" && <span className="text-[9px] font-bold text-brand-teal uppercase">Laser Paper: Slab Pricing Required</span>}
+                                              <label className="text-[10px] font-black text-gov-blue opacity-40 uppercase tracking-widest">Slab Configuration</label>
+                                              {itemType === "LASER_PAPER" && <span className="text-[9px] font-bold text-gov-blue uppercase">Laser Paper: Slab Pricing Required</span>}
                                           </div>
-                                          <button onClick={handleAddSlab} className="text-[10px] font-black text-brand-teal hover:underline flex items-center gap-1 uppercase tracking-widest">
+                                          <button onClick={handleAddSlab} className="text-[10px] font-black text-gov-blue hover:underline flex items-center gap-1 uppercase tracking-widest">
                                               <MdAdd className="w-3 h-3" /> Add Tier
                                           </button>
                                       </div>
                                       <div className="space-y-2">
-                                          <div className="grid grid-cols-12 gap-3 px-2 text-[10px] font-bold text-brand-navy/40 uppercase tracking-widest">
+                                          <div className="grid grid-cols-12 gap-3 px-2 text-[10px] font-bold text-gov-blue/40 uppercase tracking-widest">
                                               <div className="col-span-2">Range Min</div>
                                               <div className="col-span-2">Range Max</div>
                                               <div className="col-span-3 text-right">Color Chg</div>
@@ -730,7 +721,7 @@ export default function StocksManagementPage() {
                                           {slabs.map((slab, idx) => (
                                               <div key={idx} className="grid grid-cols-12 gap-3 items-center group">
                                                   <div className="col-span-2">
-                                                      <input type="text" value={slab.minCount} readOnly className="w-full h-10 px-3 bg-zinc-50 rounded-lg text-sm font-bold text-brand-navy/40" />
+                                                      <input type="text" value={slab.minCount} readOnly className="w-full h-10 px-3 bg-zinc-50 rounded-lg text-sm font-bold text-gov-blue/40" />
                                                   </div>
                                                   <div className="col-span-2">
                                                       <input 
@@ -738,7 +729,7 @@ export default function StocksManagementPage() {
                                                           placeholder="∞" 
                                                           value={slab.maxCount} 
                                                           onChange={e => updateSlab(idx, "maxCount", e.target.value)}
-                                                          className="w-full h-10 px-3 border border-brand-navy/15 bg-white rounded-lg text-brand-navy text-sm font-bold focus:border-brand-teal/40 outline-none" 
+                                                          className="w-full h-10 px-3 border border-gov-blue/15 bg-white rounded-lg text-gov-blue text-sm font-bold focus:border-gov-blue/40 outline-none" 
                                                       />
                                                   </div>
                                                   <div className="col-span-3">
@@ -746,7 +737,7 @@ export default function StocksManagementPage() {
                                                           type="text" 
                                                           value={slab.colorCharge} 
                                                           onChange={e => updateSlab(idx, "colorCharge", e.target.value)}
-                                                          className="w-full h-10 px-3 border border-brand-navy/15 bg-white rounded-lg text-brand-navy text-sm font-bold text-right focus:border-brand-teal/40 outline-none" 
+                                                          className="w-full h-10 px-3 border border-gov-blue/15 bg-white rounded-lg text-gov-blue text-sm font-bold text-right focus:border-gov-blue/40 outline-none" 
                                                       />
                                                   </div>
                                                   <div className="col-span-3">
@@ -754,7 +745,7 @@ export default function StocksManagementPage() {
                                                           type="text" 
                                                           value={slab.bwCharge} 
                                                           onChange={e => updateSlab(idx, "bwCharge", e.target.value)}
-                                                          className="w-full h-10 px-3 border border-brand-navy/15 bg-white rounded-lg text-brand-navy text-sm font-bold text-right focus:border-brand-teal/40 outline-none" 
+                                                          className="w-full h-10 px-3 border border-gov-blue/15 bg-white rounded-lg text-gov-blue text-sm font-bold text-right focus:border-gov-blue/40 outline-none" 
                                                       />
                                                   </div>
                                                   <div className="col-span-2 flex justify-end">
@@ -774,48 +765,35 @@ export default function StocksManagementPage() {
                                   </div>
                               ) : (
                                   <div className="space-y-4">
-                                      <div className="p-6 bg-zinc-50 rounded-2xl border border-brand-navy/5">
+                                      <div className="p-6 bg-zinc-50 rounded-2xl border border-gov-blue/5">
                                           <div className="flex justify-between items-center mb-4">
-                                               <label className="text-sm font-bold text-brand-navy">Fixed Pricing</label>
-                                               {itemType === "OFFSET_PAPER" && <span className="text-[10px] font-bold text-brand-teal uppercase">Offset Paper: Fixed Pricing Required</span>}
+                                               <label className="text-sm font-bold text-gov-blue">Fixed Pricing</label>
+                                               {itemType === "OFFSET_PAPER" && <span className="text-[10px] font-bold text-gov-blue uppercase">Offset Paper: Fixed Pricing Required</span>}
                                           </div>
                                           <TextField label="Unit Price (Fixed)" placeholder="3.30" value={fixedPrice} onChange={e => setFixedPrice(e.target.value)} />
-                                          <p className="mt-3 text-[10px] font-semibold text-brand-navy/40 uppercase tracking-wider">Applicable for all offset printing calculations.</p>
+                                          <p className="mt-3 text-[10px] font-semibold text-gov-blue/40 uppercase tracking-wider">Applicable for all offset printing calculations.</p>
                                       </div>
                                   </div>
                               )}
                           </div>
                       )}
-                  </div>
-
-                  <div className="p-6 border-t border-brand-navy/5 bg-zinc-50/50 rounded-b-[2rem] flex justify-end gap-3">
-                      <button onClick={() => !busy && setShowModal(false)} className="px-6 py-3 text-sm font-bold text-brand-navy/40 hover:text-brand-navy transition-all">Cancel</button>
-                      <PrimaryButton 
-                          onClick={modalStep === 1 ? handleCreateItem : handleSavePricing} 
-                          disabled={busy || !name || (modalStep === 2 && pricingType === "FIXED" && !fixedPrice)}
-                      >
-                          {busy ? "Processing..." : (modalStep === 1 ? (editingItemId ? "Update Properties" : "Next: Configure Pricing") : (editingItemId ? "Update Pricing Rules" : "Finalize Stock Item"))}
-                      </PrimaryButton>
-                  </div>
-              </div>
-          </div>
-      )}
+      </FormDrawer>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && deleteTargetItem && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-brand-navy/60 backdrop-blur-md transition-opacity" onClick={() => !busy && setShowDeleteModal(false)}></div>
               
-              <div className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl relative z-10 flex flex-col animate-scale-in overflow-hidden border border-brand-navy/5">
+              <div className="w-full max-w-sm bg-white border border-gov-border relative z-10 flex flex-col overflow-hidden">
                   <div className="p-8 text-center space-y-6">
-                      <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                      <div className="w-16 h-16 bg-red-50 text-red-500 flex items-center justify-center mx-auto">
                           <MdOutlineDelete className="w-10 h-10" />
                       </div>
                       
                       <div className="space-y-2">
-                        <h2 className="text-2xl font-black text-brand-navy tracking-tight">Delete Stock?</h2>
-                        <p className="text-sm font-medium text-brand-navy/40 px-4">
-                          This will permanently remove <span className="text-brand-navy font-bold">{deleteTargetItem.name}</span> and all its pricing rules. This action cannot be undone.
+                        <h2 className="text-2xl font-black text-gov-blue tracking-tight">Delete Stock?</h2>
+                        <p className="text-sm font-medium text-gov-blue/40 px-4">
+                          This will permanently remove <span className="text-gov-blue font-bold">{deleteTargetItem.name}</span> and all its pricing rules. This action cannot be undone.
                         </p>
                       </div>
 
@@ -823,14 +801,14 @@ export default function StocksManagementPage() {
                           <button 
                             onClick={handleApplyDelete}
                             disabled={busy}
-                            className="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-2xl shadow-xl shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50"
+                            className="w-full py-3 bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
                           >
                               {busy ? "Deleting..." : "Yes, Delete Permanently"}
                           </button>
                           <button 
                             onClick={() => setShowDeleteModal(false)}
                             disabled={busy}
-                            className="w-full py-4 text-sm font-bold text-brand-navy/40 hover:text-brand-navy transition-all"
+                            className="w-full py-4 text-sm font-bold text-gov-blue/40 hover:text-gov-blue transition-all"
                           >
                             No, Keep it
                           </button>

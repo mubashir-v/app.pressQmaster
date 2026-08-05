@@ -64,7 +64,7 @@ export default function Sidebar() {
    });
 
    return (
-      <aside className={`flex h-screen flex-col bg-white border-r border-brand-navy/5 shadow-2xl shadow-brand-navy/5 transition-all duration-300 relative z-40 ${isCollapsed ? "w-20" : "w-64"}`}>
+      <aside className={`flex h-screen flex-col bg-white border-r border-gov-blue/5 shadow-2xl shadow-brand-navy/5 transition-all duration-300 relative z-40 ${isCollapsed ? "w-20" : "w-64"}`}>
          {/* App brand dropdown / toggle */}
          <div className={`py-6 flex items-center ${isCollapsed ? "justify-center px-0" : "justify-between px-6"}`}>
             <div className="flex items-center gap-3 overflow-hidden">
@@ -72,11 +72,11 @@ export default function Sidebar() {
                   <BrandLogo className="w-10 h-10 shadow-sm" />
                </div>
                {!isCollapsed && (
-                  <div className="font-bold text-lg text-brand-navy tracking-tight whitespace-nowrap">print<span className="text-brand-teal">Q</span></div>
+                  <div className="font-bold text-lg text-gov-blue tracking-tight whitespace-nowrap">print<span className="text-gov-blue">Q</span></div>
                )}
             </div>
             {!isCollapsed && (
-               <button onClick={() => setIsCollapsed(true)} className="text-brand-navy/60 hover:text-brand-navy transition-colors flex-shrink-0">
+               <button onClick={() => setIsCollapsed(true)} className="text-gov-blue/60 hover:text-gov-blue transition-colors flex-shrink-0">
                   <FaChevronLeft className="w-3 h-3" />
                </button>
             )}
@@ -84,13 +84,13 @@ export default function Sidebar() {
 
          <div className="px-5 mb-8 mt-2 flex justify-center">
             {isCollapsed ? (
-               <button onClick={() => setIsCollapsed(false)} className="w-10 h-10 flex items-center justify-center bg-brand-teal hover:bg-brand-teal-dark active:bg-brand-teal text-white rounded-xl transition-all shadow-lg shadow-brand-teal/30">
+               <button onClick={() => setIsCollapsed(false)} className="w-10 h-10 flex items-center justify-center bg-gov-blue hover:bg-gov-blue-dark active:bg-gov-blue text-white rounded-xl transition-all shadow-lg shadow-gov-blue/30">
                   <FaChevronRight className="w-3 h-3" />
                </button>
              ) : (
                 <button 
                    onClick={() => navigate("/dashboard/quotes/new")}
-                   className="w-full flex items-center justify-center gap-2 bg-brand-teal hover:bg-brand-teal-dark active:bg-brand-teal text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-brand-teal/30"
+                   className="w-full flex items-center justify-center gap-2 bg-gov-blue hover:bg-gov-blue-dark active:bg-gov-blue text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-gov-blue/30"
                 >
                    New Quote
                 </button>
@@ -113,8 +113,8 @@ export default function Sidebar() {
                         "group relative flex items-center gap-4 py-3 text-sm font-semibold transition-colors overflow-hidden whitespace-nowrap",
                         isCollapsed ? "px-0 justify-center" : "px-8 justify-start",
                         isActive
-                           ? "text-brand-navy bg-brand-mint/20"
-                           : "text-brand-navy/50 hover:text-brand-navy hover:bg-brand-mint/5"
+                           ? "text-gov-blue bg-gov-blue-light/20"
+                           : "text-gov-blue/50 hover:text-gov-blue hover:bg-gov-blue-light/5"
                      ].join(" ")
                   }
                >
@@ -122,7 +122,7 @@ export default function Sidebar() {
                      <>
                         {/* Active Indicator Bar */}
                         {isActive && (
-                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-teal rounded-r-md"></div>
+                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-gov-blue rounded-r-md"></div>
                         )}
                         {item.icon}
                         {!isCollapsed && <span>{item.label}</span>}
@@ -134,12 +134,12 @@ export default function Sidebar() {
             {availableInventoryItems.length > 0 && (
                <div className="pt-6 pb-2">
                   {!isCollapsed && (
-                     <div className="px-8 text-xs font-bold tracking-widest text-brand-navy/40 uppercase mb-2">
+                     <div className="px-8 text-xs font-bold tracking-widest text-gov-blue/40 uppercase mb-2">
                         Inventory & Equipment
                      </div>
                   )}
                   {isCollapsed && (
-                     <div className="mx-auto w-8 border-t border-brand-navy/10 mb-4 mt-2"></div>
+                     <div className="mx-auto w-8 border-t border-gov-blue/10 mb-4 mt-2"></div>
                   )}
                   {availableInventoryItems.map((item) => (
                      <NavLink
@@ -151,15 +151,15 @@ export default function Sidebar() {
                               "group relative flex items-center gap-4 py-3 text-sm font-semibold transition-colors overflow-hidden whitespace-nowrap",
                               isCollapsed ? "px-0 justify-center" : "px-8 justify-start",
                               isActive
-                                 ? "text-brand-navy bg-brand-mint/20"
-                                 : "text-brand-navy/50 hover:text-brand-navy hover:bg-brand-mint/5"
+                                 ? "text-gov-blue bg-gov-blue-light/20"
+                                 : "text-gov-blue/50 hover:text-gov-blue hover:bg-gov-blue-light/5"
                            ].join(" ")
                         }
                      >
                         {({ isActive }) => (
                            <>
                               {isActive && (
-                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-teal rounded-r-md"></div>
+                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-gov-blue rounded-r-md"></div>
                               )}
                               {item.icon}
                               {!isCollapsed && <span>{item.label}</span>}

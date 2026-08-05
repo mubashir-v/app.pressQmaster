@@ -121,7 +121,7 @@ export const AuthProvider = ({ children }) => {
         <div className="flex h-screen w-screen flex-col items-center justify-center bg-zinc-50 relative">
           <div className="flex flex-col items-center justify-center animate-pulse drop-shadow-xl">
             <BrandLogo className="w-16 h-16 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[18px]" />
-            <div className="mt-6 text-sm font-semibold tracking-widest text-brand-teal uppercase">Loading Workspace...</div>
+            <div className="mt-6 text-sm font-semibold tracking-widest text-gov-blue uppercase">Loading Workspace...</div>
           </div>
         </div>
       ) : (

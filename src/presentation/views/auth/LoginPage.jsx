@@ -49,19 +49,19 @@ export default function LoginPage() {
     <AuthShellLayout>
       <div className="w-full max-w-md">
         <Link to="/" className="inline-flex items-center gap-3">
-          <BrandLogo className="w-10 h-10 shadow-[0_4px_14px_0_rgba(24,61,57,0.39)] rounded-[12px]" />
+          <BrandLogo className="w-10 h-10" />
           <div className="leading-tight">
-            <div className="text-lg font-bold tracking-tight text-brand-navy">printQ</div>
+            <div className="text-lg font-bold tracking-tight text-gov-blue">printQ</div>
           </div>
         </Link>
 
-        <h1 className="mt-8 text-3xl font-bold leading-tight tracking-tight text-brand-navy sm:text-4xl lg:text-3xl">Welcome back</h1>
+        <h1 className="mt-8 text-3xl font-bold leading-tight tracking-tight text-gov-blue sm:text-4xl lg:text-3xl">Welcome back</h1>
 
-        <div className="mt-8 rounded-[2rem] border border-brand-navy/5 bg-white p-6 sm:p-8 shadow-xl shadow-brand-navy/5">
+        <div className="mt-8 border border-gov-border bg-white p-6 sm:p-8">
           <div className="grid gap-4">
 
             {globalError && (
-              <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-100 mb-2">
+              <div className="bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 mb-2">
                 {globalError}
               </div>
             )}
@@ -88,11 +88,11 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center justify-between mt-2 pt-1 text-sm">
-              <label className="inline-flex items-center gap-2 text-brand-navy/70 cursor-pointer">
-                <input type="checkbox" className="h-4 w-4 rounded border-brand-navy/20 text-brand-teal focus:ring-brand-teal/20" />
+              <label className="inline-flex items-center gap-2 text-gray-600 cursor-pointer">
+                <input type="checkbox" className="h-4 w-4 border-gov-border text-gov-blue focus:ring-gov-blue/20" />
                 Remember me
               </label>
-              <button type="button" className="font-semibold text-brand-teal hover:text-brand-teal-dark hover:underline">
+              <button type="button" className="font-semibold text-gov-blue hover:text-gov-blue-dark hover:underline">
                 Forgot password?
               </button>
             </div>
@@ -102,9 +102,9 @@ export default function LoginPage() {
             </PrimaryButton>
           </form>
 
-          <p className="mt-6 text-center text-sm text-brand-navy/60">
+          <p className="mt-6 text-center text-sm text-gray-600">
             Don't have an account?{" "}
-            <Link to="/signup" className="font-semibold text-brand-teal hover:underline">
+            <Link to="/signup" className="font-semibold text-gov-blue hover:underline">
               Sign up
             </Link>
           </p>

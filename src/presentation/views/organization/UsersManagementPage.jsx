@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getOrganizationMembers, inviteOrganizationMember, updateOrganizationMember } from "../../../infrastructure/api/backendService.js";
 import { PrimaryButton, TextField } from "../../components/auth/AuthFormPrimitives.jsx";
+import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import { MdAdd, MdClose, MdShield, MdEdit } from "react-icons/md";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 
@@ -185,48 +186,38 @@ export default function UsersManagementPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in relative pb-12">
-      {/* Header Array */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-           <h1 className="text-3xl font-bold text-brand-navy tracking-tight">Organization Members</h1>
-           <p className="mt-2 text-brand-navy/60">
-              Manage operators and invite collaborators cleanly isolated into this domain.
-           </p>
-        </div>
-        <button 
-           onClick={openInviteModal}
-           className="flex items-center gap-2 px-6 py-3 bg-brand-teal hover:bg-brand-teal-dark text-white font-semibold rounded-xl shadow-lg transition-all active:scale-95"
-        >
-           <MdAdd className="w-5 h-5" />
-           Invite User
-        </button>
-      </div>
-
+    <div className="relative pb-12">
       {errorText && (
-         <div className="mb-8 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-600 border border-red-100 flex gap-3 items-center">
-            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+         <div className="mb-4 bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 flex gap-3 items-center">
             {errorText}
          </div>
       )}
 
       {loading ? (
           <div className="flex justify-center p-20">
-             <div className="w-10 h-10 border-4 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>
+             <div className="w-8 h-8 border-2 border-gov-border border-t-gov-blue animate-spin"></div>
           </div>
       ) : (
-          <div className="space-y-8">
-             {/* Active Members Grid Row List */}
-             <div className="bg-white rounded-2xl border border-brand-navy/5 shadow-sm overflow-hidden">
-                 <div className="px-6 py-4 border-b border-brand-navy/5 flex items-center justify-between bg-zinc-50/50">
-                     <h2 className="font-bold text-brand-navy">Active Staff</h2>
-                     <span className="bg-brand-navy/5 text-brand-navy font-bold text-xs px-3 py-1 rounded-full">{members.length} Total</span>
+          <div className="space-y-4">
+             <div className="gov-panel">
+                 <div className="gov-panel-header flex flex-col md:flex-row md:items-center justify-between gap-4">
+                     <h2 className="text-lg font-bold text-gray-900">Active Staff</h2>
+                     <div className="flex items-center gap-3">
+                         <span className="text-xs font-semibold text-gray-500 border border-gov-border px-2 py-1">{members.length} Total</span>
+                         <button
+                            onClick={openInviteModal}
+                            className="gov-btn-primary"
+                         >
+                            <MdAdd className="w-4 h-4" />
+                            Invite User
+                         </button>
+                     </div>
                  </div>
                  
                  {members.length === 0 ? (
-                     <div className="p-8 text-center text-brand-navy/40 font-medium">No personnel active.</div>
+                     <div className="p-8 text-center text-gov-blue/40 font-medium">No personnel active.</div>
                  ) : (
-                     <ul className="divide-y divide-brand-navy/5">
+                     <ul className="divide-y divide-gov-border">
                         {members.map(member => (
                             <li key={member.membershipId} className={`p-6 hover:bg-zinc-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${member.memberActive === false ? 'opacity-50 grayscale' : ''}`}>
                                 <div className="flex items-center gap-4">
@@ -244,11 +235,11 @@ export default function UsersManagementPage() {
                                            {getInitials(member.displayName, member.email)}
                                         </div>
                                      )}
-                                     <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-white rounded-full ${member.memberActive === false ? 'bg-red-500' : 'bg-brand-teal'}`}></div>
+                                     <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-white rounded-full ${member.memberActive === false ? 'bg-red-500' : 'bg-gov-blue'}`}></div>
                                    </div>
                                    <div>
-                                      <div className="font-bold text-brand-navy tracking-tight">{member.displayName || "Unregistered Account"}</div>
-                                      <div className="text-sm text-brand-navy/60 font-medium">{member.email} {member.memberActive === false && <span className="text-red-500 font-bold ml-1">(Suspended)</span>}</div>
+                                      <div className="font-bold text-gov-blue tracking-tight">{member.displayName || "Unregistered Account"}</div>
+                                      <div className="text-sm text-gov-blue/60 font-medium">{member.email} {member.memberActive === false && <span className="text-red-500 font-bold ml-1">(Suspended)</span>}</div>
                                    </div>
                                 </div>
                                 
@@ -257,15 +248,15 @@ export default function UsersManagementPage() {
                                          <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${
                                              member.role === 'OWNER' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
                                              member.role === 'ADMIN' ? 'bg-brand-navy text-white' :
-                                             member.role === 'MANAGER' ? 'bg-brand-mint text-brand-teal border border-brand-teal/20' :
-                                             'bg-zinc-100 text-brand-navy/60 border border-zinc-200'
+                                             member.role === 'MANAGER' ? 'bg-gov-blue-light text-gov-blue border border-gov-blue/20' :
+                                             'bg-zinc-100 text-gov-blue/60 border border-zinc-200'
                                          }`}>
                                             {member.role === 'OWNER' && <MdShield className="w-3 h-3" />}
                                             {member.role}
                                          </span>
                                          
                                          {member.scopes.includes("all_scope") && (
-                                             <span className="px-3 py-1.5 rounded-full bg-brand-teal/10 text-brand-teal border border-brand-teal/20 text-xs font-bold">
+                                             <span className="px-3 py-1.5 rounded-full bg-gov-blue/10 text-gov-blue border border-gov-blue/20 text-xs font-bold">
                                                 ALL PERMISSIONS
                                              </span>
                                          )}
@@ -274,7 +265,7 @@ export default function UsersManagementPage() {
                                      {/* Edit Access Action Button */}
                                      <button 
                                         onClick={() => openEditModal(member)}
-                                        className="w-10 h-10 flex items-center justify-center text-brand-navy/40 hover:text-brand-navy hover:bg-brand-navy/5 rounded-full transition-colors flex-shrink-0"
+                                        className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gov-blue hover:bg-gray-50 transition-colors flex-shrink-0"
                                         title="Edit User Access"
                                      >
                                          <MdEdit className="w-5 h-5" />
@@ -288,12 +279,12 @@ export default function UsersManagementPage() {
 
              {/* Pending Invitations Subgrid */}
              {pending.length > 0 && (
-                 <div className="bg-white rounded-2xl border border-brand-navy/5 shadow-sm overflow-hidden">
-                     <div className="px-6 py-4 border-b border-brand-navy/5 flex items-center justify-between bg-orange-50/50">
-                         <h2 className="font-bold text-orange-800">Pending Invitations</h2>
-                         <span className="bg-orange-100 text-orange-800 border border-orange-200 font-bold text-xs px-3 py-1 rounded-full">{pending.length} Waiting</span>
+                 <div className="gov-panel">
+                     <div className="gov-panel-header flex items-center justify-between bg-orange-50">
+                         <h2 className="text-lg font-bold text-orange-800">Pending Invitations</h2>
+                         <span className="text-xs font-semibold text-orange-800 border border-orange-200 px-2 py-1">{pending.length} Waiting</span>
                      </div>
-                     <ul className="divide-y divide-brand-navy/5">
+                     <ul className="divide-y divide-gov-border">
                         {pending.map(invite => (
                             <li key={invite.invitationId} className="p-6 hover:bg-zinc-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4 opacity-60">
@@ -301,11 +292,11 @@ export default function UsersManagementPage() {
                                        {getInitials(null, invite.emailNormalized)}
                                    </div>
                                    <div>
-                                      <div className="font-bold text-brand-navy tracking-tight">{invite.emailNormalized}</div>
+                                      <div className="font-bold text-gov-blue tracking-tight">{invite.emailNormalized}</div>
                                       <div className="text-xs text-orange-600 font-semibold mt-0.5">Activation required</div>
                                    </div>
                                 </div>
-                                <span className="opacity-60 px-4 py-1.5 rounded-full bg-zinc-100 text-brand-navy/60 text-xs font-bold uppercase tracking-widest border border-zinc-200">
+                                <span className="opacity-60 px-4 py-1.5 rounded-full bg-zinc-100 text-gov-blue/60 text-xs font-bold uppercase tracking-widest border border-zinc-200">
                                     PENDING {invite.role}
                                 </span>
                             </li>
@@ -316,43 +307,30 @@ export default function UsersManagementPage() {
           </div>
       )}
 
-      {/* Invite/Edit Modal Layer */}
-      {modalMode && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              {/* Backdrop */}
-              <div 
-                 className="absolute inset-0 bg-brand-navy/40 backdrop-blur-sm transition-opacity" 
-                 onClick={closeModal}
-              ></div>
-              
-              {/* Panel */}
-              <div className="w-full max-w-3xl bg-white rounded-[2rem] shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-fade-in">
-                  
-                  <div className="p-6 border-b border-brand-navy/5 flex justify-between items-center">
-                      <div>
-                         <h2 className="text-2xl font-bold text-brand-navy">
-                            {modalMode === 'invite' ? "Invite User" : "Edit User Access"}
-                         </h2>
-                         <p className="text-sm text-brand-navy/60 font-medium">
-                            {modalMode === 'invite' ? "Add a new member to your organization and set their permissions." : "Modify privileges and strict access boundaries for this network node."}
-                         </p>
-                      </div>
-                      <button 
-                         onClick={closeModal} 
-                         className="w-10 h-10 rounded-full flex items-center justify-center text-brand-navy/40 hover:bg-zinc-100 hover:text-brand-navy transition-colors focus:outline-none"
-                      >
-                          <MdClose className="w-6 h-6" />
-                      </button>
-                  </div>
-
-                  <div className="overflow-y-auto p-6 md:p-8 flex-1 space-y-8 no-scrollbar">
+      <FormDrawer
+        open={!!modalMode}
+        onClose={closeModal}
+        disableClose={inviteBusy}
+        maxWidth="max-w-2xl"
+        title={modalMode === "invite" ? "Invite User" : "Edit User Access"}
+        subtitle={modalMode === "invite" ? "Add a new member and set permissions." : "Modify privileges and access boundaries."}
+        icon={<MdShield className="w-4 h-4" />}
+        footer={
+          <>
+            <button type="button" onClick={closeModal} disabled={inviteBusy} className="gov-btn-secondary">Cancel</button>
+            <PrimaryButton onClick={handleSubmit} disabled={inviteBusy || !!inviteSuccess || !inviteEmail.includes("@") || inviteScopes.length === 0}>
+              {inviteBusy ? "Processing..." : modalMode === "invite" ? "Send Invitation" : "Update Privileges"}
+            </PrimaryButton>
+          </>
+        }
+      >
                       {inviteError && (
-                          <div className="rounded-xl bg-red-50 p-4 font-semibold text-red-600 border border-red-100 text-sm">
+                          <div className="bg-red-50 p-3 font-semibold text-red-600 border border-red-200 text-sm">
                              {inviteError}
                           </div>
                       )}
                       {inviteSuccess && (
-                          <div className="rounded-xl bg-brand-mint/20 p-4 font-semibold text-brand-teal border border-brand-mint/50 flex gap-3 text-sm">
+                          <div className="bg-gov-blue-light/20 p-3 font-semibold text-gov-blue border border-gov-border flex gap-3 text-sm">
                              {inviteSuccess}
                           </div>
                       )}
@@ -367,15 +345,15 @@ export default function UsersManagementPage() {
 
                       {/* Suspension Toggle visible only in Edit Mode implicitly locked for Owners */}
                       {modalMode === 'edit' && inviteRole !== 'OWNER' && (
-                          <div className="flex items-center justify-between p-5 bg-brand-navy/5 rounded-2xl border border-brand-navy/10">
+                          <div className="flex items-center justify-between p-5 bg-gray-50 border border-gov-border">
                               <div>
-                                  <div className="font-bold text-sm text-brand-navy">Account Status</div>
-                                  <div className="text-xs text-brand-navy/60 mt-0.5">Toggle to suspend or reactivate this user's cross-tenant access.</div>
+                                  <div className="font-bold text-sm text-gov-blue">Account Status</div>
+                                  <div className="text-xs text-gov-blue/60 mt-0.5">Toggle to suspend or reactivate this user's cross-tenant access.</div>
                               </div>
                               <button 
                                  onClick={() => setMemberActive(!memberActive)}
                                  disabled={inviteBusy || !!inviteSuccess}
-                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${memberActive ? 'bg-brand-teal' : 'bg-brand-navy/20'}`}
+                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${memberActive ? 'bg-gov-blue' : 'bg-brand-navy/20'}`}
                               >
                                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${memberActive ? 'translate-x-6' : 'translate-x-1'}`} />
                               </button>
@@ -383,7 +361,7 @@ export default function UsersManagementPage() {
                       )}
                       
                       <div>
-                          <label className="block text-sm font-bold text-brand-navy mb-3">User Role</label>
+                          <label className="block text-sm font-bold text-gov-blue mb-3">User Role</label>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               {['ADMIN', 'MANAGER', 'MEMBER'].map((role) => {
                                   const isOwner = inviteRole === "OWNER";
@@ -397,10 +375,10 @@ export default function UsersManagementPage() {
                                           key={role}
                                           disabled={inviteBusy || !!inviteSuccess || isOwner}
                                           onClick={() => setInviteRole(role)}
-                                          className={`px-4 py-3 rounded-xl border-2 text-sm font-bold uppercase transition-all flex flex-col items-center justify-center gap-1 ${
+                                          className={`px-4 py-3 border-2 text-sm font-bold uppercase transition-all flex flex-col items-center justify-center gap-1 ${
                                               (inviteRole === role) || (isOwner && role === "ADMIN")
-                                              ? 'border-brand-teal bg-brand-mint/5 text-brand-teal shadow-md shadow-brand-teal/10' 
-                                              : 'border-brand-navy/10 text-brand-navy/60 hover:border-brand-navy/20 hover:bg-zinc-50'
+                                              ? 'border-gov-blue bg-blue-50 text-gov-blue' 
+                                              : 'border-gov-border text-gov-blue/60 hover:bg-gray-50'
                                           }`}
                                       >
                                           {renderRoleValue}
@@ -410,21 +388,21 @@ export default function UsersManagementPage() {
                           </div>
                       </div>
 
-                      <div className="border-t border-brand-navy/10 pt-8 mt-8">
-                          <label className="block text-sm font-bold text-brand-navy mb-1">Detailed Permissions</label>
-                          <p className="text-xs text-brand-navy/50 mb-4 font-medium">Fine-tune the exact read/write permissions mapped to their account.</p>
+                      <div className="border-t border-gov-blue/10 pt-8 mt-8">
+                          <label className="block text-sm font-bold text-gov-blue mb-1">Detailed Permissions</label>
+                          <p className="text-xs text-gov-blue/50 mb-4 font-medium">Fine-tune the exact read/write permissions mapped to their account.</p>
                           
                           {inviteRole === "ADMIN" || inviteRole === "OWNER" ? (
-                              <div className="p-6 bg-brand-navy/5 rounded-2xl border border-brand-navy/10 flex items-center justify-center flex-col gap-2">
-                                  <MdShield className="w-8 h-8 text-brand-navy/40" />
-                                  <div className="font-bold text-brand-navy text-center">{inviteRole === "OWNER" ? "Owners" : "Admins"} have unrestricted global access.</div>
-                                  <div className="text-xs text-brand-navy/60 text-center">Specific permissions are automatically overridden.</div>
+                              <div className="p-6 bg-gray-50 border border-gov-border flex items-center justify-center flex-col gap-2">
+                                  <MdShield className="w-8 h-8 text-gov-blue/40" />
+                                  <div className="font-bold text-gov-blue text-center">{inviteRole === "OWNER" ? "Owners" : "Admins"} have unrestricted global access.</div>
+                                  <div className="text-xs text-gov-blue/60 text-center">Specific permissions are automatically overridden.</div>
                               </div>
                           ) : (
                               <div className="space-y-2">
                                  {RESOURCE_SCOPES.map(resource => (
-                                     <div key={resource.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-brand-navy/5 bg-zinc-50/50 gap-4">
-                                         <div className="font-bold text-sm text-brand-navy w-1/3">{resource.title}</div>
+                                     <div key={resource.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gov-border bg-gray-50 gap-4">
+                                         <div className="font-bold text-sm text-gov-blue w-1/3">{resource.title}</div>
                                          <div className="flex flex-wrap items-center gap-6">
                                             {resource.actions.map(action => {
                                                 const scopeId = `${action}_${resource.id}`;
@@ -438,13 +416,13 @@ export default function UsersManagementPage() {
                                                         <div 
                                                           onClick={(e) => { e.preventDefault(); handleScopeToggle(scopeId); }}
                                                           className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${
-                                                            isChecked ? 'bg-brand-teal border-brand-teal text-white' : 'border-zinc-300 group-hover:border-brand-teal/50 bg-white'
+                                                            isChecked ? 'bg-gov-blue border-gov-blue text-white' : 'border-zinc-300 group-hover:border-gov-blue/50 bg-white'
                                                         }`}>
                                                             {isChecked && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>}
                                                         </div>
                                                         <span 
                                                           onClick={(e) => { e.preventDefault(); handleScopeToggle(scopeId); }}
-                                                          className={`text-[10px] font-bold uppercase tracking-widest ${isChecked ? 'text-brand-navy' : 'text-brand-navy/50'}`}
+                                                          className={`text-[10px] font-bold uppercase tracking-widest ${isChecked ? 'text-gov-blue' : 'text-gov-blue/50'}`}
                                                         >
                                                            {action}
                                                         </span>
@@ -457,23 +435,7 @@ export default function UsersManagementPage() {
                               </div>
                           )}
                       </div>
-                  </div>
-                  
-                  <div className="p-6 border-t border-brand-navy/5 bg-zinc-50/50 rounded-b-[2rem] flex justify-end gap-3">
-                      <button 
-                         onClick={closeModal}
-                         disabled={inviteBusy}
-                         className="px-6 py-2.5 font-semibold text-brand-navy/60 hover:text-brand-navy hover:bg-zinc-200/50 rounded-xl transition-all"
-                      >
-                         Cancel
-                      </button>
-                      <PrimaryButton onClick={handleSubmit} disabled={inviteBusy || !!inviteSuccess || !inviteEmail.includes('@') || inviteScopes.length === 0}>
-                         {inviteBusy ? "Processing..." : (modalMode === 'invite' ? "Send Invitation" : "Update Privileges")}
-                      </PrimaryButton>
-                  </div>
-              </div>
-          </div>
-      )}
+      </FormDrawer>
     </div>
   );
 }

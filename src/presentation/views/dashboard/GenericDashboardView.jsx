@@ -33,12 +33,16 @@ export default function GenericDashboardView() {
   }
 
   return (
-    <div className="w-full h-[600px] rounded-3xl border border-brand-navy/10 bg-white p-10 shadow-sm flex flex-col items-center justify-center text-brand-navy/50">
-        <div className="h-24 w-24 rounded-full bg-brand-mint/30 flex items-center justify-center mb-6">
-            <svg fill="currentColor" viewBox="0 0 24 24" className="w-8 h-8 text-brand-teal"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14h-2V9h-2V7h4v10z"></path></svg>
+    <div className="gov-panel">
+      <div className="gov-panel-header">
+        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+      </div>
+      <div className="gov-panel-body flex flex-col items-center justify-center text-center min-h-[400px] text-gray-500">
+        <div className="h-16 w-16 bg-gray-100 border border-gov-border flex items-center justify-center mb-6">
+            <svg fill="currentColor" viewBox="0 0 24 24" className="w-8 h-8 text-gov-blue"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14h-2V9h-2V7h4v10z"></path></svg>
         </div>
-        <h1 className="text-3xl font-bold text-brand-navy">{title}</h1>
-        <p className="mt-2 text-sm text-brand-navy/60">This content area changes dynamically based on the sidebar scope restrictions above.</p>
+        <p className="text-sm text-gray-600 max-w-md">This content area changes dynamically based on the sidebar scope restrictions above.</p>
+      </div>
     </div>
   );
 }

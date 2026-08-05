@@ -46,13 +46,13 @@ export default function CreateOrganizationPage() {
   return (
     <div className="max-w-3xl w-full mx-auto p-6 md:p-10 animate-fade-in">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-brand-navy tracking-tight">Create Organization</h1>
-        <p className="mt-2 text-brand-navy/60">
+        <h1 className="text-3xl font-bold text-gov-blue tracking-tight">Create Organization</h1>
+        <p className="mt-2 text-gov-blue/60">
           Provision a new isolated workspace. You will be assigned as its billing owner.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-brand-navy/5 shadow-xl shadow-brand-navy/5 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gov-blue/5 shadow-xl shadow-brand-navy/5 overflow-hidden">
         <div className="p-6 md:p-8 grid gap-8 md:grid-cols-2">
           
           {/* Main Form Area */}
@@ -73,26 +73,26 @@ export default function CreateOrganizationPage() {
                <PrimaryButton disabled={busy || !canSubmit} onClick={handleCreate}>
                  {busy ? "Provisioning..." : "Create Workspace"}
                </PrimaryButton>
-               <Link to="/dashboard" className="text-sm font-semibold text-brand-navy/60 hover:text-brand-navy">
+               <Link to="/dashboard" className="text-sm font-semibold text-gov-blue/60 hover:text-gov-blue">
                  Cancel
                </Link>
             </div>
           </div>
 
           {/* Context Panel */}
-          <div className="rounded-xl bg-brand-mint/20 border border-brand-mint/50 p-6 flex flex-col items-center justify-center text-center space-y-4">
-             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-brand-teal shadow-md shadow-brand-teal/10">
+          <div className="rounded-xl bg-gov-blue-light/20 border border-brand-mint/50 p-6 flex flex-col items-center justify-center text-center space-y-4">
+             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-gov-blue shadow-md shadow-gov-blue/10">
                 <MdBusiness className="w-8 h-8" />
              </div>
              <div>
-                <h3 className="font-bold text-brand-navy text-lg line-clamp-1">
+                <h3 className="font-bold text-gov-blue text-lg line-clamp-1">
                    {orgName.trim() || "Your New Organization"}
                 </h3>
-                <p className="text-sm text-brand-navy/60 mt-1">
+                <p className="text-sm text-gov-blue/60 mt-1">
                    {slugConfig.trim() || orgName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || "your-handle"}
                 </p>
              </div>
-             <p className="text-xs font-semibold text-brand-teal bg-white px-3 py-1 rounded-full uppercase tracking-widest mt-4 shadow-sm shadow-brand-teal/5">
+             <p className="text-xs font-semibold text-gov-blue bg-white px-3 py-1 rounded-full uppercase tracking-widest mt-4 shadow-sm shadow-gov-blue/5">
                 Owner Privileges
              </p>
           </div>

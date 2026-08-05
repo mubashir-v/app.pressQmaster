@@ -8,10 +8,11 @@ import {
 
 
 import BrandLogo from "../../components/logo/BrandLogo.jsx";
-import { MdAdd, MdClose, MdContentCopy, MdDeleteOutline, MdLayers, MdArrowBack, MdEdit, MdCheckCircle, MdPrint, MdOutlineAnalytics, MdWarningAmber, MdPrint as MdPrintIcon, MdComputer, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn, MdInfo, MdHelpOutline } from "react-icons/md";
+import { MdAdd, MdClose, MdContentCopy, MdDeleteOutline, MdLayers, MdArrowBack, MdEdit, MdCheckCircle, MdPrint, MdOutlineAnalytics, MdWarningAmber, MdPrint as MdPrintIcon, MdComputer, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn, MdInfo, MdHelpOutline, MdExpandMore, MdExpandLess } from "react-icons/md";
 import { FaWhatsapp } from "react-icons/fa";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
 import { TextField, PrimaryButton, SearchableSelect, SelectField } from "../../components/auth/AuthFormPrimitives.jsx";
+import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
 
 
@@ -20,15 +21,33 @@ import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
 const ADDRESS_TEMPLATE = { line1: "", line2: "", city: "", region: "", postalCode: "", country: "" };
 
 
-const TABS = [
-  { id: "laser", label: "Laser Printing", icon: <MdComputer /> },
-  { id: "offset", label: "Offset Printing", icon: <MdPrint /> }
+const LASER_SUB_TABS = [
+  { id: "laser", label: "Normal Print", icon: MdComputer },
+  { id: "brochure", label: "Booklet / Book", icon: MdLayers },
 ];
 
-const QUOTE_FORM_COLUMN_CLASS = "w-full lg:flex-[1_1_0] lg:min-w-[440px] lg:sticky lg:top-4 lg:self-start space-y-4";
-const QUOTE_INPUT_GRID_CLASS = "grid grid-cols-1 md:grid-cols-2 gap-5";
-const QUOTE_OPTIONS_PANEL_CLASS = "w-full lg:flex-[0_0_25%] lg:min-w-[260px] lg:max-w-[360px] lg:max-h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar lg:hover:flex-[1_1_65%] lg:focus-within:flex-[1_1_65%] lg:hover:max-w-none lg:focus-within:max-w-none lg:hover:z-20 lg:focus-within:z-20 lg:hover:shadow-2xl lg:focus-within:shadow-2xl transition-[flex,max-width,box-shadow] duration-300 ease-out";
-const QUOTE_SECTION_LABEL_CLASS = "text-[10px] font-black text-brand-navy/70 uppercase tracking-[0.25em]";
+const OFFSET_SUB_TABS = [
+  { id: "offset", label: "Normal Print", icon: MdPrint },
+  { id: "offset-book", label: "Book / Booklet", icon: MdLayers },
+];
+
+const isLaserTab = (tab) => tab === "laser" || tab === "brochure";
+const isOffsetTab = (tab) => tab === "offset" || tab === "offset-book";
+
+const QUOTE_CALC_ROW_CLASS = "flex flex-col lg:flex-row items-stretch gap-2 w-full flex-1 min-h-[min(360px,45vh)] lg:min-h-0";
+const QUOTE_FORM_COLUMN_CLASS = "w-full lg:flex-[3_1_0%] lg:min-w-0 min-w-0 transition-[flex] duration-300 ease-out group-hover/options:flex-[1_1_0%] space-y-2";
+const QUOTE_INPUT_GRID_CLASS = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2";
+const QUOTE_OPTIONS_PANEL_CLASS = "group/options w-full lg:flex-[1_1_0%] lg:min-w-[160px] min-w-0 overflow-x-hidden overflow-y-auto lg:max-h-[calc(100vh-12rem)] transition-[flex] duration-300 ease-out lg:hover:flex-[3_1_0%] lg:focus-within:flex-[3_1_0%] lg:hover:z-10 lg:focus-within:z-10 border border-gov-border p-2 lg:group-hover/options:p-3 flex flex-col relative cursor-default";
+const QUOTE_OPTIONS_PANEL_IDLE = "bg-gray-50 border-dashed";
+const QUOTE_OPTIONS_PANEL_ACTIVE = "bg-gov-blue-light border-solid border-gov-blue";
+const QUOTE_SECTION_LABEL_CLASS = "text-[11px] font-semibold text-gray-600 uppercase tracking-wide";
+/** Items table scroll cap — form + options keep the rest of the viewport */
+const QUOTE_ITEMS_SCROLL_MAX = "max-h-[min(168px,22vh)]";
+/** Collapsed sidebar (lg, not hovered): hide verbose blocks */
+const OPT_COMPACT = "lg:group-hover/options:hidden";
+/** Expanded sidebar only on lg */
+const OPT_EXPAND = "hidden lg:group-hover/options:block";
+const OPT_EXPAND_FLEX = "hidden lg:group-hover/options:flex";
 
 
 export default function QuotationEditorPage() {
@@ -79,6 +98,9 @@ export default function QuotationEditorPage() {
 
 
   const [lineItems, setLineItems] = useState([]);
+  const [itemsPanelExpanded, setItemsPanelExpanded] = useState(true);
+  const [itemAddedToast, setItemAddedToast] = useState(null);
+  const itemAddedToastTimerRef = useRef(null);
   const [currentItem, setCurrentItem] = useState({
     size: "", side: "", colour: "", paper: "", qty: "", waste: "", printer: "", amount: ""
   });
@@ -157,6 +179,7 @@ export default function QuotationEditorPage() {
 
   // Inspection Drawer State
   const [previewingLayoutOption, setPreviewingLayoutOption] = useState(null);
+  const [previewingCompositionPlan, setPreviewingCompositionPlan] = useState(null);
 
 
   // Custom Size State
@@ -389,10 +412,37 @@ export default function QuotationEditorPage() {
      setBrochureViews([]);
      setSelectedBrochureView(null);
      setSelectedBrochureOption(null);
+     setBrochureNestedPrintPlans([]);
+     setSelectedNestedPrintPlan(null);
+     setBrochureError("");
+     setBrochureNotice("");
+     setBrochureLoading(false);
+
+     setLaserError("");
+     setLaserLoading(false);
+     setOffsetError("");
+     setOffsetLoading(false);
 
      setItemTitle("");
      setEditingLineId(null);
    }
+
+   function onLineItemSaved(title, isUpdate = false) {
+     resetCalculator();
+     setPreviewingCompositionPlan(null);
+     setPreviewingLayoutOption(null);
+     if (itemAddedToastTimerRef.current) clearTimeout(itemAddedToastTimerRef.current);
+     const label = (title || "Item").trim() || "Item";
+     setItemAddedToast({
+       message: isUpdate ? `"${label}" updated in quotation` : `"${label}" added to quotation`,
+       isUpdate,
+     });
+     itemAddedToastTimerRef.current = setTimeout(() => setItemAddedToast(null), 4000);
+   }
+
+   useEffect(() => () => {
+     if (itemAddedToastTimerRef.current) clearTimeout(itemAddedToastTimerRef.current);
+   }, []);
 
    function handleEditLineItem(item) {
      const targetId = item.id || item._id;
@@ -449,7 +499,7 @@ export default function QuotationEditorPage() {
        setItemTitle(m.itemTitle || "");
      }
 
-    // Scroll to calculator
+    setItemsPanelExpanded(false);
     const calcEl = document.getElementById('calc-top');
     if (calcEl) calcEl.scrollIntoView({ behavior: 'smooth' });
   }
@@ -919,8 +969,8 @@ export default function QuotationEditorPage() {
             : badge.tone === "rose"
               ? "bg-rose-100 text-rose-800"
             : badge.tone === "slate"
-              ? "bg-brand-navy/8 text-brand-navy/60"
-              : "bg-brand-mint text-brand-teal"
+              ? "bg-brand-navy/8 text-gov-blue/60"
+              : "bg-gov-blue-light text-gov-blue"
       }`}
     >
       {badge.label}
@@ -1034,39 +1084,39 @@ export default function QuotationEditorPage() {
   const brochurePreviewPageClass = (pageNumber) =>
     isBrochureColorPage(pageNumber)
       ? "border-amber-300 bg-amber-100 text-amber-900 ring-2 ring-amber-300/50"
-      : "border-brand-navy/10 bg-zinc-200/80 text-brand-navy";
+      : "border-gov-blue/10 bg-zinc-200/80 text-gov-blue";
 
   const renderBrochurePricingBreakdown = (pricingBreakdown = [], totals = null) => {
     if (!pricingBreakdown?.length) return null;
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
-          <h4 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em]">Pricing Breakdown</h4>
+          <h4 className="text-[10px] font-black text-gov-blue/65 uppercase tracking-[0.2em]">Pricing Breakdown</h4>
           {totals?.price != null && (
-            <div className="text-lg font-black text-brand-navy">₹{Number(totals.price).toLocaleString()}</div>
+            <div className="text-lg font-black text-gov-blue">₹{Number(totals.price).toLocaleString()}</div>
           )}
         </div>
         {totals && (
-          <div className="text-[10px] font-bold text-brand-navy/70 uppercase tracking-tight px-1">
+          <div className="text-[10px] font-bold text-gov-blue/70 uppercase tracking-tight px-1">
             {totals.colorPrints ?? 0} color impression{(totals.colorPrints ?? 0) === 1 ? "" : "s"} • {totals.bwPrints ?? 0} B&amp;W impression{(totals.bwPrints ?? 0) === 1 ? "" : "s"}
           </div>
         )}
         <div className="space-y-2">
           {pricingBreakdown.map((row) => (
-            <div key={`${row.printerModelId}-${row.pricingKind}`} className="rounded-xl border border-brand-navy/5 bg-white p-3">
+            <div key={`${row.printerModelId}-${row.pricingKind}`} className="rounded-xl border border-gov-blue/5 bg-white p-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs font-black text-brand-navy">{row.printerModelName}</div>
-                <div className="text-sm font-black text-brand-teal">₹{Number(row.total).toLocaleString()}</div>
+                <div className="text-xs font-black text-gov-blue">{row.printerModelName}</div>
+                <div className="text-sm font-black text-gov-blue">₹{Number(row.total).toLocaleString()}</div>
               </div>
               <div className="mt-2 space-y-1">
                 {row.colorPrints > 0 && (
-                  <div className="flex justify-between text-[10px] font-bold text-brand-navy/50">
+                  <div className="flex justify-between text-[10px] font-bold text-gov-blue/50">
                     <span>Color • {row.colorPrints} × ₹{Number(row.colorUnitCharge).toLocaleString()}</span>
                     <span>₹{Number(row.colorTotal).toLocaleString()}</span>
                   </div>
                 )}
                 {row.bwPrints > 0 && (
-                  <div className="flex justify-between text-[10px] font-bold text-brand-navy/50">
+                  <div className="flex justify-between text-[10px] font-bold text-gov-blue/50">
                     <span>B&amp;W • {row.bwPrints} × ₹{Number(row.bwUnitCharge).toLocaleString()}</span>
                     <span>₹{Number(row.bwTotal).toLocaleString()}</span>
                   </div>
@@ -1145,7 +1195,7 @@ export default function QuotationEditorPage() {
     return (
       <div className="overflow-x-auto pb-1">
         <div
-          className={`grid gap-2 mx-auto max-w-full rounded-2xl border p-3 ${tone === "teal" ? "border-brand-teal/20 bg-brand-teal/3" : "border-brand-navy/10 bg-white"}`}
+          className={`grid gap-1 mx-auto max-w-full border p-2 ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
           style={{
             aspectRatio: paperRatio,
             width: `min(100%, ${Math.max(7, referenceWidthRem * scaleWidth)}rem)`,
@@ -1203,7 +1253,7 @@ export default function QuotationEditorPage() {
     return (
       <div className="overflow-x-auto pb-1">
         <div
-          className={`grid gap-2 mx-auto min-w-72 max-w-full rounded-2xl border p-3 ${tone === "teal" ? "border-brand-teal/20 bg-brand-teal/3" : "border-brand-navy/10 bg-white"}`}
+          className={`grid gap-2 mx-auto min-w-72 max-w-full rounded-2xl border p-3 ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-blue/10 bg-white"}`}
           style={{
             aspectRatio: paperRatio,
             width: paperIsHorizontal ? "min(100%, 34rem)" : "min(100%, 18rem)",
@@ -1232,11 +1282,12 @@ export default function QuotationEditorPage() {
     );
   };
 
-  const selectedNestedSignatureGroups = selectedNestedPrintPlan
-    ? Array.from(
-        selectedNestedPrintPlan.signatures
-          .filter((signature) => !signature.piggybackOnRunIndex)
-          .reduce((groups, signature) => {
+  const nestedSignatureGroupsForPlan = (plan) => {
+    if (!plan) return [];
+    return Array.from(
+      plan.signatures
+        .filter((signature) => !signature.piggybackOnRunIndex)
+        .reduce((groups, signature) => {
           const key = String(signature.signaturePages);
           if (!groups.has(key)) {
             groups.set(key, { signaturePages: signature.signaturePages, signatures: [] });
@@ -1244,59 +1295,157 @@ export default function QuotationEditorPage() {
           groups.get(key).signatures.push(signature);
           return groups;
         }, new Map()).values()
-      ).sort((a, b) => b.signaturePages - a.signaturePages)
-    : [];
+    ).sort((a, b) => b.signaturePages - a.signaturePages);
+  };
 
-  const selectedNestedPlanPreviewScale = selectedNestedPrintPlan
-    ? selectedNestedPrintPlan.signatures.filter((signature) => !signature.piggybackOnRunIndex).reduce(
-        (scale, signature) => {
-          const sides = [signature.imposition.front, signature.imposition.back];
-          sides.forEach((sideRows) => {
-            const metrics = nestedPreviewMetrics(signature, sideRows);
-            scale.maxPreviewWidth = Math.max(scale.maxPreviewWidth, metrics.previewWidth);
-            scale.maxPreviewBreadth = Math.max(scale.maxPreviewBreadth, metrics.previewBreadth);
-          });
-          return scale;
-        },
-        { maxPreviewWidth: 1, maxPreviewBreadth: 1, paperIsHorizontal: true }
-      )
-    : null;
+  const nestedPlanPreviewScaleForPlan = (plan) => {
+    if (!plan) return null;
+    const scale = plan.signatures.filter((signature) => !signature.piggybackOnRunIndex).reduce(
+      (acc, signature) => {
+        [signature.imposition.front, signature.imposition.back].forEach((sideRows) => {
+          const metrics = nestedPreviewMetrics(signature, sideRows);
+          acc.maxPreviewWidth = Math.max(acc.maxPreviewWidth, metrics.previewWidth);
+          acc.maxPreviewBreadth = Math.max(acc.maxPreviewBreadth, metrics.previewBreadth);
+        });
+        return acc;
+      },
+      { maxPreviewWidth: 1, maxPreviewBreadth: 1, paperIsHorizontal: true },
+    );
+    scale.paperIsHorizontal = scale.maxPreviewWidth >= scale.maxPreviewBreadth;
+    return scale;
+  };
 
-  if (selectedNestedPlanPreviewScale) {
-    selectedNestedPlanPreviewScale.paperIsHorizontal =
-      selectedNestedPlanPreviewScale.maxPreviewWidth >= selectedNestedPlanPreviewScale.maxPreviewBreadth;
-  }
+  const renderCompositionPlanInspect = (plan, planIdx) => {
+    if (!plan) return null;
+    const groups = nestedSignatureGroupsForPlan(plan);
+    const previewScale = nestedPlanPreviewScaleForPlan(plan);
+    const wasteStats = paperWasteStatsForPlan(plan);
+    const sigSummary = plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ");
+
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-bold text-gov-blue">Option {planIdx + 1}</span>
+          {brochureWorkflowBadges(plan).map((badge) => renderBrochureWorkflowBadge(badge))}
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px border border-gov-border bg-gov-border">
+          {[
+            { label: "Print sets", value: plan.printRunCount },
+            { label: "Print sheets", value: plan.printedSheetsForCopies ?? plan.physicalSheetsPerBrochure },
+            { label: "Plan", value: sigSummary },
+            { label: "Trim waste", value: `${wasteStats.wastePercent}%` },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-white px-2.5 py-2 min-w-0">
+              <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">{stat.label}</div>
+              <div className="text-sm font-bold text-gov-blue truncate tabular-nums">{stat.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-2 py-1.5 bg-gray-50 border border-gov-border text-[10px] text-gray-600 leading-relaxed">
+          {nestedPlanInstruction(plan)}
+        </div>
+
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-2 py-1.5 bg-gray-50 border border-gov-border text-[10px]">
+          <span className="text-gray-500">Printer: <strong className="text-gov-blue">{nestedPlanPrinterSummary(plan, 4)}</strong></span>
+          <span className="text-gray-500">Paper used: <strong className="text-gov-blue">{wasteStats.usedPercent}%</strong></span>
+          {plan.totals?.price != null && (
+            <span className="text-gray-500">Total: <strong className="text-gov-blue">₹{Number(plan.totals.price).toLocaleString()}</strong></span>
+          )}
+        </div>
+
+        {renderBrochurePricingBreakdown(plan.pricingBreakdown, plan.totals)}
+
+        <div className="space-y-3">
+          {groups.map((group) => (
+            <div key={`${plan.planId}-${group.signaturePages}`} className="border border-gov-border bg-white">
+              <div className="px-2.5 py-2 border-b border-gov-border bg-gray-50 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold text-gov-blue uppercase tracking-wide">
+                    {isPerfectBinding
+                      ? `${group.signaturePages}pp stack`
+                      : group.signaturePages === 2
+                        ? "2pp loose insert"
+                        : `${group.signaturePages}pp fold`}
+                  </div>
+                  <div className="text-[9px] text-gray-500">{group.signatures.length} set{group.signatures.length === 1 ? "" : "s"}</div>
+                </div>
+                <div className="text-[9px] text-gray-500 text-right shrink-0">
+                  {group.signaturePages / 2} pp/side
+                </div>
+              </div>
+
+              {group.signatures.map((signature) => (
+                <div key={`${plan.planId}-${signature.runIndex}`} className="p-2.5 border-b border-gov-border last:border-b-0 space-y-2">
+                  <div className="flex justify-between gap-2 text-[10px]">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-gov-blue">
+                        Set {signature.runIndex}: {isPerfectBinding ? "Stack" : nestedRoleLabel(signature.nestRole)}
+                      </div>
+                      <div className="text-gray-500 truncate">Pages {signature.readerPages.join(", ")}</div>
+                      <div className="text-gray-500 truncate">{signature.printerModelName || "Printer TBD"}</div>
+                    </div>
+                    <div className="text-right shrink-0 text-gray-500">
+                      <div>{signature.portion.width}×{signature.portion.breadth}{signature.portion.unit}</div>
+                      <div>{signature.gridOnPortion.across}×{signature.gridOnPortion.down}</div>
+                      <div className="text-amber-700">Waste {paperWasteStatsForSignature(signature).wastePercent}%</div>
+                    </div>
+                  </div>
+
+                  {signature.cutAfterPrint && (
+                    <div className="border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-800">{signature.cutAfterPrint}</div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                    <div className="border border-gov-border bg-gray-50 p-2">
+                      <div className="text-[9px] font-semibold text-gray-500 uppercase mb-1.5">Front side</div>
+                      {renderNestedImpositionSide(signature, signature.imposition.front, "teal", previewScale)}
+                    </div>
+                    <div className="border border-gov-border bg-gray-50 p-2">
+                      <div className="text-[9px] font-semibold text-gray-500 uppercase mb-1.5">Back side</div>
+                      {renderNestedImpositionSide(signature, signature.imposition.back, "navy", previewScale)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-white">
-      <div className="w-10 h-10 border-4 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>
+    <div className="flex h-64 items-center justify-center bg-white">
+      <div className="w-8 h-8 border-2 border-gov-border border-t-gov-blue animate-spin"></div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F1F4F9] print:bg-white flex flex-col items-stretch overflow-x-hidden animate-fade-in select-none">
+    <div className="flex flex-col flex-1 min-h-0 h-full bg-gov-bg print:bg-white overflow-x-hidden select-none">
 
        {/* Professional Printable Letterhead (Only visible in Print) */}
        <div className="print-only w-full mb-12">
-          <div className="flex justify-between items-start border-b-4 border-brand-navy pb-8">
+          <div className="flex justify-between items-start border-b-4 border-gov-blue pb-8">
              <div className="flex items-center gap-4">
                 <BrandLogo className="w-16 h-16 shadow-lg rounded-2xl" />
                 <div className="flex flex-col">
-                   <span className="text-2xl font-black text-brand-navy tracking-tighter uppercase">Print&shy;Q</span>
-                   <span className="text-sm font-bold text-brand-teal uppercase tracking-widest">{activeOrgName}</span>
+                   <span className="text-2xl font-black text-gov-blue tracking-tighter uppercase">Print&shy;Q</span>
+                   <span className="text-sm font-bold text-gov-blue uppercase tracking-widest">{activeOrgName}</span>
                 </div>
              </div>
              
              <div className="text-right">
-                <div className="text-3xl font-black text-brand-navy uppercase tracking-tighter mb-1">Quotation</div>
-                <div className="text-[11px] font-black text-brand-navy/70 uppercase tracking-widest leading-relaxed">
+                <div className="text-3xl font-black text-gov-blue uppercase tracking-tighter mb-1">Quotation</div>
+                <div className="text-[11px] font-black text-gov-blue/70 uppercase tracking-widest leading-relaxed">
                    No: {quoteNumber || "DRAFT"}
                 </div>
-                <div className="text-[11px] font-black text-brand-navy/70 uppercase tracking-widest mt-0.5">
+                <div className="text-[11px] font-black text-gov-blue/70 uppercase tracking-widest mt-0.5">
                    Date: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
                 {createdBy && (
-                   <div className="text-[9px] font-black text-brand-teal uppercase tracking-widest mt-1.5 opacity-80 decoration-brand-teal/30 underline underline-offset-4 decoration-2">
+                   <div className="text-[9px] font-black text-gov-blue uppercase tracking-widest mt-1.5 opacity-80 decoration-brand-teal/30 underline underline-offset-4 decoration-2">
                       Created By: {createdBy.displayName || createdBy.name}
                    </div>
                 )}
@@ -1306,61 +1455,54 @@ export default function QuotationEditorPage() {
           
           <div className="mt-8 grid grid-cols-2 gap-12">
              <div className="space-y-1">
-                <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest">Quoted For:</div>
-                <div className="text-sm font-black text-brand-navy">{selectedCustomer?.name || 'Valued Customer'}</div>
-                {selectedCustomer?.companyName && <div className="text-xs font-bold text-brand-navy/60">{selectedCustomer.companyName}</div>}
+                <div className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest">Quoted For:</div>
+                <div className="text-sm font-black text-gov-blue">{selectedCustomer?.name || 'Valued Customer'}</div>
+                {selectedCustomer?.companyName && <div className="text-xs font-bold text-gov-blue/60">{selectedCustomer.companyName}</div>}
              </div>
              
              <div className="text-right space-y-1">
-                <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest">Validity:</div>
-                <div className="text-sm font-black text-brand-navy">{validUntil || '---'}</div>
-                <div className="text-xs font-bold text-brand-navy/60">Subject to terms and conditions</div>
+                <div className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest">Validity:</div>
+                <div className="text-sm font-black text-gov-blue">{validUntil || '---'}</div>
+                <div className="text-xs font-bold text-gov-blue/60">Subject to terms and conditions</div>
              </div>
           </div>
           
           <div className="mt-8 p-4 bg-zinc-50 rounded-xl border border-zinc-100 flex justify-between items-center">
              <div className="flex-1">
-                <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest mb-1">Subject:</div>
-                <div className="text-sm font-bold text-brand-navy italic">"{title || 'General Printing Quotation'}"</div>
+                <div className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest mb-1">Subject:</div>
+                <div className="text-sm font-bold text-gov-blue italic">"{title || 'General Printing Quotation'}"</div>
              </div>
              <div className="text-right">
-                <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest mb-1">Grand Total:</div>
-                <div className="text-xl font-black text-brand-navy">{currency} {lineItems.reduce((acc, curr) => acc + (curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0), 0).toLocaleString()}</div>
+                <div className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest mb-1">Grand Total:</div>
+                <div className="text-xl font-black text-gov-blue">{currency} {lineItems.reduce((acc, curr) => acc + (curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0), 0).toLocaleString()}</div>
              </div>
          </div>
 
       </div>
 
-       {/* 1. Technical Header */}
-       <section className="no-print relative m-4 mb-0 rounded-4xl border border-brand-navy/15 bg-white px-8 pt-9 pb-5 shadow-md shadow-brand-navy/5 flex items-center justify-between gap-12">
-          <div className={`${QUOTE_SECTION_LABEL_CLASS} absolute left-8 top-3 flex items-center gap-2`}>
-             <span className="h-1.5 w-1.5 rounded-full bg-brand-teal" />
-             Quote Details
-          </div>
-          {/* Left: Navigation & Customer Cluster */}
-          <div className="flex items-center gap-6">
+       {/* 1. Compact Quote Header */}
+       <section className="no-print border-b border-gov-border bg-white px-3 py-1.5 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => navigate("/dashboard/quotes")}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-navy/60 hover:bg-zinc-100 hover:text-brand-navy transition-all"
+                className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-100 border border-gov-border shrink-0"
                 title="Back to list"
               >
-                <MdArrowBack className="w-5 h-5" />
+                <MdArrowBack className="w-4 h-4" />
               </button>
-              
-              {/* Focused Customer Information Card */}
-          <div className="w-[360px] border border-brand-navy/10 rounded-xl p-4 bg-white shadow-sm relative group">
-              <div className="flex justify-between items-center mb-3">
-                 <span className="text-[9px] font-black text-brand-navy/55 uppercase tracking-[0.2em]">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                 {busy && <div className="w-3 h-3 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
-              </div>
 
-              <div className="space-y-1.5">
-                  <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-bold text-brand-navy/70 w-12">Cust :</span>
-                     <div className="relative flex-1 flex flex-col items-start">
-                        <div className="w-full flex items-center gap-2">
+              {/* Customer – compact inline block */}
+          <div className="flex-1 min-w-[240px] max-w-[340px] border border-gov-border px-2 py-1 bg-white text-[11px] leading-tight">
+              <div className="flex justify-between text-[9px] text-gray-400 mb-0.5">
+                 <span>{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                 {busy && <div className="w-2.5 h-2.5 border border-gov-border border-t-gov-blue animate-spin"></div>}
+              </div>
+              <div className="grid grid-cols-[52px_1fr] gap-x-1 gap-y-0.5">
+                  <span className="text-gray-500">Cust :</span>
+                     <div className="relative flex flex-col items-start min-w-0">
+                        <div className="w-full flex items-center gap-1">
                            {!selectedCustomer ? (
-                              <div className="relative flex-1">
+                              <div className="relative flex-1 min-w-0">
                                  <input
                                    type="text"
                                    placeholder="Search account..."
@@ -1368,334 +1510,159 @@ export default function QuotationEditorPage() {
                                    onFocus={() => setShowCustomerSearch(true)}
                                    onChange={e => setCustomerSearch(e.target.value)}
                                    onKeyDown={handleCustomerSearchKeyDown}
-                                   className={`w-full text-[11px] font-black text-brand-navy outline-none border-b py-0.5 transition-colors ${headerErrors.customerId ? 'border-red-400 focus:border-red-500' : 'border-brand-teal/20 focus:border-brand-teal'}`}
+                                   className={`w-full text-[11px] font-semibold text-gov-blue outline-none border-b py-0 transition-colors ${headerErrors.customerId ? 'border-red-400' : 'border-gov-border focus:border-gov-blue'}`}
                                  />
                                  {showCustomerSearch && (
-                                   <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-brand-navy/10 rounded-xl shadow-2xl py-2 max-h-40 overflow-y-auto no-scrollbar">
+                                   <div className="absolute top-full left-0 right-0 z-50 mt-0 bg-white border border-gov-border shadow-md py-0.5 max-h-32 overflow-y-auto no-scrollbar">
                                       {customerList.length > 0 ? customerList.map(c => (
-                                        <button
-                                         key={c.id}
-                                         onClick={() => handleCustomerSelect(c)}
-                                         className="w-full px-4 py-2 text-left text-[11px] font-bold text-brand-navy hover:bg-zinc-50"
-                                        >
+                                        <button key={c.id} onClick={() => handleCustomerSelect(c)} className="w-full px-2 py-1 text-left text-[11px] font-medium text-gov-blue hover:bg-gray-50">
                                            {c.name} {c.companyName && <span className="opacity-40 ml-1">({c.companyName})</span>}
                                         </button>
                                       )) : (
-                                        <button 
-                                          onClick={() => {
-                                             setShowCustomerSearch(false);
-                                             phoneInputRef.current?.focus();
-                                          }}
-                                          className="w-full px-4 py-3 text-left group"
-                                        >
-                                           <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest mb-0.5">Register New Account</div>
-                                           <div className="text-[11px] font-bold text-brand-navy group-hover:text-brand-teal transition-colors">Press Enter to add "{customerSearch}"</div>
+                                        <button onClick={() => { setShowCustomerSearch(false); phoneInputRef.current?.focus(); }} className="w-full px-2 py-1.5 text-left">
+                                           <div className="text-[10px] font-semibold text-gov-blue">Press Enter to add "{customerSearch}"</div>
                                         </button>
                                       )}
                                    </div>
                                  )}
                               </div>
                            ) : (
-                             <div className="flex-1 flex items-center justify-between border-b border-brand-mint/40 py-0.5 group/select">
-                                <span className="text-[11px] font-black text-brand-teal">{selectedCustomer.name}</span>
-                                <button onClick={() => { setSelectedCustomer(null); setCustomerId(null); syncHeader({ customerId: null }); }} className="opacity-0 group-hover/select:opacity-100 transition-opacity">
+                             <div className="flex-1 flex items-center justify-between border-b border-gov-border py-0 min-w-0">
+                                <span className="text-[11px] font-semibold text-gov-blue truncate">{selectedCustomer.name}</span>
+                                <button onClick={() => { setSelectedCustomer(null); setCustomerId(null); syncHeader({ customerId: null }); }} className="shrink-0 ml-1">
                                    <MdClose className="w-3 h-3 text-red-400" />
                                 </button>
                              </div>
                            )}
                            {!selectedCustomer && (
-                              <button
-                               onClick={() => setShowNewCustModal(true)}
-                               className="p-1 px-2 bg-brand-teal/10 text-brand-teal hover:bg-brand-teal hover:text-white rounded-lg transition-all"
-                               title="Register new customer"
-                              >
-                                 <MdPersonAdd className="w-4 h-4" />
+                              <button onClick={() => setShowNewCustModal(true)} className="p-0.5 px-1 bg-gov-blue-light text-gov-blue hover:bg-gov-blue hover:text-white border border-gov-border shrink-0" title="Register new customer">
+                                 <MdPersonAdd className="w-3.5 h-3.5" />
                               </button>
                            )}
                         </div>
-                        {headerErrors.customerId && <span className="text-[8px] font-black text-red-400 uppercase tracking-tighter mt-1">{headerErrors.customerId[0]}</span>}
+                        {headerErrors.customerId && <span className="text-[8px] text-red-500">{headerErrors.customerId[0]}</span>}
                      </div>
-                  </div>
-
-
-                 <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-bold text-brand-navy/70 w-16">Phone :</span>
+                  <span className="text-gray-500">Phone :</span>
+                  <span className="font-medium text-gov-blue truncate">
                     {!selectedCustomer && customerSearch.trim() ? (
-                        <input
-                           ref={phoneInputRef}
-                           type="text"
-                           placeholder="Enter phone..."
-                           value={pendingPhone}
-                           onFocus={() => setShowCustomerSearch(false)}
-                           onChange={e => setPendingPhone(e.target.value)}
-                           onKeyDown={e => {
-                              if (e.key === "Enter") {
-                                 e.preventDefault();
-                                 addressInputRef.current?.focus();
-                              }
-                           }}
-                           className="text-[11px] font-black text-brand-navy outline-none border-b border-brand-teal/10 focus:border-brand-teal bg-transparent flex-1 py-0.5"
-                        />
-                    ) : (
-                        <span className="text-[11px] font-black text-brand-navy/80">{selectedCustomer?.phone || "--"}</span>
-                    )}
-                 </div>
-
-                 <div className="flex items-start gap-3">
-                    <span className="text-[11px] font-bold text-brand-navy/70 w-16 mt-0.5">Address :</span>
+                        <input ref={phoneInputRef} type="text" placeholder="Phone..." value={pendingPhone} onFocus={() => setShowCustomerSearch(false)} onChange={e => setPendingPhone(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addressInputRef.current?.focus(); } }} className="w-full text-[11px] font-semibold text-gov-blue outline-none border-b border-gov-border bg-transparent py-0" />
+                    ) : (selectedCustomer?.phone || "--")}
+                  </span>
+                  <span className="text-gray-500">Address :</span>
+                  <span className="font-medium text-gov-blue truncate">
                     {!selectedCustomer && customerSearch.trim() ? (
-                        <input
-                           ref={addressInputRef}
-                           type="text"
-                           placeholder="Enter address..."
-                           value={pendingAddress}
-                           onFocus={() => setShowCustomerSearch(false)}
-                           onChange={e => setPendingAddress(e.target.value)}
-                           onKeyDown={async e => {
-                              if (e.key === "Enter") {
-                                 e.preventDefault();
-                                 setBusy(true);
-                                 try {
-                                   const payload = { 
-                                     name: customerSearch.trim(), 
-                                     phone: pendingPhone.trim() || undefined,
-                                     billingAddress: pendingAddress.trim() ? { line1: pendingAddress.trim() } : undefined,
-                                     isActive: true 
-                                   };
-                                   const res = await createCustomer(payload);
-                                   handleCustomerSelect(res.customer);
-                                   setCustomerSearch("");
-                                 } catch (err) {
-                                   console.error("Failed to quick-create customer", err);
-                                 } finally {
-                                   setBusy(false);
-                                 }
-                              }
-                           }}
-                           className="text-[11px] font-black text-brand-navy outline-none border-b border-brand-teal/10 focus:border-brand-teal bg-transparent flex-1 py-0.5"
-                        />
-                    ) : (
-                        <span className="text-[11px] font-black text-brand-navy/80 flex-1 leading-snug">
-                           {selectedCustomer?.billingAddress ? `${selectedCustomer.billingAddress.line1}${selectedCustomer.billingAddress.city ? ', ' + selectedCustomer.billingAddress.city : ''}` : "--"}
-                        </span>
-                    )}
-                 </div>
+                        <input ref={addressInputRef} type="text" placeholder="Address..." value={pendingAddress} onFocus={() => setShowCustomerSearch(false)} onChange={e => setPendingAddress(e.target.value)} onKeyDown={async e => { if (e.key === "Enter") { e.preventDefault(); setBusy(true); try { const payload = { name: customerSearch.trim(), phone: pendingPhone.trim() || undefined, billingAddress: pendingAddress.trim() ? { line1: pendingAddress.trim() } : undefined, isActive: true }; const res = await createCustomer(payload); handleCustomerSelect(res.customer); setCustomerSearch(""); } catch (err) { console.error("Failed to quick-create customer", err); } finally { setBusy(false); } } }} className="w-full text-[11px] font-semibold text-gov-blue outline-none border-b border-gov-border bg-transparent py-0" />
+                    ) : (selectedCustomer?.billingAddress ? `${selectedCustomer.billingAddress.line1}${selectedCustomer.billingAddress.city ? ', ' + selectedCustomer.billingAddress.city : ''}` : "--")}
+                  </span>
               </div>
-
-               {!selectedCustomer && customerSearch.trim() && (
-                 <div className="mt-4 pt-4 border-t border-brand-teal/5 flex flex-col items-center gap-1.5 animate-fade-in">
-                    <div className="flex items-center gap-4 text-[7px] font-black uppercase tracking-[0.2em]">
-                       <span className={document.activeElement?.placeholder?.includes('account') ? 'text-brand-teal' : 'text-brand-navy/55'}>1. Name</span>
-                       <span className="text-brand-navy/35">→</span>
-                       <span className={document.activeElement?.placeholder?.includes('phone') ? 'text-brand-teal' : 'text-brand-navy/55'}>2. Phone</span>
-                       <span className="text-brand-navy/35">→</span>
-                       <span className={document.activeElement?.placeholder?.includes('address') ? 'text-brand-teal' : 'text-brand-navy/55'}>3. Address</span>
-                    </div>
-                    <div className="text-[8px] font-black text-brand-teal uppercase tracking-widest animate-pulse">
-                       {document.activeElement?.placeholder?.includes('address') ? 'Press Enter to Finish' : 'Press Enter to Continue'}
-                    </div>
-                 </div>
-               )}
           </div>
-        </div>
 
-          {/* Middle: Integrated Inputs */}
-          <div className="flex-1 flex items-center gap-8 max-w-3xl">
-              <div className="flex flex-col gap-1.5 flex-1">
-                 <label className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] ml-1">Subject</label>
-                 <input
-                   type="text"
-                   placeholder="Enter descriptive title..."
-                   value={title}
-                   onChange={e => setTitle(e.target.value)}
-                   onBlur={() => syncHeader({ title: title.trim() })}
-                   onKeyDown={e => {
-                      if (e.key === "Enter") {
-                         e.preventDefault();
-                         itemTitleRef.current?.focus();
-                      }
-                   }}
-                   ref={titleInputRef}
-                   className={`w-full text-sm font-bold text-brand-navy outline-none border-b bg-transparent py-1 transition-all ${headerErrors.title ? 'border-red-400 focus:border-red-500' : 'border-brand-navy/10 focus:border-brand-teal'}`}
-                  />
-                  {headerErrors.title && <span className="text-[8px] font-black text-red-400 uppercase tracking-tighter mt-1">{headerErrors.title[0]}</span>}
+          {/* Subject / Status / Valid – inline */}
+          <div className="flex items-end gap-2 flex-1 min-w-[280px]">
+              <div className="flex-1 min-w-[120px]">
+                 <label className="text-[10px] font-medium text-gray-500 block mb-0.5">Subject</label>
+                 <input type="text" placeholder="Title..." value={title} onChange={e => setTitle(e.target.value)} onBlur={() => syncHeader({ title: title.trim() })} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); itemTitleRef.current?.focus(); } }} ref={titleInputRef} className={`gov-input py-1 text-xs ${headerErrors.title ? 'border-red-400' : ''}`} />
+                 {headerErrors.title && <span className="text-[8px] text-red-500">{headerErrors.title[0]}</span>}
                </div>
-
-              <div className="flex flex-col gap-1.5 w-28">
-                 <label className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] ml-1">Status</label>
-                 <select
-                   value={status}
-                   onChange={(e) => {
-                     const newStatus = e.target.value;
-                     setStatus(newStatus);
-                     syncHeader({ status: newStatus });
-                   }}
-                   className="text-[10px] font-black text-brand-teal uppercase tracking-widest bg-zinc-50 border border-brand-navy/10 rounded-lg px-2 py-1.5 outline-none focus:border-brand-teal transition-all cursor-pointer"
-                 >
-                    <option value="DRAFT">Draft</option>
-                    <option value="SENT">Sent</option>
-                    <option value="ACCEPTED">Accepted</option>
-                    <option value="REJECTED">Rejected</option>
-                    <option value="EXPIRED">Expired</option>
-                    <option value="CANCELLED">Cancelled</option>
+              <div className="w-24">
+                 <label className="text-[10px] font-medium text-gray-500 block mb-0.5">Status</label>
+                 <select value={status} onChange={(e) => { const v = e.target.value; setStatus(v); syncHeader({ status: v }); }} className="gov-input py-1 text-xs cursor-pointer">
+                    <option value="DRAFT">Draft</option><option value="SENT">Sent</option><option value="ACCEPTED">Accepted</option><option value="REJECTED">Rejected</option><option value="EXPIRED">Expired</option><option value="CANCELLED">Cancelled</option>
                  </select>
               </div>
-
-              <div className="flex flex-col gap-1.5 w-28 pl-4 border-l border-brand-navy/5">
-                 <label className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] ml-1">Valid Till</label>
-                 <input
-                   type="date"
-                   value={validUntil}
-                   onChange={(e) => {
-                     setValidUntil(e.target.value);
-                     syncHeader({ validUntil: e.target.value || null });
-                   }}
-                   className="text-[10px] font-bold text-brand-navy outline-none bg-transparent py-1 transition-all"
-                 />
+              <div className="w-28">
+                 <label className="text-[10px] font-medium text-gray-500 block mb-0.5">Valid Till</label>
+                 <input type="date" value={validUntil} onChange={(e) => { setValidUntil(e.target.value); syncHeader({ validUntil: e.target.value || null }); }} className="gov-input py-1 text-xs" />
               </div>
           </div>
 
-          {/* Right: Identity Cluster */}
-          <div className="flex items-center gap-6">
-              
-              <div className="flex items-center gap-3 pr-6 border-r border-brand-navy/10">
-                 <BrandLogo className="w-9 h-9 shadow-sm rounded-lg" />
-                 <div className="flex flex-col">
-                    <div className="min-w-[100px] px-4 py-2 rounded-xl bg-brand-teal text-white shadow-[0_4px_14px_rgba(42,142,158,0.3)] flex items-center justify-center">
-                       <span className="text-[11px] font-black tracking-[0.2em]">{quoteNumber || "DRAFT"}</span>
-                    </div>
-                 </div>
-
-              </div>
-
-              <button
-                onClick={handleWhatsAppShare}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all shadow-sm group ${shareError ? 'border-red-400 text-red-500 bg-red-50 animate-shake' : 'border-brand-navy/10 bg-white text-brand-navy/60 hover:text-brand-teal hover:border-brand-teal'}`}
-                title="Send to WhatsApp"
-              >
-                {shareError ? <MdWarningAmber className="w-4 h-4 animate-pulse" /> : <FaWhatsapp className="w-5 h-5 group-hover:scale-110 transition-transform" />}
-                <span className="text-[10px] font-black uppercase tracking-widest">{shareError ? 'No Phone' : 'Share'}</span>
+          {/* Quote # & actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+              <BrandLogo className="w-6 h-6" />
+              <span className="px-2 py-1 bg-gov-blue text-white text-[11px] font-bold">{quoteNumber || "DRAFT"}</span>
+              <button onClick={handleWhatsAppShare} className={`flex items-center gap-1 px-2 py-1 border text-[11px] ${shareError ? 'border-red-400 text-red-500 bg-red-50' : 'border-gov-border text-gray-600 hover:border-gov-blue'}`} title="WhatsApp">
+                <FaWhatsapp className="w-3.5 h-3.5" /><span>{shareError ? '!' : 'Share'}</span>
               </button>
-
-              <button
-                onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-navy/10 bg-white text-brand-navy/60 hover:text-brand-teal hover:border-brand-teal transition-all shadow-sm group"
-                title="Print Quotation"
-              >
-                <MdPrint className="w-4 h-4 group-hover:text-brand-teal" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Print</span>
+              <button onClick={() => window.print()} className="flex items-center gap-1 px-2 py-1 border border-gov-border text-[11px] text-gray-600 hover:border-gov-blue" title="Print">
+                <MdPrint className="w-3.5 h-3.5" /><span>Print</span>
               </button>
           </div>
+      </div>
       </section>
 
-      {/* 2. High-Density Preview Area (Relocated Above Calculator) */}
-      <section className="bg-[#F1F4F9] print:bg-white px-4 pb-4 pt-3 print:p-0 border-b border-brand-navy/5 print:border-none">
-          <div className="w-full bg-white rounded-3xl print:rounded-none shadow-sm print:shadow-none border border-brand-navy/10 print:border-none overflow-hidden flex flex-col">
-              <div className="no-print px-5 py-3 border-b border-brand-navy/10 bg-white flex items-center justify-between">
-                 <div className={`${QUOTE_SECTION_LABEL_CLASS} flex items-center gap-2`}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand-teal" />
-                    Quotation Items
+      {/* 2. Quotation Items — capped height + collapsible so form/options keep space */}
+      <section className="bg-white print:bg-white border-b border-gov-border shrink-0 no-print">
+          <div className="w-full overflow-hidden flex flex-col">
+              <div className="px-3 py-1 border-b border-gov-border bg-gray-50 flex items-center justify-between gap-2">
+                 <button
+                   type="button"
+                   onClick={() => setItemsPanelExpanded((v) => !v)}
+                   className="flex items-center gap-1.5 min-w-0 hover:text-gov-blue transition-colors"
+                   title={itemsPanelExpanded ? "Collapse items list" : "Expand items list"}
+                 >
+                   {itemsPanelExpanded ? (
+                     <MdExpandLess className="w-4 h-4 text-gov-blue shrink-0" />
+                   ) : (
+                     <MdExpandMore className="w-4 h-4 text-gray-500 shrink-0" />
+                   )}
+                   <span className={QUOTE_SECTION_LABEL_CLASS}>Quotation Items</span>
+                   <span className={`text-[11px] font-semibold tabular-nums transition-colors ${itemAddedToast ? "text-emerald-600 font-bold" : "text-gov-blue"}`}>
+                     ({lineItems.length})
+                   </span>
+                 </button>
+                 <div className="flex items-center gap-3 shrink-0">
+                   {!itemsPanelExpanded && lineItems.length > 0 && (
+                     <span className="text-[10px] text-gray-500 hidden sm:inline truncate max-w-[200px]">
+                       {lineItems.map((i) => i.meta?.itemTitle || i.title).filter(Boolean).slice(0, 3).join(" · ")}
+                       {lineItems.length > 3 ? ` +${lineItems.length - 3}` : ""}
+                     </span>
+                   )}
+                   <span className="text-[11px] font-bold text-gov-blue tabular-nums">
+                     {currency} {lineItems.reduce((acc, curr) => acc + (curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0), 0).toLocaleString()}
+                   </span>
                  </div>
-                 <span className="text-[10px] font-black text-brand-teal uppercase tracking-widest">{lineItems.length} item{lineItems.length === 1 ? "" : "s"}</span>
               </div>
-              <div className={`overflow-y-auto no-scrollbar p-2 md:p-4 print:p-0 ${lineItems.length === 0 ? 'max-h-[200px]' : 'max-h-[None] print:max-h-none'}`}>
+
+              {itemsPanelExpanded && (
+              <div className={`overflow-y-auto no-scrollbar ${QUOTE_ITEMS_SCROLL_MAX} ${lineItems.length === 0 ? "py-4" : ""}`}>
                  {lineItems.length === 0 ? (
-                   <div className="py-10 flex items-center justify-center">
-                      <div className="text-center opacity-10">
-                         <BrandLogo className="w-20 h-20 mx-auto grayscale mb-3" />
-                         <span className="text-[10px] font-black uppercase tracking-[0.4em]">Preview Workspace</span>
-                      </div>
-                   </div>
+                   <div className="py-4 flex items-center justify-center text-[11px] text-gray-400 uppercase tracking-wider">No items yet — use the form below</div>
                  ) : (
-                   <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b-2 border-brand-navy/10">
-                            <th className="py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest pl-4">#</th>
-                            <th className="py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest text-left">Line Description & Specifications</th>
-                            <th className="py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest w-20 text-center">Qty</th>
-                            <th className="py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest w-40 text-right pr-4">Total (₹)</th>
-                            <th className="no-print py-2 text-[9px] font-black text-brand-navy/70 uppercase tracking-widest w-24 text-right pr-4">Actions</th>
+                   <table className="gov-table text-xs">
+                      <thead className="sticky top-0 z-[1] bg-gray-50 shadow-[0_1px_0_0_#d1d5db]">
+                        <tr>
+                            <th className="w-8 pl-3">#</th>
+                            <th>Description</th>
+                            <th className="w-16 text-center">Qty</th>
+                            <th className="w-28 text-right pr-3">Total (₹)</th>
+                            <th className="w-16 text-right pr-3">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-brand-navy/5">
+                      <tbody>
                         {lineItems.map((item, idx) => {
                           const primaryComp = item.chargeComponents?.[0] || {};
                           const lineTotal = item.chargeComponents?.reduce((acc, c) => acc + (c.amount || 0), 0) || 0;
-                          const unitPrice = primaryComp.unitPrice || (lineTotal / (item.quantity || 1));
 
                           return (
-                            <tr key={item.id || item._id} className="group hover:bg-zinc-50/50 transition-colors">
-                              <td className="py-2.5 pl-4 text-xs font-black text-brand-navy/45 tabular-nums align-top">{idx + 1}</td>
-                              
-                              {/* Description Column */}
-                              <td className="py-2.5 align-top">
-                                 <div className="flex flex-col gap-1 pr-4">
-                                    <input 
-                                       type="text"
-                                       value={item.meta?.itemTitle || item.title || ''}
-                                       onChange={(e) => handleUpdateLineItem(item.id || item._id, { meta: { ...item.meta, itemTitle: e.target.value }, title: e.target.value })}
-                                       className="bg-transparent border-none text-xs font-bold text-brand-teal focus:ring-0 p-0 hover:bg-brand-teal/5 rounded transition-all placeholder:opacity-20"
-                                       placeholder="Item Title..."
-                                    />
-                                    <textarea 
-                                       value={item.description}
-                                       onChange={(e) => handleUpdateLineItem(item.id || item._id, { description: e.target.value })}
-                                       className="bg-transparent border-none text-[10px] font-medium text-brand-navy/60 focus:ring-0 p-0 hover:bg-zinc-100 rounded transition-all resize-none overflow-hidden min-h-[32px] w-full"
-                                       rows={2}
-                                    />
+                            <tr key={item.id || item._id} className="group hover:bg-gray-50">
+                              <td className="pl-3 py-1 text-gray-400 tabular-nums align-top">{idx + 1}</td>
+                              <td className="py-1 align-top max-w-0">
+                                 <div className="flex flex-col pr-2 min-w-0">
+                                    <input type="text" value={item.meta?.itemTitle || item.title || ''} onChange={(e) => handleUpdateLineItem(item.id || item._id, { meta: { ...item.meta, itemTitle: e.target.value }, title: e.target.value })} className="bg-transparent border-none text-xs font-semibold text-gov-blue focus:ring-0 p-0 w-full truncate" placeholder="Title..." />
+                                    <input type="text" value={item.description} onChange={(e) => handleUpdateLineItem(item.id || item._id, { description: e.target.value })} className="bg-transparent border-none text-[10px] text-gray-500 focus:ring-0 p-0 w-full truncate" title={item.description} />
                                  </div>
                               </td>
-
-                              {/* Quantity Column */}
-                              <td className="py-2.5 align-top text-center text-xs font-black text-brand-navy/60">
-                                 {item.quantity}
-                              </td>
-
-                              {/* Total Column */}
-                              <td className="py-2.5 align-top text-right pr-4">
+                              <td className="py-1 text-center font-medium text-gray-700 align-top tabular-nums">{item.quantity}</td>
+                              <td className="py-1 text-right pr-3 align-top">
                                  <div className="flex flex-col items-end">
-                                    <input 
-                                       type="number"
-                                       value={activeEditId === (item.id || item._id) ? activeEditValue : lineTotal.toFixed(2)}
-                                       onFocus={() => {
-                                          setActiveEditId(item.id || item._id);
-                                          setActiveEditValue(lineTotal || "");
-                                       }}
-                                       onBlur={() => {
-                                          setActiveEditId(null);
-                                          setActiveEditValue("");
-                                       }}
-                                       onChange={(e) => {
-                                          setActiveEditValue(e.target.value);
-                                          if (e.target.value !== "") {
-                                            handleUpdateLineItem(item.id || item._id, { totalAmount: e.target.value });
-                                          }
-                                       }}
-                                       onWheel={(e) => e.currentTarget.blur()}
-                                       className="w-32 bg-transparent border-none text-right text-sm font-black text-brand-teal focus:ring-0 p-0 hover:bg-brand-teal/5 rounded transition-all tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    />
-                                    <div className="text-[8px] font-bold text-brand-navy/55 uppercase tracking-widest mt-1">
-                                       Subtotal {currency}
-                                    </div>
+                                    <input type="number" value={activeEditId === (item.id || item._id) ? activeEditValue : lineTotal.toFixed(2)} onFocus={() => { setActiveEditId(item.id || item._id); setActiveEditValue(lineTotal || ""); }} onBlur={() => { setActiveEditId(null); setActiveEditValue(""); }} onChange={(e) => { setActiveEditValue(e.target.value); if (e.target.value !== "") { handleUpdateLineItem(item.id || item._id, { totalAmount: e.target.value }); } }} onWheel={(e) => e.currentTarget.blur()} className="w-20 bg-transparent border-none text-right text-xs font-bold text-gov-blue focus:ring-0 p-0 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                                    <span className="text-[9px] text-gray-400">{currency}</span>
                                  </div>
                               </td>
-
-                              <td className="no-print py-2.5 pr-4 align-top">
-                                 <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
-                                    <button
-                                      onClick={() => handleEditLineItem(item)}
-                                      className="p-2 rounded-xl bg-brand-mint/30 text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm border border-brand-teal/10"
-                                      title="Re-open in Calculator"
-                                    >
-                                       <MdEdit className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteLineItem(item.id || item._id)}
-                                      className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-100"
-                                      title="Delete Item"
-                                    >
-                                       <MdDeleteOutline className="w-4 h-4" />
-                                    </button>
+                              <td className="py-1 pr-2 align-top">
+                                 <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100">
+                                    <button onClick={() => handleEditLineItem(item)} className="p-1 text-gray-400 hover:text-gov-blue border border-transparent hover:border-gov-border" title="Edit"><MdEdit className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => handleDeleteLineItem(item.id || item._id)} className="p-1 text-gray-300 hover:text-red-500 border border-transparent hover:border-red-200" title="Delete"><MdDeleteOutline className="w-3.5 h-3.5" /></button>
                                  </div>
                               </td>
                             </tr>
@@ -1705,107 +1672,173 @@ export default function QuotationEditorPage() {
                    </table>
                  )}
               </div>
+              )}
 
-              {/* Summary Bar - Relocated with Table */}
-              <div className="p-4 md:p-6 bg-zinc-50 print:bg-white flex items-center justify-between border-t border-brand-navy/5 print:border-brand-navy/10">
-                  <div className="flex items-center gap-6 relative">
-                     {shareError && (
-                        <div className="absolute -top-12 right-0 bg-red-500 text-white text-[9px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-lg shadow-xl animate-bounce-in flex items-center gap-2 whitespace-nowrap">
-                           <MdWarningAmber className="w-3 h-3" />
-                           {shareError}
-                        </div>
+              <div className="px-3 py-1 bg-gray-50 border-t border-gov-border flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-4 min-w-0">
+                     <span className="text-gray-500">Items: <strong className="text-gov-blue">{lineItems.length}</strong></span>
+                     <span className="text-gray-500 hidden sm:inline">Status: <strong className="text-gov-blue uppercase">{status}</strong></span>
+                     {shareError && <span className="text-red-500 text-[10px] truncate">{shareError}</span>}
+                     {lineItems.length > 3 && itemsPanelExpanded && (
+                       <button type="button" onClick={() => setItemsPanelExpanded(false)} className="text-[10px] text-gov-blue/70 hover:text-gov-blue underline underline-offset-2 hidden md:inline">
+                         Collapse to focus on form
+                       </button>
                      )}
-                     <button
-                       onClick={handleWhatsAppShare}
-                       className={`no-print flex items-center gap-3 px-4 py-2 rounded-xl border-2 transition-all font-black uppercase tracking-widest shadow-sm ${shareError ? 'border-red-400 text-red-500 bg-red-50 animate-shake' : 'border-brand-navy/5 bg-white text-brand-navy/70 hover:text-brand-teal hover:border-brand-teal/30'}`}
-                     >
-                        <FaWhatsapp className="w-4 h-4" />
-                        <span className="text-[10px]">WhatsApp</span>
-                     </button>
-
-                     <button
-                       onClick={() => window.print()}
-                       className="no-print flex items-center gap-3 px-4 py-2 rounded-xl border-2 border-brand-navy/5 bg-white text-brand-navy/70 hover:text-brand-teal hover:border-brand-teal/30 transition-all font-black uppercase tracking-widest shadow-sm"
-                     >
-                        <MdPrint className="w-4 h-4" />
-                        <span className="text-[10px]">Print Quotation</span>
-                     </button>
-
-                     <div className="flex gap-10">
-                        <div>
-                           <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] mb-1.5">Line Items</div>
-                           <div className="text-xl font-black text-brand-navy">{lineItems.length}</div>
-                        </div>
-                        <div>
-                           <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-[0.2em] mb-1.5">Quote Status</div>
-                           <div className="flex">
-                              <span className="text-[10px] font-black uppercase bg-brand-mint text-brand-teal px-3 py-1 rounded-full border border-brand-teal/10">{status}</span>
-                           </div>
-                        </div>
-                     </div>
                   </div>
-
-                  <div className="text-right">
-                      <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.3em] mb-2">Grand Total</div>
-                      <div className="text-4xl font-black text-brand-navy flex items-center justify-end gap-3">
-                        <span className="text-[14px] text-brand-navy/55 font-bold uppercase tracking-widest mt-1.5">{currency}</span>
-                        {lineItems.reduce((acc, curr) => {
-                          const itemTotal = curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0;
-                          return acc + itemTotal;
-                        }, 0).toLocaleString()}
-                      </div>
+                  <div className="flex items-baseline gap-2 shrink-0">
+                      <span className="text-[10px] text-gray-500 uppercase">Grand Total</span>
+                      <span className="text-base font-bold text-gov-blue tabular-nums">
+                        {currency} {lineItems.reduce((acc, curr) => acc + (curr.chargeComponents?.reduce((a, c) => a + (c.amount || 0), 0) || 0), 0).toLocaleString()}
+                      </span>
                   </div>
               </div>
           </div>
       </section>
 
-      {/* 2. Compact Calculator Bar */}
-      <section id="calc-top" className="no-print m-4 mt-0 rounded-4xl border border-brand-navy/15 bg-white shadow-md shadow-brand-navy/5 overflow-hidden">
-          <div className="px-6 pt-4 pb-3 border-b border-brand-navy/10 bg-zinc-50/80 flex items-center justify-between">
-             <div className={`${QUOTE_SECTION_LABEL_CLASS} flex items-center gap-2`}>
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-teal" />
-                Print Configuration & Pricing
-             </div>
-             <span className="text-[10px] font-black text-brand-navy/60 uppercase tracking-widest">Configure print details and pricing</span>
-          </div>
-          {/* Tabs - Redesigned to be rounded and thematic */}
-          <div className="px-6 py-3 bg-zinc-50/60 flex">
-             <div className="flex bg-zinc-200/50 p-1 rounded-2xl border border-zinc-200/50">
-                {TABS.map(t => (
-                  <button
-                   key={t.id}
-                   onClick={() => setActiveTab(t.id)}
-                   className={`flex items-center gap-2 px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-300 ${(t.id === "laser" ? activeTab === "laser" || activeTab === "brochure" : activeTab === t.id) ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
-                  >
-                    <span className="text-base">{t.icon}</span>
-                    {t.label}
-                  </button>
-                ))}
-             </div>
-          </div>
+      {/* Print-only full items table */}
+      {lineItems.length > 0 && (
+        <section className="print-only bg-white border-b border-gov-border">
+          <table className="gov-table text-xs w-full">
+            <thead>
+              <tr>
+                <th className="w-8 pl-3">#</th>
+                <th>Description</th>
+                <th className="w-16 text-center">Qty</th>
+                <th className="w-28 text-right pr-3">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lineItems.map((item, idx) => {
+                const lineTotal = item.chargeComponents?.reduce((acc, c) => acc + (c.amount || 0), 0) || 0;
+                return (
+                  <tr key={item.id || item._id}>
+                    <td className="pl-3 py-1">{idx + 1}</td>
+                    <td className="py-1">
+                      <div className="font-semibold">{item.meta?.itemTitle || item.title}</div>
+                      <div className="text-[10px] text-gray-600">{item.description}</div>
+                    </td>
+                    <td className="py-1 text-center">{item.quantity}</td>
+                    <td className="py-1 text-right pr-3 font-bold">{currency} {lineTotal.toLocaleString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
 
-          <div className="p-6">
-            {(activeTab === "laser" || activeTab === "brochure") && (
-              <div className="mb-5 flex bg-zinc-50 p-1 rounded-2xl border border-brand-navy/5 w-full max-w-[450px]">
-                {[
-                  { id: "laser", label: "Normal Print", icon: <MdComputer /> },
-                  { id: "brochure", label: "Booklet / Book", icon: <MdLayers /> },
-                ].map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => setActiveTab(mode.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === mode.id ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/60 hover:text-brand-navy/80"}`}
-                  >
-                    <span className="text-sm">{mode.icon}</span>
-                    {mode.label}
-                  </button>
-                ))}
-              </div>
+      {/* Item saved feedback — visible even when items panel is collapsed */}
+      {itemAddedToast && (
+        <div className="no-print shrink-0 px-3 py-2 bg-emerald-50 border-b border-emerald-300 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <MdCheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span className="text-xs font-semibold text-emerald-800 truncate">{itemAddedToast.message}</span>
+            <span className="text-[10px] text-emerald-600 shrink-0 hidden sm:inline">
+              · {lineItems.length} item{lineItems.length === 1 ? "" : "s"} total
+            </span>
+            {!itemsPanelExpanded && (
+              <button
+                type="button"
+                onClick={() => setItemsPanelExpanded(true)}
+                className="text-[10px] font-semibold text-emerald-700 underline underline-offset-2 shrink-0"
+              >
+                View list
+              </button>
             )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setItemAddedToast(null)}
+            className="p-0.5 text-emerald-600 hover:text-emerald-900 shrink-0"
+            title="Dismiss"
+          >
+            <MdClose className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
+      {/* 3. Print Configuration Calculator — flex-1 fills all remaining viewport height */}
+      <section id="calc-top" className="no-print bg-white flex flex-col flex-1 min-h-0 basis-0">
+          {/* Tab bar: both columns always show sub-tab row (icons when parent inactive) */}
+          <div className="flex items-stretch border-b border-gov-border bg-gray-50 shrink-0">
+             {/* Laser Printing + sub-options */}
+             <div className="flex flex-col shrink-0 border-r border-gov-border w-[15rem]">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("laser")}
+                  className={`flex w-full items-center justify-center gap-1.5 px-4 min-h-[2.5rem] text-xs font-semibold transition-colors ${isLaserTab(activeTab) ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  <MdComputer className="w-4 h-4 shrink-0" />
+                  Laser Printing
+                </button>
+
+                <div className={`flex w-full border-t ${isLaserTab(activeTab) ? "border-gov-blue/20 bg-gov-blue-light/50" : "border-gov-border bg-gray-100/80"}`}>
+                  {LASER_SUB_TABS.map((mode) => {
+                    const laserActive = isLaserTab(activeTab);
+                    const modeSelected = activeTab === mode.id;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        title={mode.label}
+                        onClick={() => setActiveTab(mode.id)}
+                        className={`flex flex-1 items-center justify-center gap-1 min-h-[2rem] border-r border-gov-blue/15 last:border-r-0 transition-colors ${
+                          laserActive
+                            ? `px-2 text-[11px] font-medium ${modeSelected ? "bg-white text-gov-blue font-semibold shadow-[inset_0_-2px_0_0_#1a3a6b]" : "text-gray-600 hover:bg-white/60"}`
+                            : "px-2 text-gray-400 hover:text-gov-blue hover:bg-white/70"
+                        }`}
+                      >
+                        <mode.icon className={laserActive ? "w-3.5 h-3.5 shrink-0" : "w-4 h-4 shrink-0"} />
+                        {laserActive && <span className="truncate">{mode.label}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+             </div>
+
+             {/* Offset Printing + sub-options */}
+             <div className="flex flex-col shrink-0 border-r border-gov-border w-[15rem]">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("offset")}
+                  className={`flex w-full items-center justify-center gap-1.5 px-4 min-h-[2.5rem] text-xs font-semibold transition-colors ${isOffsetTab(activeTab) ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  <MdPrint className="w-4 h-4 shrink-0" />
+                  Offset Printing
+                </button>
+
+                <div className={`flex w-full border-t ${isOffsetTab(activeTab) ? "border-gov-blue/20 bg-gov-blue-light/50" : "border-gov-border bg-gray-100/80"}`}>
+                  {OFFSET_SUB_TABS.map((mode) => {
+                    const offsetActive = isOffsetTab(activeTab);
+                    const modeSelected = activeTab === mode.id;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        title={mode.label}
+                        onClick={() => setActiveTab(mode.id)}
+                        className={`flex flex-1 items-center justify-center gap-1 min-h-[2rem] border-r border-gov-blue/15 last:border-r-0 transition-colors ${
+                          offsetActive
+                            ? `px-2 text-[11px] font-medium ${modeSelected ? "bg-white text-gov-blue font-semibold shadow-[inset_0_-2px_0_0_#1a3a6b]" : "text-gray-600 hover:bg-white/60"}`
+                            : "px-2 text-gray-400 hover:text-gov-blue hover:bg-white/70"
+                        }`}
+                      >
+                        <mode.icon className={offsetActive ? "w-3.5 h-3.5 shrink-0" : "w-4 h-4 shrink-0"} />
+                        {offsetActive && <span className="truncate">{mode.label}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+             </div>
+
+             <div className="flex items-center px-3 flex-1 min-w-0 min-h-[2.5rem]">
+               <span className={`${QUOTE_SECTION_LABEL_CLASS} truncate`}>Print Configuration & Pricing</span>
+             </div>
+          </div>
+
+          <div className="p-3 flex-1 min-h-0 overflow-y-auto flex flex-col">
             {activeTab === "laser" ? (
-              <div className="flex flex-col lg:flex-row items-start gap-6">
+              <div className={QUOTE_CALC_ROW_CLASS}>
                   {/* Left: Inputs */}
                   <div className={QUOTE_FORM_COLUMN_CLASS}>
                       <div className={QUOTE_INPUT_GRID_CLASS}>
@@ -1841,7 +1874,7 @@ export default function QuotationEditorPage() {
 
 
                           {laserSizeId === 'custom' && (
-                            <div className="p-5 bg-brand-teal/5 h-16 rounded-2xl border border-brand-teal/10 flex items-center gap-4 animate-slide-down">
+                            <div className="p-5 bg-gov-blue/5 h-16 rounded-2xl border border-gov-blue/10 flex items-center gap-4 animate-slide-down">
                                <div className="flex-1">
                                   <input
                                     type="number"
@@ -1855,10 +1888,10 @@ export default function QuotationEditorPage() {
                                     }}
                                     value={customWidth}
                                     onChange={e => setCustomWidth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
+                                    className="w-full bg-transparent border-b border-gov-blue/20 outline-none text-xs font-black text-gov-blue placeholder:text-gov-blue/55 py-1"
                                   />
                                </div>
-                               <span className="text-[10px] font-black text-brand-navy/55">×</span>
+                               <span className="text-[10px] font-black text-gov-blue/55">×</span>
                                <div className="flex-1">
                                   <input
                                     type="number"
@@ -1872,14 +1905,14 @@ export default function QuotationEditorPage() {
                                     }}
                                     value={customBreadth}
                                     onChange={e => setCustomBreadth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
+                                    className="w-full bg-transparent border-b border-gov-blue/20 outline-none text-xs font-black text-gov-blue placeholder:text-gov-blue/55 py-1"
                                   />
                                </div>
                                <div className="w-16">
                                   <select
                                     value={customUnit}
                                     onChange={e => setCustomUnit(e.target.value)}
-                                    className="w-full bg-transparent outline-none text-[10px] font-black text-brand-teal uppercase tracking-widest cursor-pointer"
+                                    className="w-full bg-transparent outline-none text-[10px] font-black text-gov-blue uppercase tracking-widest cursor-pointer"
                                   >
                                      <option value="mm">mm</option>
                                      <option value="cm">cm</option>
@@ -1921,8 +1954,8 @@ export default function QuotationEditorPage() {
                               }}
                            />
                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Charge Method</label>
-                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                              <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Charge Method</label>
+                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-gov-blue/5 h-11">
                                  {[
                                    { id: true, label: "Printing Only" },
                                    { id: false, label: "Slab Charge" }
@@ -1930,7 +1963,7 @@ export default function QuotationEditorPage() {
                                    <button
                                      key={m.label}
                                      onClick={() => setIsOnlyClipCharge(m.id)}
-                                     className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${isOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
+                                     className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${isOnlyClipCharge === m.id ? 'bg-white text-gov-blue shadow-sm' : 'text-gov-blue/60 hover:text-gov-blue/80'}`}
                                    >
                                      {m.label}
                                    </button>
@@ -1942,13 +1975,13 @@ export default function QuotationEditorPage() {
                    
                       <div className="flex gap-4">
                           <div className="flex-1 space-y-2">
-                             <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Colour Mode</label>
-                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
+                             <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Colour Mode</label>
+                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-gov-blue/5">
                                 {['COLOR', 'BW'].map(m => (
                                   <button
                                     key={m}
                                     onClick={() => setLaserColorMode(m)}
-                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${laserColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
+                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${laserColorMode === m ? 'bg-white text-gov-blue shadow-sm' : 'text-gov-blue/60 hover:text-gov-blue/80'}`}
                                   >
                                     {m === 'BW' ? 'B&W' : 'Multicolor'}
                                   </button>
@@ -1956,13 +1989,13 @@ export default function QuotationEditorPage() {
                              </div>
                           </div>
                           <div className="flex-1 space-y-2">
-                             <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Sides</label>
-                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
+                             <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Sides</label>
+                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-gov-blue/5">
                                 {['SINGLE', 'DOUBLE'].map(s => (
                                   <button
                                     key={s}
                                     onClick={() => setLaserSides(s)}
-                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${laserSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
+                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${laserSides === s ? 'bg-white text-gov-blue shadow-sm' : 'text-gov-blue/60 hover:text-gov-blue/80'}`}
                                   >
                                     {s === 'SINGLE' ? 'Front Only' : 'Front & Back'}
                                   </button>
@@ -1973,15 +2006,19 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Pricing Preview */}
-                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} rounded-2xl border-2 p-5 min-h-[300px] flex flex-col relative ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
-                       <div className="mb-4 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                             <MdOutlineAnalytics className="w-5 h-5 text-brand-teal" />
-                             <h3 className="text-sm font-black text-brand-navy uppercase tracking-widest">
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[240px] ${!!editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
+                       <div className="mb-2 flex items-center justify-between shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                             <MdOutlineAnalytics className="w-4 h-4 text-gov-blue shrink-0" />
+                             <h3 className={`text-[11px] font-semibold text-gov-blue uppercase tracking-wide truncate ${OPT_COMPACT}`}>
+                                Options
+                             </h3>
+                             <h3 className={`${OPT_EXPAND} text-[11px] font-semibold text-gov-blue uppercase tracking-wide`}>
                                 {!!editingLineId ? "Editing Line Item" : "Printer Options"}
                              </h3>
                           </div>
-                          {laserLoading && <div className="w-4 h-4 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
+                          <span className="hidden lg:block text-[9px] text-gray-400 uppercase tracking-wide shrink-0 ml-1 group-hover/options:hidden">Hover to expand</span>
+                          {laserLoading && <div className="w-3.5 h-3.5 border border-gov-border border-t-gov-blue animate-spin shrink-0"></div>}
                        </div>
 
                       {laserError ? (
@@ -1992,7 +2029,7 @@ export default function QuotationEditorPage() {
                       ) : laserPricingOptions.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdComputer className={`w-12 h-12 ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400' : 'text-brand-navy/65'}`}>
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400' : 'text-gov-blue/65'}`}>
                              {laserSizeId && laserStockItemId && laserCopies 
                                ? "No printer available to print this configuration" 
                                : "Select dimensions and stock to see machine comparisons"}
@@ -2013,15 +2050,25 @@ export default function QuotationEditorPage() {
                                    <div
                                     key={idx}
                                     onClick={() => isPrintable && setSelectedLaserOption(opt)}
-                                    className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'hover:border-brand-teal/40 border-brand-navy/5')}`}
+                                    className={`p-2 lg:group-hover/options:p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between gap-2 group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-gov-blue ring-2 lg:group-hover/options:ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'hover:border-gov-blue/40 border-gov-blue/5')}`}
                                    >
-                                      <div className="flex-1">
-                                         <div className="text-xs font-black text-brand-navy flex items-center gap-2">
+                                      <div className="flex-1 min-w-0">
+                                         <div className={`${OPT_COMPACT} flex items-center justify-between gap-2`}>
+                                           <div className="text-[11px] font-black text-gov-blue truncate min-w-0">{opt.printerModelName}</div>
+                                           <div className="text-sm font-black text-gov-blue shrink-0">
+                                              {isPrintable ? `₹${opt.pricing.total.toLocaleString()}` : '--'}
+                                           </div>
+                                         </div>
+                                         <div className={`${OPT_COMPACT} text-[9px] font-bold text-gov-blue/55 uppercase tracking-tight mt-0.5 truncate`}>
+                                            {isPrintable ? `${opt.prints} pr · ${opt.sheets} sh` : (opt.unprintableReason?.replace(/_/g, ' ') || 'Unavailable')}
+                                         </div>
+                                         <div className={`${OPT_EXPAND}`}>
+                                         <div className="text-xs font-black text-gov-blue flex items-center gap-2">
                                             {opt.printerModelName}
-                                            {idx === 0 && isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Value</span>}
+                                            {idx === 0 && isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-gov-blue-light text-gov-blue rounded uppercase tracking-tighter">Best Value</span>}
                                             {!isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-red-500 text-white rounded uppercase tracking-tighter shadow-sm">Non-Printable</span>}
                                          </div>
-                                         <div className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
+                                         <div className="text-[10px] font-bold text-gov-blue/65 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
                                             {isPrintable ? (
                                               <>
                                                 <span>{opt.pricing.kind} Charge</span>
@@ -2034,21 +2081,22 @@ export default function QuotationEditorPage() {
                                               <span className="text-red-500/60 font-black">{opt.unprintableReason?.replace(/_/g, ' ') || 'Geometric Constraint'}</span>
                                             )}
                                          </div>
+                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-4">
+                                      <div className={`${OPT_EXPAND_FLEX} items-center gap-4 shrink-0`}>
                                          {opt.layout && isPrintable && (
                                            <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setPreviewingLayoutOption(opt);
                                             }}
-                                            className="p-2 text-brand-teal font-black text-[9px] uppercase tracking-widest hover:bg-brand-teal/10 rounded-lg transition-all"
+                                            className="p-2 text-gov-blue font-black text-[9px] uppercase tracking-widest hover:bg-gov-blue/10 rounded-lg transition-all"
                                            >
                                               Inspect
                                            </button>
                                          )}
                                          <div className="text-right min-w-[70px]">
-                                            <div className="text-lg font-black text-brand-navy">
+                                            <div className="text-lg font-black text-gov-blue">
                                                {isPrintable ? `₹${opt.pricing.total.toLocaleString()}` : '--'}
                                             </div>
                                          </div>
@@ -2060,11 +2108,11 @@ export default function QuotationEditorPage() {
 
                            {/* Global Add/Update Button */}
                            {selectedLaserOption && (
-                             <div className="mt-4 pt-4 border-t border-brand-navy/5 animate-fade-in px-2 flex gap-3">
+                             <div className="mt-auto pt-2 border-t border-gov-border shrink-0 flex gap-2 px-0.5">
                                 {editingLineId && (
                                   <button
                                     onClick={resetCalculator}
-                                    className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/65 hover:text-red-400 transition-colors"
+                                    className={`px-2 text-[10px] font-black uppercase tracking-widest text-gov-blue/65 hover:text-red-400 transition-colors ${OPT_EXPAND}`}
                                   >
                                     Cancel
                                   </button>
@@ -2129,12 +2177,17 @@ export default function QuotationEditorPage() {
                                     }
 
                                     await syncLineItems(newList);
-                                    resetCalculator();
+                                    onLineItemSaved(newLineItem.title || itemTitle, !!editingLineId);
                                   }}
-                                  className="flex-1 flex items-center justify-center gap-2"
+                                  className="flex-1 flex items-center justify-center gap-1.5 text-xs lg:group-hover/options:text-sm py-2"
                                 >
-                                   {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
-                                   {!!editingLineId ? "Update Line Item" : "Add to Quotation"}
+                                   {!!editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
+                                   <span className={`truncate ${OPT_COMPACT}`}>
+                                     {!!editingLineId ? "Update" : "Add"} · ₹{selectedLaserOption.pricing.total.toLocaleString()}
+                                   </span>
+                                   <span className={`truncate ${OPT_EXPAND}`}>
+                                     {!!editingLineId ? "Update Line Item" : "Add to Quotation"}
+                                   </span>
                                 </PrimaryButton>
                              </div>
                            )}
@@ -2143,12 +2196,12 @@ export default function QuotationEditorPage() {
                   </div>
               </div>
             ) : activeTab === "brochure" ? (
-              <div className="flex flex-col lg:flex-row items-start gap-6 animate-fade-in">
+              <div className={`${QUOTE_CALC_ROW_CLASS} animate-fade-in`}>
                   {/* Left: Inputs */}
                   <div className={QUOTE_FORM_COLUMN_CLASS}>
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Binding Type</label>
-                          <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-gray-700">Binding Type</label>
+                          <div className="flex border border-gov-border">
                             {[
                               { id: "CENTER_CLIP", label: "Center Clip" },
                               { id: "PERFECT_BINDING", label: "Perfect Binding" },
@@ -2157,20 +2210,21 @@ export default function QuotationEditorPage() {
                                 key={mode.id}
                                 type="button"
                                 onClick={() => setBookletBindingType(mode.id)}
-                                className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${bookletBindingType === mode.id ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/60 hover:text-brand-navy/80"}`}
+                                className={`flex-1 py-2 text-xs font-semibold border-r border-gov-border last:border-r-0 transition-colors ${bookletBindingType === mode.id ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                               >
                                 {mode.label}
                               </button>
                             ))}
                           </div>
-                          <div className="text-[10px] font-bold text-brand-navy/70 leading-relaxed px-1">
+                          <p className="text-[10px] text-gray-500 leading-snug">
                             {isCenterClipBinding
                               ? "Nested center-pin folded signatures with full composition intelligence."
                               : "Sequential folded stack signatures for perfect binding."}
-                          </div>
+                          </p>
                         </div>
 
-                      <div className={QUOTE_INPUT_GRID_CLASS}>
+                      <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <TextField 
                             label="Job Title" 
                             placeholder="e.g. Annual Report, Booklet..." 
@@ -2194,81 +2248,20 @@ export default function QuotationEditorPage() {
                                setBrochureSizeId(next);
                              }}
                            />
+                          </div>
 
                           {brochureSizeId === 'custom' && (
-                            <div className="p-5 bg-brand-teal/5 h-16 rounded-2xl border border-brand-teal/10 flex items-center gap-4 animate-slide-down">
-                               <div className="flex-1">
-                                  <input
-                                    type="number"
-                                    placeholder="Width"
-                                    value={customWidth}
-                                    onChange={e => setCustomWidth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
-                                  />
-                               </div>
-                               <span className="text-[10px] font-black text-brand-navy/55">×</span>
-                               <div className="flex-1">
-                                  <input
-                                    type="number"
-                                    placeholder="Breadth"
-                                    value={customBreadth}
-                                    onChange={e => setCustomBreadth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
-                                  />
-                               </div>
-                               <div className="w-16">
-                                  <select
-                                    value={customUnit}
-                                    onChange={e => setCustomUnit(e.target.value)}
-                                    className="w-full bg-transparent outline-none text-[10px] font-black text-brand-teal uppercase tracking-widest cursor-pointer"
-                                  >
-                                     <option value="mm">mm</option>
-                                     <option value="cm">cm</option>
-                                     <option value="inch">in</option>
-                                  </select>
-                               </div>
+                            <div className="p-2 bg-gov-blue-light border border-gov-border flex items-center gap-2">
+                               <input type="number" placeholder="Width" value={customWidth} onChange={e => setCustomWidth(e.target.value)} className="gov-input flex-1 py-1 text-xs" />
+                               <span className="text-xs text-gray-400">×</span>
+                               <input type="number" placeholder="Breadth" value={customBreadth} onChange={e => setCustomBreadth(e.target.value)} className="gov-input flex-1 py-1 text-xs" />
+                               <select value={customUnit} onChange={e => setCustomUnit(e.target.value)} className="gov-input w-16 py-1 text-xs">
+                                  <option value="mm">mm</option><option value="cm">cm</option><option value="inch">in</option>
+                               </select>
                             </div>
                           )}
 
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Orientation</label>
-                            <div className="rounded-2xl border border-brand-navy/5 bg-zinc-50 p-1">
-                              <div className="flex items-center justify-between gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => handleBrochureOrientationChange("NORMAL")}
-                                  className={`flex-1 rounded-xl p-3 text-left transition-all ${brochureOrientation === "NORMAL" ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/60 hover:text-brand-navy/80"}`}
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                      <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Portrait</div>
-                                      <div className="text-[9px] font-bold text-brand-navy/70 mt-1">Normal page reading</div>
-                                    </div>
-                                    <div className="w-8 h-10 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center">
-                                      <span className="text-xl font-black text-brand-teal">A</span>
-                                    </div>
-                                  </div>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleBrochureOrientationChange("ROTATED")}
-                                  className={`flex-1 rounded-xl p-3 text-left transition-all ${brochureOrientation === "ROTATED" ? "bg-white text-brand-navy shadow-sm" : "text-brand-navy/60 hover:text-brand-navy/80"}`}
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                      <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Landscape</div>
-                                      <div className="text-[9px] font-bold text-brand-navy/70 mt-1">Rotated page reading</div>
-                                    </div>
-                                    <div className="w-10 h-8 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center">
-                                      <span className="text-xl font-black text-brand-teal rotate-90 inline-block">A</span>
-                                    </div>
-                                  </div>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <SearchableSelect
                              label="Paper / Stock"
                              options={laserStockOptions}
@@ -2278,15 +2271,41 @@ export default function QuotationEditorPage() {
                              onSearch={fetchLaserStocks}
                            />
 
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 block mb-1">Orientation</label>
+                            <div className="flex border border-gov-border">
+                              <button
+                                type="button"
+                                onClick={() => handleBrochureOrientationChange("NORMAL")}
+                                className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 border-r border-gov-border transition-colors min-w-0 ${brochureOrientation === "NORMAL" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                              >
+                                <span className="text-xs font-semibold truncate">Portrait</span>
+                                <div className={`w-5 h-6 border flex items-center justify-center shrink-0 ${brochureOrientation === "NORMAL" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
+                                  <span className="text-sm font-bold leading-none">A</span>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleBrochureOrientationChange("ROTATED")}
+                                className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 transition-colors min-w-0 ${brochureOrientation === "ROTATED" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                              >
+                                <span className="text-xs font-semibold truncate">Landscape</span>
+                                <div className={`w-6 h-5 border flex items-center justify-center shrink-0 ${brochureOrientation === "ROTATED" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
+                                  <span className="text-sm font-bold leading-none rotate-90 inline-block">A</span>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                          </div>
+
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-2">
                            <TextField 
                               label="Pages per Booklet" 
                               type="number" 
                               value={brochurePagesPerBrochure} 
                               onChange={e => setBrochurePagesPerBrochure(e.target.value)} 
-                              helperText="Total reader pages (must be even)"
                            />
                            <TextField 
                               label="No of Copies" 
@@ -2297,35 +2316,34 @@ export default function QuotationEditorPage() {
                       </div>
 
                       <label className="block">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-sm font-medium text-brand-navy/80">Color Pages</span>
-                          <span className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-widest">
-                            blank = all B&W
-                          </span>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-gray-700">Color Pages</span>
+                          <span className="text-[10px] text-gray-400 uppercase">blank = all B&W</span>
                         </div>
                         <input
                           type="text"
                           value={brochureColorPagesInput}
                           onChange={e => setBrochureColorPagesInput(e.target.value)}
                           placeholder="ALL or 1,6,8 or 1-6,56,20-25"
-                          className="w-full rounded-xl border border-brand-navy/15 bg-white px-4 py-2.5 text-brand-navy placeholder:text-brand-navy/35 outline-none transition-all focus:border-brand-teal/40 focus:ring-4 focus:ring-brand-teal/10 shadow-sm"
+                          className="gov-input"
                         />
-                        <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-800 leading-relaxed">
-                          Enter color reader pages as <span className="font-black">ALL</span>, individual pages like <span className="font-black">1,6,8</span>, ranges like <span className="font-black">1-6</span>, or mixed like <span className="font-black">1-6,56,20-25</span>. Marked pages are highlighted in the print previews.
+                        <div className="mt-1 border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] text-amber-800 leading-snug">
+                          Enter color pages as ALL, individual (1,6,8), ranges (1-6), or mixed (1-6,56,20-25).
                         </div>
                       </label>
 
-                      <div className="flex flex-col gap-2">
-                          <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Charge Method</label>
-                          <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                      <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-1">Charge Method</label>
+                          <div className="flex border border-gov-border">
                              {[
                                { id: true, label: "Printing Only" },
                                { id: false, label: "Slab Charge" }
                              ].map(m => (
                                <button
                                  key={m.label}
+                                 type="button"
                                  onClick={() => setBrochureIsOnlyClipCharge(m.id)}
-                                 className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${brochureIsOnlyClipCharge === m.id ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
+                                 className={`flex-1 py-2 text-xs font-semibold border-r border-gov-border last:border-r-0 transition-colors ${brochureIsOnlyClipCharge === m.id ? 'bg-gov-blue text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                                >
                                  {m.label}
                                </button>
@@ -2336,19 +2354,23 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Brochure Composition \u0026 Pricing */}
-                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} rounded-2xl border-2 p-5 min-h-[400px] flex flex-col relative ${!!editingLineId ? 'bg-brand-teal/5 border-solid border-brand-teal' : 'bg-zinc-50/50 border-dashed border-brand-navy/10'}`}>
-                      <div className="mb-4 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                             <MdLayers className="w-5 h-5 text-brand-teal" />
-                             <h3 className="text-sm font-black text-brand-navy uppercase tracking-widest">
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[280px] ${!!editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
+                      <div className="mb-2 flex items-center justify-between shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                             <MdLayers className="w-4 h-4 text-gov-blue shrink-0" />
+                             <h3 className={`text-[11px] font-semibold text-gov-blue uppercase tracking-wide truncate ${OPT_COMPACT}`}>
+                                Options
+                             </h3>
+                             <h3 className={`${OPT_EXPAND} text-[11px] font-semibold text-gov-blue uppercase tracking-wide`}>
                                 {!!editingLineId ? "Editing Booklet" : "Composition Options"}
                              </h3>
                           </div>
-                          {brochureLoading && <div className="w-4 h-4 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
+                          <span className="hidden lg:block text-[9px] text-gray-400 uppercase tracking-wide shrink-0 ml-1 group-hover/options:hidden">Hover to expand</span>
+                          {brochureLoading && <div className="w-3.5 h-3.5 border border-gov-border border-t-gov-blue animate-spin shrink-0"></div>}
                       </div>
 
                       {brochureNotice && (
-                        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[10px] font-bold text-amber-800 leading-relaxed">
+                        <div className={`${OPT_EXPAND} mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[10px] font-bold text-amber-800 leading-relaxed`}>
                           {brochureNotice}
                         </div>
                       )}
@@ -2361,7 +2383,7 @@ export default function QuotationEditorPage() {
                       ) : brochureViews.length === 0 && brochureNestedPrintPlans.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdLayers className={`w-12 h-12 ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400' : 'text-brand-navy/65'}`}>
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400' : 'text-gov-blue/65'}`}>
                              {brochureSizeId && brochureStockItemId && brochureCopies 
                                ? "No booklet composition possible for this page count" 
                                : "Configure booklet details to see options"}
@@ -2380,7 +2402,7 @@ export default function QuotationEditorPage() {
                                        setSelectedBrochureOption({ viewId: view.viewId, optionIdx: 0, kind: 'SINGLE' });
                                      }
                                    }}
-                                   className={`flex-shrink-0 px-4 py-3 rounded-xl border transition-all text-left min-w-[140px] ${selectedBrochureView?.viewId === view.viewId ? 'bg-brand-teal text-white border-brand-teal shadow-lg shadow-brand-teal/20' : 'bg-white text-brand-navy border-brand-navy/5 hover:border-brand-teal/30'}`}
+                                   className={`flex-shrink-0 px-4 py-3 rounded-xl border transition-all text-left min-w-[140px] ${selectedBrochureView?.viewId === view.viewId ? 'bg-gov-blue text-white border-gov-blue shadow-lg shadow-gov-blue/20' : 'bg-white text-gov-blue border-gov-blue/5 hover:border-gov-blue/30'}`}
                                  >
                                     <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Split</div>
                                     <div className="flex items-center gap-1 flex-wrap mb-1">
@@ -2394,206 +2416,60 @@ export default function QuotationEditorPage() {
                           )}
 
                            {brochureNestedPrintPlans.length > 0 && (
-                             <div className="space-y-3">
-                               <div className="flex items-center justify-between px-1">
-                                 <h4 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em]">
-                                   {isPerfectBinding ? "Perfect Binding Options" : "Nested Center Pin Options"}
+                             <div className="space-y-2 flex-1 flex flex-col min-h-0">
+                               <div className="flex items-center justify-between px-0.5 shrink-0">
+                                 <h4 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                                   {isPerfectBinding ? "Perfect binding" : "Center pin"} · {brochureNestedPrintPlans.length} plan{brochureNestedPrintPlans.length === 1 ? "" : "s"}
                                  </h4>
-                                 <span className="text-[9px] font-black text-brand-teal uppercase tracking-widest">
-                                   {brochureNestedPrintPlans.length} plan{brochureNestedPrintPlans.length === 1 ? "" : "s"}
-                                 </span>
                                </div>
 
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1">
-                                 {brochureNestedPrintPlans.map((plan, planIdx) => (
-                                   <button
+                              <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0 pr-0.5">
+                                 {brochureNestedPrintPlans.map((plan, planIdx) => {
+                                   const isPlanSelected = selectedNestedPrintPlan?.planId === plan.planId;
+                                   const planPrice = plan.totals?.price != null ? Number(plan.totals.price).toLocaleString() : null;
+                                   const sigSummary = plan.signatures.map((sig) => `${sig.signaturePages}pp`).join("+");
+                                   const wasteStats = paperWasteStatsForPlan(plan);
+                                   return (
+                                   <div
                                      key={plan.planId}
-                                     type="button"
                                     onClick={() => setSelectedNestedPrintPlan(plan)}
-                                    className={`p-3 rounded-xl border bg-white text-left transition-all ${selectedNestedPrintPlan?.planId === plan.planId ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/2' : 'border-brand-navy/5 hover:border-brand-teal/40'}`}
+                                    className={`p-2 border bg-white flex items-center gap-2 cursor-pointer transition-all w-full min-w-0 ${isPlanSelected ? "border-gov-blue ring-1 ring-gov-blue bg-gov-blue/[0.02]" : "border-gov-border hover:border-gov-blue/40"}`}
                                    >
-                                     <div className="flex items-start justify-between gap-4">
-                                      <div className="min-w-0 flex-1">
-                                         <div className="flex items-center gap-2 flex-wrap">
-                                           <span className="text-xs font-black text-brand-navy">Option {planIdx + 1}</span>
-                                           {brochureWorkflowBadges(plan).map((badge) => renderBrochureWorkflowBadge(badge))}
-                                         </div>
-                                        <div className="text-[10px] font-bold text-brand-navy/70 uppercase tracking-tight mt-1 truncate">
-                                          {nestedPlanPaperUsageLabel(plan)} • {plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}
-                                         </div>
-                                        <div className="text-[10px] font-black text-brand-teal uppercase tracking-tight mt-1 truncate">
-                                          Printer: {nestedPlanPrinterSummary(plan, 3)}
-                                         </div>
-                                        <div className="text-[9px] font-black text-amber-700 uppercase tracking-tight mt-1">
-                                          Trim waste: {paperWasteStatsForPlan(plan).wastePercent}% · Paper used: {paperWasteStatsForPlan(plan).usedPercent}%
-                                        </div>
-                                        <div className="flex flex-wrap gap-1 mt-2">
-                                          {plan.signatures.slice(0, 8).map((sig) => (
-                                            <span
-                                              key={`${plan.planId}-${sig.runIndex}`}
-                                              title={sig.printerModelName || "Printer"}
-                                              className="px-1.5 py-0.5 rounded-md bg-brand-navy/3 text-[8px] font-black text-brand-navy/45 uppercase tracking-tight"
-                                            >
-                                              {sig.runIndex}:{sig.signaturePages}pp
-                                            </span>
-                                          ))}
-                                          {plan.signatures.length > 8 && (
-                                            <span className="px-1.5 py-0.5 rounded-md bg-brand-navy/3 text-[8px] font-black text-brand-navy/45 uppercase tracking-tight">
-                                              +{plan.signatures.length - 8}
-                                            </span>
-                                          )}
-                                         </div>
+                                     <div className="flex-1 min-w-0">
+                                       <div className="flex items-center gap-1.5 flex-wrap">
+                                         <span className="text-[11px] font-bold text-gov-blue">Option {planIdx + 1}</span>
+                                         {brochureWorkflowBadges(plan).slice(0, 2).map((badge) => renderBrochureWorkflowBadge(badge))}
                                        </div>
-                                      <div className="shrink-0 text-right">
-                                         {plan.totals?.price != null && (
-                                           <div className="text-sm font-black text-brand-navy">₹{Number(plan.totals.price).toLocaleString()}</div>
-                                         )}
-                                         <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-widest mt-1">
-                                           {nestedPlanPrinterNames(plan).length === 1 ? "Single Printer" : "Multi Printer"}
-                                         </div>
+                                       <div className="text-[9px] text-gray-500 truncate mt-0.5">
+                                         {sigSummary} · {nestedPlanPaperUsageLabel(plan)} · waste {wasteStats.wastePercent}%
+                                       </div>
+                                       <div className="text-[9px] text-gray-400 truncate">
+                                         {nestedPlanPrinterSummary(plan, 2)}
                                        </div>
                                      </div>
-                                   </button>
-                                 ))}
+                                     <button
+                                       type="button"
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         setPreviewingCompositionPlan({ plan, planIdx });
+                                       }}
+                                       className="px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-gov-blue hover:bg-gov-blue/10 border border-gov-border shrink-0"
+                                     >
+                                       Inspect
+                                     </button>
+                                     {planPrice != null && (
+                                       <div className="text-sm font-bold text-gov-blue shrink-0 tabular-nums">₹{planPrice}</div>
+                                     )}
+                                   </div>
+                                 );})}
                                </div>
 
                                {selectedNestedPrintPlan && (
-                                 <div className="bg-brand-navy/2 rounded-2xl border border-brand-navy/5 p-4 space-y-4">
-                                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                                     <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
-                                       <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Print Sets</div>
-                                       <div className="text-lg font-black text-brand-navy mt-1">{selectedNestedPrintPlan.printRunCount}</div>
-                                     </div>
-                                     <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
-                                      <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Print Sheets</div>
-                                      <div className="text-lg font-black text-brand-navy mt-1">
-                                        {selectedNestedPrintPlan.printedSheetsForCopies ?? selectedNestedPrintPlan.physicalSheetsPerBrochure}
-                                      </div>
-                                     </div>
-                                     <div className="rounded-xl bg-white border border-brand-navy/5 p-3">
-                                       <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Plan</div>
-                                       <div className="text-sm font-black text-brand-teal mt-1">{selectedNestedPrintPlan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ")}</div>
-                                     </div>
-                                     <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
-                                       <div className="text-[8px] font-black text-amber-700/70 uppercase tracking-widest">Trim Waste</div>
-                                       <div className="text-lg font-black text-amber-800 mt-1">{paperWasteStatsForPlan(selectedNestedPrintPlan).wastePercent}%</div>
-                                     </div>
-                                   </div>
-
-                                   <div className="text-[10px] font-bold text-brand-navy/45 uppercase tracking-tight">
-                                     {nestedPlanInstruction(selectedNestedPrintPlan)}
-                                   </div>
-
-                                   {renderBrochurePricingBreakdown(
-                                     selectedNestedPrintPlan.pricingBreakdown,
-                                     selectedNestedPrintPlan.totals,
-                                   )}
-
-                                   <div className="space-y-5">
-                                     {selectedNestedSignatureGroups.map((group) => (
-                                       <div key={`${selectedNestedPrintPlan.planId}-${group.signaturePages}`} className="bg-white rounded-2xl border border-brand-navy/5 p-4 space-y-4">
-                                         <div className="flex items-center justify-between gap-4">
-                                           <div>
-                                             <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">
-                                               {isPerfectBinding
-                                                 ? `${group.signaturePages}pp Stack Set`
-                                                 : group.signaturePages === 2
-                                                   ? "2pp Loose Insert"
-                                                   : `${group.signaturePages}pp Fold Print`}
-                                             </div>
-                                             <div className="text-xs font-black text-brand-navy mt-0.5">
-                                               {group.signatures.length} set{group.signatures.length === 1 ? "" : "s"} to print
-                                             </div>
-                                           </div>
-                                          <div className="text-right">
-                                            <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-widest">
-                                               {group.signaturePages / 2} pages per side
-                                            </div>
-                                            <div className="text-[9px] font-black text-brand-teal uppercase tracking-tight mt-1 max-w-[180px] truncate">
-                                              Printer: {nestedPlanPrinterSummary({ signatures: group.signatures }, 2)}
-                                            </div>
-                                           </div>
-                                         </div>
-
-                                         {group.signatures.map((signature) => (
-                                           <div key={`${selectedNestedPrintPlan.planId}-${signature.runIndex}`} className="rounded-xl border border-brand-navy/5 bg-white p-3 space-y-3">
-                                             <div className="flex justify-between gap-4">
-                                               <div>
-                                                 <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">
-                                                   Set {signature.runIndex}: {isPerfectBinding ? "Stack block" : nestedRoleLabel(signature.nestRole)}
-                                                 </div>
-                                                 <div className="text-[10px] font-bold text-brand-navy/70 uppercase tracking-tight mt-1">
-                                                   Pages {signature.readerPages.join(", ")}
-                                                 </div>
-                                                 <div className="text-[10px] font-black text-brand-teal uppercase tracking-tight mt-1">
-                                                   Printer: {signature.printerModelName || "not selected"}
-                                                 </div>
-                                                 {signature.signaturePages === 2 && signature.imposition?.note && (
-                                                   <p className="text-[10px] font-bold text-amber-700/80 normal-case tracking-normal mt-2 leading-relaxed">
-                                                     {signature.imposition.note}
-                                                   </p>
-                                                 )}
-                                               </div>
-                                               <div className="text-right">
-                                                 <div className="text-[9px] font-black text-brand-navy/65 uppercase tracking-widest">Portion</div>
-                                                 <div className="text-[11px] font-black text-brand-navy">
-                                                   {signature.portion.width}×{signature.portion.breadth}{signature.portion.unit}
-                                                 </div>
-                                                 <div className="text-[9px] font-bold text-brand-navy/65 uppercase mt-0.5">
-                                                   {signature.gridOnPortion.across}×{signature.gridOnPortion.down}
-                                                 </div>
-                                                 <div className="text-[9px] font-black text-amber-700 uppercase mt-1">
-                                                   Used {paperWasteStatsForSignature(signature).usedPercent}% · Waste {paperWasteStatsForSignature(signature).wastePercent}%
-                                                 </div>
-                                                 {signature.copiesPerPrintedSheet > 1 && (
-                                                   <div className="text-[9px] font-black text-brand-teal uppercase mt-1">
-                                                     {signature.copiesPerPrintedSheet} sets / print
-                                                   </div>
-                                                 )}
-                                                 {signature.printedSheetsForCopies && (
-                                                   <div className="text-[9px] font-bold text-brand-navy/35 uppercase mt-1">
-                                                     {signature.printedSheetsForCopies} sheet(s) → {signature.finishedCopiesProduced} set(s)
-                                                   </div>
-                                                 )}
-                                               </div>
-                                             </div>
-                                             {signature.cutAfterPrint && (
-                                               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-800">
-                                                 {signature.cutAfterPrint}
-                                               </div>
-                                             )}
-
-                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                               <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                                                 <div className="flex items-center justify-between gap-2 mb-2">
-                                                   <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Front Side</div>
-                                                   <div className="text-[8px] font-black text-amber-700 uppercase tracking-tight">
-                                                     Trim waste {paperWasteStatsForSignature(signature).wastePercent}%
-                                                   </div>
-                                                 </div>
-                                                {renderNestedImpositionSide(signature, signature.imposition.front, "teal", selectedNestedPlanPreviewScale)}
-                                               </div>
-                                               <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                                                 <div className="flex items-center justify-between gap-2 mb-2">
-                                                   <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest">Back Side</div>
-                                                   <div className="text-[8px] font-black text-amber-700 uppercase tracking-tight">
-                                                     Paper used {paperWasteStatsForSignature(signature).usedPercent}%
-                                                   </div>
-                                                 </div>
-                                                {renderNestedImpositionSide(signature, signature.imposition.back, "navy", selectedNestedPlanPreviewScale)}
-                                               </div>
-                                             </div>
-                                           </div>
-                                         ))}
-                                       </div>
-                                     ))}
-                                   </div>
-
-                                   <div className="pt-4 border-t border-brand-navy/5 flex gap-3">
+                                 <div className="mt-auto pt-2 border-t border-gov-border shrink-0 flex gap-2">
                                      {editingLineId && (
                                        <button
                                          onClick={resetCalculator}
-                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/65 hover:text-red-400 transition-colors"
+                                         className={`px-2 text-[10px] font-black uppercase tracking-widest text-gov-blue/65 hover:text-red-400 transition-colors ${OPT_EXPAND}`}
                                        >
                                          Cancel
                                        </button>
@@ -2648,15 +2524,19 @@ export default function QuotationEditorPage() {
                                            newList = [...lineItems, newLineItem];
                                          }
                                          await syncLineItems(newList);
-                                         resetCalculator();
+                                         onLineItemSaved(newLineItem.title || itemTitle, !!editingLineId);
                                        }}
-                                       className="flex-1 flex items-center justify-center gap-2"
+                                       className="flex-1 flex items-center justify-center gap-1.5 text-xs lg:group-hover/options:text-sm py-2 lg:group-hover/options:py-2.5"
                                      >
-                                       {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
-                                       {!!editingLineId ? "Update Booklet" : "Add Booklet to Quotation"}
+                                       {!!editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
+                                       <span className={`truncate ${OPT_COMPACT}`}>
+                                         {!!editingLineId ? "Update" : "Add"} · ₹{selectedNestedPrintPlan.totals?.price != null ? Number(selectedNestedPrintPlan.totals.price).toLocaleString() : "—"}
+                                       </span>
+                                       <span className={`truncate ${OPT_EXPAND}`}>
+                                         {!!editingLineId ? "Update Booklet" : "Add Booklet to Quotation"}
+                                       </span>
                                      </PrimaryButton>
                                    </div>
-                                 </div>
                                )}
                              </div>
                            )}
@@ -2664,12 +2544,12 @@ export default function QuotationEditorPage() {
                           {brochureNestedPrintPlans.length === 0 && selectedBrochureView && (
                              <div className="flex-1 flex flex-col gap-6 animate-fade-in">
                                 {/* Intelligence Summary */}
-                                <div className="p-4 bg-brand-navy/[0.03] rounded-xl border border-brand-navy/5">
+                                <div className="p-4 bg-brand-navy/[0.03] rounded-xl border border-gov-blue/5">
                                    <div className="flex items-center gap-2 mb-2">
-                                      <MdInfo className="w-4 h-4 text-brand-teal" />
-                                      <span className="text-[10px] font-black text-brand-navy/70 uppercase tracking-widest">Composition Strategy</span>
+                                      <MdInfo className="w-4 h-4 text-gov-blue" />
+                                      <span className="text-[10px] font-black text-gov-blue/70 uppercase tracking-widest">Composition Strategy</span>
                                    </div>
-                                   <p className="text-[11px] font-bold text-brand-navy/70 leading-relaxed italic">
+                                   <p className="text-[11px] font-bold text-gov-blue/70 leading-relaxed italic">
                                       "{selectedBrochureView.workflowSummary || selectedBrochureView.intelligence.humanSummary}"
                                    </p>
                                    {selectedBrochureView.workflowTags?.length > 0 && (
@@ -2681,26 +2561,26 @@ export default function QuotationEditorPage() {
 
                                 {/* Ranked Printers */}
                                 <div className="space-y-3">
-                                   <h4 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em] px-1">Printer Options</h4>
+                                   <h4 className="text-[10px] font-black text-gov-blue/65 uppercase tracking-[0.2em] px-1">Printer Options</h4>
                                    <div className="grid grid-cols-1 gap-3">
                                       {/* Single Printer Options */}
                                       {selectedBrochureView.singlePrinterRanked.map((opt, oIdx) => (
                                         <div
                                           key={`single-${oIdx}`}
                                           onClick={() => setSelectedBrochureOption({ viewId: selectedBrochureView.viewId, optionIdx: oIdx, kind: 'SINGLE' })}
-                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between cursor-pointer transition-all ${selectedBrochureOption?.kind === 'SINGLE' && selectedBrochureOption?.optionIdx === oIdx ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'border-brand-navy/5 hover:border-brand-teal/40'}`}
+                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between cursor-pointer transition-all ${selectedBrochureOption?.kind === 'SINGLE' && selectedBrochureOption?.optionIdx === oIdx ? 'border-gov-blue ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'border-gov-blue/5 hover:border-gov-blue/40'}`}
                                         >
                                            <div className="flex-1">
-                                              <div className="text-xs font-black text-brand-navy flex items-center gap-2">
+                                              <div className="text-xs font-black text-gov-blue flex items-center gap-2">
                                                  {opt.printerModelName}
-                                                 {oIdx === 0 && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Value</span>}
+                                                 {oIdx === 0 && <span className="text-[8px] px-1.5 py-0.5 bg-gov-blue-light text-gov-blue rounded uppercase tracking-tighter">Best Value</span>}
                                               </div>
-                                              <div className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-tight mt-1">
+                                              <div className="text-[10px] font-bold text-gov-blue/65 uppercase tracking-tight mt-1">
                                                  Single Printer Workflow • {opt.totals.prints} Prints • {opt.totals.colorPrints ?? 0} Color / {opt.totals.bwPrints ?? 0} B&amp;W
                                               </div>
                                            </div>
                                            <div className="text-right">
-                                              <div className="text-lg font-black text-brand-navy">₹{opt.totals.price.toLocaleString()}</div>
+                                              <div className="text-lg font-black text-gov-blue">₹{opt.totals.price.toLocaleString()}</div>
                                            </div>
                                         </div>
                                       ))}
@@ -2710,19 +2590,19 @@ export default function QuotationEditorPage() {
                                         <div
                                           key={`mixed-${oIdx}`}
                                           onClick={() => setSelectedBrochureOption({ viewId: selectedBrochureView.viewId, optionIdx: oIdx, kind: 'MIXED' })}
-                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between cursor-pointer transition-all ${selectedBrochureOption?.kind === 'MIXED' && selectedBrochureOption?.optionIdx === oIdx ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'border-brand-navy/5 hover:border-brand-teal/40'}`}
+                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between cursor-pointer transition-all ${selectedBrochureOption?.kind === 'MIXED' && selectedBrochureOption?.optionIdx === oIdx ? 'border-gov-blue ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'border-gov-blue/5 hover:border-gov-blue/40'}`}
                                         >
                                            <div className="flex-1">
-                                              <div className="text-xs font-black text-brand-navy flex items-center gap-2">
+                                              <div className="text-xs font-black text-gov-blue flex items-center gap-2">
                                                  Mixed Machines
                                                  <span className="text-[8px] px-1.5 py-0.5 bg-brand-navy text-white rounded uppercase tracking-tighter">Hybrid</span>
                                               </div>
-                                              <div className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-tight mt-1">
+                                              <div className="text-[10px] font-bold text-gov-blue/65 uppercase tracking-tight mt-1">
                                                  Optimized per segment • {opt.totals.prints} Prints • {opt.totals.colorPrints ?? 0} Color / {opt.totals.bwPrints ?? 0} B&amp;W
                                               </div>
                                            </div>
                                            <div className="text-right">
-                                              <div className="text-lg font-black text-brand-navy">₹{opt.totals.price.toLocaleString()}</div>
+                                              <div className="text-lg font-black text-gov-blue">₹{opt.totals.price.toLocaleString()}</div>
                                            </div>
                                         </div>
                                       ))}
@@ -2740,7 +2620,7 @@ export default function QuotationEditorPage() {
                                 )}
 
                                 <div className="space-y-3">
-                                   <h4 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em] px-1">Segment Breakdown</h4>
+                                   <h4 className="text-[10px] font-black text-gov-blue/65 uppercase tracking-[0.2em] px-1">Segment Breakdown</h4>
                                    <div className="space-y-4">
                                       {selectedBrochureView.segments.map((seg, sIdx) => {
                                         const optData = selectedBrochureOption?.kind === 'SINGLE' 
@@ -2748,16 +2628,16 @@ export default function QuotationEditorPage() {
                                           : selectedBrochureView.mixedPrinterRanked[selectedBrochureOption?.optionIdx]?.segments[sIdx];
                                         
                                         return (
-                                          <div key={sIdx} className="bg-white rounded-2xl border border-brand-navy/5 p-4 relative overflow-hidden group">
-                                             <div className="absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 bg-brand-teal/[0.03] rounded-full group-hover:bg-brand-teal/[0.06] transition-colors" />
+                                          <div key={sIdx} className="bg-white rounded-2xl border border-gov-blue/5 p-4 relative overflow-hidden group">
+                                             <div className="absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 bg-gov-blue/[0.03] rounded-full group-hover:bg-gov-blue/[0.06] transition-colors" />
                                              <div className="flex justify-between items-start mb-3 relative">
                                                 <div>
-                                                   <span className="text-[10px] font-black text-brand-teal uppercase tracking-widest">Segment {sIdx + 1}: {seg.partPages}pp</span>
-                                                   <h5 className="text-xs font-black text-brand-navy mt-0.5">{seg.layoutSummary}</h5>
+                                                   <span className="text-[10px] font-black text-gov-blue uppercase tracking-widest">Segment {sIdx + 1}: {seg.partPages}pp</span>
+                                                   <h5 className="text-xs font-black text-gov-blue mt-0.5">{seg.layoutSummary}</h5>
                                                 </div>
                                                 <div className="text-right">
-                                                   <div className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest">Spread Size</div>
-                                                   <div className="text-[11px] font-black text-brand-navy">{seg.spreadSize.width}×{seg.spreadSize.breadth}{seg.spreadSize.unit}</div>
+                                                   <div className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest">Spread Size</div>
+                                                   <div className="text-[11px] font-black text-gov-blue">{seg.spreadSize.width}×{seg.spreadSize.breadth}{seg.spreadSize.unit}</div>
                                                 </div>
                                              </div>
 
@@ -2765,17 +2645,17 @@ export default function QuotationEditorPage() {
                                                 {/* Page Numbering Grids */}
                                                 {seg.pageNumbering && (
                                                   <div className="space-y-2 md:col-span-2">
-                                                     <div className="text-[9px] font-black text-brand-navy/55 uppercase tracking-widest">Imposition ({seg.pageNumbering.orientation})</div>
+                                                     <div className="text-[9px] font-black text-gov-blue/55 uppercase tracking-widest">Imposition ({seg.pageNumbering.orientation})</div>
                                                      {seg.partPages === 2 && (
                                                        <p className="text-[10px] font-bold text-amber-700/80 leading-relaxed">{seg.layoutSummary}</p>
                                                      )}
                                                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                                         <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                                                           <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest mb-2">Front</div>
+                                                           <div className="text-[8px] font-black text-gov-blue/65 uppercase tracking-widest mb-2">Front</div>
                                                            {renderBrochureImpositionSide(seg, seg.pageNumbering.front, "teal")}
                                                         </div>
                                                         <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                                                           <div className="text-[8px] font-black text-brand-navy/65 uppercase tracking-widest mb-2">Back</div>
+                                                           <div className="text-[8px] font-black text-gov-blue/65 uppercase tracking-widest mb-2">Back</div>
                                                            {renderBrochureImpositionSide(seg, seg.pageNumbering.back, "navy")}
                                                         </div>
                                                      </div>
@@ -2784,24 +2664,24 @@ export default function QuotationEditorPage() {
 
                                                 {/* Printer Specs for this segment */}
                                                 {optData && (
-                                                  <div className="bg-brand-teal/[0.02] rounded-lg p-3 border border-brand-teal/5">
-                                                     <div className="text-[9px] font-black text-brand-teal/60 uppercase tracking-widest mb-2">Segment Run</div>
+                                                  <div className="bg-gov-blue/[0.02] rounded-lg p-3 border border-gov-blue/5">
+                                                     <div className="text-[9px] font-black text-gov-blue/60 uppercase tracking-widest mb-2">Segment Run</div>
                                                      <div className="space-y-1.5">
                                                         <div className="flex justify-between text-[10px] font-bold">
-                                                           <span className="text-brand-navy/70">Yield</span>
-                                                           <span className="text-brand-navy">{optData.laserOption?.piecesPerSheet || '--'} up</span>
+                                                           <span className="text-gov-blue/70">Yield</span>
+                                                           <span className="text-gov-blue">{optData.laserOption?.piecesPerSheet || '--'} up</span>
                                                         </div>
                                                         <div className="flex justify-between text-[10px] font-bold">
-                                                           <span className="text-brand-navy/70">Impressions</span>
-                                                           <span className="text-brand-navy">{optData.laserOption?.prints || '--'} prints</span>
+                                                           <span className="text-gov-blue/70">Impressions</span>
+                                                           <span className="text-gov-blue">{optData.laserOption?.prints || '--'} prints</span>
                                                         </div>
                                                         <div className="flex justify-between text-[10px] font-bold">
-                                                           <span className="text-brand-navy/70">Front Side</span>
-                                                           <span className="text-brand-navy">{seg.sideClassification?.frontSideMode || 'BW'}</span>
+                                                           <span className="text-gov-blue/70">Front Side</span>
+                                                           <span className="text-gov-blue">{seg.sideClassification?.frontSideMode || 'BW'}</span>
                                                         </div>
                                                         <div className="flex justify-between text-[10px] font-bold">
-                                                           <span className="text-brand-navy/70">Back Side</span>
-                                                           <span className="text-brand-navy">{seg.sideClassification?.backSideMode || 'BW'}</span>
+                                                           <span className="text-gov-blue/70">Back Side</span>
+                                                           <span className="text-gov-blue">{seg.sideClassification?.backSideMode || 'BW'}</span>
                                                         </div>
                                                      </div>
                                                   </div>
@@ -2815,11 +2695,11 @@ export default function QuotationEditorPage() {
 
                                 {/* Global Add Button */}
                                 {selectedBrochureOption && (
-                                  <div className="mt-4 pt-6 border-t border-brand-navy/5 flex gap-3">
+                                  <div className="mt-4 pt-6 border-t border-gov-blue/5 flex gap-3">
                                      {editingLineId && (
                                        <button
                                          onClick={resetCalculator}
-                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/65 hover:text-red-400 transition-colors"
+                                         className="px-4 text-[10px] font-black uppercase tracking-widest text-gov-blue/65 hover:text-red-400 transition-colors"
                                        >
                                          Cancel
                                        </button>
@@ -2873,7 +2753,7 @@ export default function QuotationEditorPage() {
                                             newList = [...lineItems, newLineItem];
                                           }
                                           await syncLineItems(newList);
-                                          resetCalculator();
+                                          onLineItemSaved(newLineItem.title || itemTitle, !!editingLineId);
                                        }}
                                        className="flex-1 flex items-center justify-center gap-2"
                                      >
@@ -2888,16 +2768,28 @@ export default function QuotationEditorPage() {
                       )}
                   </div>
               </div>
-            ) : activeTab === "bookwork" ? (
-               <div className="flex-1 flex flex-col items-center justify-center text-center p-20 space-y-4 animate-fade-in bg-zinc-50/50 rounded-3xl border-2 border-dashed border-brand-navy/5">
-                  <MdLayers className="w-16 h-16 text-brand-navy/10" />
-                  <div>
-                     <h3 className="text-sm font-black text-brand-navy uppercase tracking-[0.2em]">Bookwork Module</h3>
-                     <p className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-widest mt-2">Coming Soon • Advanced gathered \u0026 perfect bound quoting</p>
+            ) : activeTab === "offset-book" ? (
+              <div className={`${QUOTE_CALC_ROW_CLASS} animate-fade-in`}>
+                  <div className={QUOTE_FORM_COLUMN_CLASS}>
+                    <div className="gov-panel min-h-[320px] flex flex-col">
+                      <div className="gov-panel-header">
+                        <h3 className="text-sm font-semibold text-gov-blue">Offset Book / Booklet Printing</h3>
+                      </div>
+                      <div className="gov-panel-body flex-1 flex flex-col items-center justify-center text-center py-16 px-6">
+                        <MdLayers className="w-12 h-12 text-gov-blue/20 mb-4" />
+                        <p className="text-sm font-medium text-gray-700">Book printing workspace</p>
+                        <p className="text-xs text-gray-500 mt-2 max-w-md">
+                          Configuration for offset book and booklet jobs will be added here. Use Laser → Booklet / Book for laser booklet quoting in the meantime.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-               </div>
-            ) : (
-              <div className="flex flex-col lg:flex-row items-start gap-6 animate-fade-in">
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[320px] ${QUOTE_OPTIONS_PANEL_IDLE} flex items-center justify-center`}>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide px-4 text-center">Composition options will appear here</p>
+                  </div>
+              </div>
+            ) : activeTab === "offset" ? (
+              <div className={`${QUOTE_CALC_ROW_CLASS} animate-fade-in`}>
                   {/* Left: Inputs */}
                   <div className={QUOTE_FORM_COLUMN_CLASS}>
                       <div className={QUOTE_INPUT_GRID_CLASS}>
@@ -2917,31 +2809,31 @@ export default function QuotationEditorPage() {
 
 
                           {offsetSizeId === 'custom' && (
-                            <div className="p-5 bg-brand-teal/5 h-16 rounded-2xl border border-brand-teal/10 flex items-center gap-4 animate-slide-down">
+                            <div className="p-5 bg-gov-blue/5 h-16 rounded-2xl border border-gov-blue/10 flex items-center gap-4 animate-slide-down">
                                <div className="flex-1">
                                   <input
                                     type="number"
                                     placeholder="Width"
                                     value={customWidth}
                                     onChange={e => setCustomWidth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
+                                    className="w-full bg-transparent border-b border-gov-blue/20 outline-none text-xs font-black text-gov-blue placeholder:text-gov-blue/55 py-1"
                                   />
                                </div>
-                               <span className="text-[10px] font-black text-brand-navy/55">×</span>
+                               <span className="text-[10px] font-black text-gov-blue/55">×</span>
                                <div className="flex-1">
                                   <input
                                     type="number"
                                     placeholder="Breadth"
                                     value={customBreadth}
                                     onChange={e => setCustomBreadth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-brand-teal/20 outline-none text-xs font-black text-brand-navy placeholder:text-brand-navy/55 py-1"
+                                    className="w-full bg-transparent border-b border-gov-blue/20 outline-none text-xs font-black text-gov-blue placeholder:text-gov-blue/55 py-1"
                                   />
                                </div>
                                <div className="w-16">
                                   <select
                                     value={customUnit}
                                     onChange={e => setCustomUnit(e.target.value)}
-                                    className="w-full bg-transparent outline-none text-[10px] font-black text-brand-teal uppercase tracking-widest cursor-pointer"
+                                    className="w-full bg-transparent outline-none text-[10px] font-black text-gov-blue uppercase tracking-widest cursor-pointer"
                                   >
                                      <option value="mm">mm</option>
                                      <option value="cm">cm</option>
@@ -2965,13 +2857,13 @@ export default function QuotationEditorPage() {
                           <TextField label="Copies" type="number" value={offsetCopies} onChange={e => setOffsetCopies(e.target.value)} />
                           <TextField label="Waste Imp." type="number" value={offsetWaste} onChange={e => setOffsetWaste(e.target.value)} />
                           <div className="flex flex-col gap-2">
-                             <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Sides</label>
-                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-brand-navy/5 h-11">
+                             <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Sides</label>
+                             <div className="flex bg-zinc-50 p-1 rounded-xl border border-gov-blue/5 h-11">
                                 {['SINGLE', 'DOUBLE'].map(s => (
                                   <button
                                     key={s}
                                     onClick={() => setOffsetSides(s)}
-                                    className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${offsetSides === s ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
+                                    className={`flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${offsetSides === s ? 'bg-white text-gov-blue shadow-sm' : 'text-gov-blue/60 hover:text-gov-blue/80'}`}
                                   >
                                     {s === 'SINGLE' ? 'Front' : 'F&B'}
                                   </button>
@@ -2980,10 +2872,10 @@ export default function QuotationEditorPage() {
                           </div>
                           {offsetSides === 'DOUBLE' && (
                              <div className="flex flex-col gap-2 animate-fade-in">
-                                <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Diff Content?</label>
+                                <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Diff Content?</label>
                                 <button
                                   onClick={() => setOffsetIsBackSideDifferent(!offsetIsBackSideDifferent)}
-                                  className={`h-11 rounded-xl border flex items-center justify-center transition-all ${offsetIsBackSideDifferent ? 'bg-brand-mint/10 border-brand-mint text-brand-teal' : 'bg-white border-brand-navy/10 text-brand-navy/70'}`}
+                                  className={`h-11 rounded-xl border flex items-center justify-center transition-all ${offsetIsBackSideDifferent ? 'bg-gov-blue-light/10 border-brand-mint text-gov-blue' : 'bg-white border-gov-blue/10 text-gov-blue/70'}`}
                                   title="Check if back side content is different (requires 2 plate sets)"
                                 >
                                    <span className="text-[10px] font-black uppercase tracking-tighter">{offsetIsBackSideDifferent ? 'Yes (2 Plates)' : 'No (1 Plate)'}</span>
@@ -2993,13 +2885,13 @@ export default function QuotationEditorPage() {
                       </div>
 
                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">Colour Mode</label>
-                         <div className="flex flex-wrap bg-zinc-50 p-1 rounded-xl border border-brand-navy/5">
+                         <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Colour Mode</label>
+                         <div className="flex flex-wrap bg-zinc-50 p-1 rounded-xl border border-gov-blue/5">
                             {['Single', 'Two Colour', 'Three Colour', 'Multi'].map(m => (
                               <button
                                 key={m}
                                 onClick={() => setOffsetColorMode(m)}
-                                className={`flex-1 py-2 px-2 text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all whitespace-nowrap ${offsetColorMode === m ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-navy/60 hover:text-brand-navy/80'}`}
+                                className={`flex-1 py-2 px-2 text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all whitespace-nowrap ${offsetColorMode === m ? 'bg-white text-gov-blue shadow-sm' : 'text-gov-blue/60 hover:text-gov-blue/80'}`}
                               >
                                 {m}
                               </button>
@@ -3009,23 +2901,26 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Results Mirror Laser pattern */}
-                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} flex flex-col min-w-0 bg-zinc-50/50 rounded-3xl border border-brand-navy/5 p-5 relative`}>
-                       <div className="mb-4 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                             <MdOutlineAnalytics className="w-5 h-5 text-brand-teal" />
-                             <h3 className="text-sm font-black text-brand-navy uppercase tracking-widest">
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[280px] ${!!editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
+                       <div className="mb-2 flex items-center justify-between shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                             <MdOutlineAnalytics className="w-4 h-4 text-gov-blue shrink-0" />
+                             <h3 className={`text-[11px] font-semibold text-gov-blue uppercase tracking-wide truncate ${OPT_COMPACT}`}>
+                                Options
+                             </h3>
+                             <h3 className={`${OPT_EXPAND} text-[11px] font-semibold text-gov-blue uppercase tracking-wide`}>
                                 {!!editingLineId ? "Editing Offset Item" : "Offset Options"}
                              </h3>
                               <button 
                                   onClick={() => setShowOffsetHelp(true)}
-                                  className="w-7 h-7 rounded-full flex items-center justify-center bg-brand-mint text-brand-teal transition-all ml-1 hover:scale-110 active:scale-95 shadow-sm relative group"
+                                  className="w-6 h-6 flex items-center justify-center bg-gov-blue-light text-gov-blue border border-gov-border shrink-0"
                                   title="Understand Offset Calculation Logic"
                                >
-                                  <div className="absolute inset-0 rounded-full bg-brand-teal/20 animate-pulse group-hover:hidden" />
-                                  <MdHelpOutline className="w-4 h-4 relative z-10" />
+                                  <MdHelpOutline className="w-3.5 h-3.5" />
                                </button>
                            </div>
-                           {offsetLoading && <div className="w-4 h-4 border-2 border-brand-teal/20 border-t-brand-teal rounded-full animate-spin"></div>}
+                           <span className="hidden lg:block text-[9px] text-gray-400 uppercase tracking-wide shrink-0 ml-1 group-hover/options:hidden">Hover to expand</span>
+                           {offsetLoading && <div className="w-3.5 h-3.5 border border-gov-border border-t-gov-blue animate-spin shrink-0"></div>}
                        </div>
 
                       {offsetError ? (
@@ -3036,7 +2931,7 @@ export default function QuotationEditorPage() {
                       ) : offsetPricingOptions.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdPrint className={`w-12 h-12 ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400' : 'text-brand-navy/65'}`}>
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400' : 'text-gov-blue/65'}`}>
                               {offsetSizeId && offsetStockItemId && offsetCopies 
                                 ? "No printer available to print this configuration" 
                                 : "Select dimensions and offset stock to see machine comparisons"}
@@ -3055,15 +2950,25 @@ export default function QuotationEditorPage() {
                                     <div
                                      key={idx}
                                      onClick={() => isPrintable && setSelectedOffsetOption(opt)}
-                                     className={`p-3 rounded-xl border bg-white shadow-sm flex items-center justify-between group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-brand-teal ring-4 ring-brand-teal/10 bg-brand-teal/[0.02]' : 'hover:border-brand-teal/40 border-brand-navy/5')}`}
+                                     className={`p-2 lg:group-hover/options:p-3 rounded-xl border bg-white shadow-sm flex items-center justify-between gap-2 group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-gov-blue ring-2 lg:group-hover/options:ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'hover:border-gov-blue/40 border-gov-blue/5')}`}
                                     >
-                                       <div className="flex-1">
-                                          <div className="text-xs font-black text-brand-navy flex items-center gap-2">
+                                       <div className="flex-1 min-w-0">
+                                          <div className={`${OPT_COMPACT} flex items-center justify-between gap-2`}>
+                                            <div className="text-[11px] font-black text-gov-blue truncate min-w-0">{opt.printerModelName}</div>
+                                            <div className="text-sm font-black text-gov-blue shrink-0">
+                                               {isPrintable ? `₹${opt.pricing.total.toLocaleString()}` : '--'}
+                                            </div>
+                                          </div>
+                                          <div className={`${OPT_COMPACT} text-[9px] font-bold text-gov-blue/55 uppercase tracking-tight mt-0.5 truncate`}>
+                                             {isPrintable ? `${opt.piecesPerSheet} up · ${opt.parentSheets} sh` : (opt.unprintableReason?.replace(/_/g, ' ') || 'Unavailable')}
+                                          </div>
+                                          <div className={`${OPT_EXPAND}`}>
+                                          <div className="text-xs font-black text-gov-blue flex items-center gap-2">
                                              {opt.printerModelName}
-                                             {idx === 0 && isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-brand-mint text-brand-teal rounded uppercase tracking-tighter">Best Match</span>}
+                                             {idx === 0 && isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-gov-blue-light text-gov-blue rounded uppercase tracking-tighter">Best Match</span>}
                                              {!isPrintable && <span className="text-[8px] px-1.5 py-0.5 bg-red-500 text-white rounded uppercase tracking-tighter shadow-sm">Geometric Error</span>}
                                           </div>
-                                          <div className="text-[10px] font-bold text-brand-navy/65 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
+                                          <div className="text-[10px] font-bold text-gov-blue/65 uppercase tracking-tight mt-1 flex flex-wrap items-center gap-x-2">
                                              {isPrintable ? (
                                                <>
                                                  <span>{opt.piecesPerSheet} Up</span>
@@ -3072,13 +2977,12 @@ export default function QuotationEditorPage() {
                                                  <span className="w-1 h-1 rounded-full bg-brand-navy/10" />
                                                  <span>{opt.impressionsBilled?.toLocaleString()} Imps</span>
 
-                                                 {/* Price Breakdown Footer */}
                                                  {opt.pricing.chargeComponents?.length > 0 && (
-                                                   <div className="w-full mt-2 pt-2 border-t border-brand-navy/5 flex flex-wrap gap-x-4 gap-y-1">
+                                                   <div className="w-full mt-2 pt-2 border-t border-gov-blue/5 flex flex-wrap gap-x-4 gap-y-1">
                                                       {opt.pricing.chargeComponents.map(c => (
                                                         <div key={c.role} className="flex items-center gap-1.5">
-                                                           <span className="text-[8px] font-black uppercase text-brand-navy/55 tracking-tighter">{c.role === 'printing' ? 'Print' : 'Paper'} :</span>
-                                                           <span className={`text-[9px] font-black ${c.role === 'printing' ? 'text-brand-navy/60' : 'text-brand-teal'}`}>₹{c.amount.toLocaleString()}</span>
+                                                           <span className="text-[8px] font-black uppercase text-gov-blue/55 tracking-tighter">{c.role === 'printing' ? 'Print' : 'Paper'} :</span>
+                                                           <span className={`text-[9px] font-black ${c.role === 'printing' ? 'text-gov-blue/60' : 'text-gov-blue'}`}>₹{c.amount.toLocaleString()}</span>
                                                         </div>
                                                       ))}
                                                    </div>
@@ -3088,21 +2992,22 @@ export default function QuotationEditorPage() {
                                                <span className="text-red-500/60 font-black">{opt.unprintableReason?.replace(/_/g, ' ') || 'Geometric Constraint'}</span>
                                              )}
                                           </div>
+                                          </div>
                                        </div>
-                                       <div className="flex items-center gap-4">
+                                       <div className={`${OPT_EXPAND_FLEX} items-center gap-4 shrink-0`}>
                                           {opt.layout && isPrintable && (
                                             <button
                                              onClick={(e) => {
                                                e.stopPropagation();
                                                setPreviewingLayoutOption(opt);
                                              }}
-                                             className="p-2 text-brand-teal font-black text-[9px] uppercase tracking-widest hover:bg-brand-teal/10 rounded-lg transition-all"
+                                             className="p-2 text-gov-blue font-black text-[9px] uppercase tracking-widest hover:bg-gov-blue/10 rounded-lg transition-all"
                                             >
                                                Inspect
                                             </button>
                                           )}
                                           <div className="text-right min-w-[70px]">
-                                             <div className="text-lg font-black text-brand-navy">
+                                             <div className="text-lg font-black text-gov-blue">
                                                 {isPrintable ? `₹${opt.pricing.total.toLocaleString()}` : '--'}
                                              </div>
                                           </div>
@@ -3114,11 +3019,11 @@ export default function QuotationEditorPage() {
 
                             {/* Offset Save Button */}
                             {selectedOffsetOption && (
-                              <div className="mt-4 pt-4 border-t border-brand-navy/5 animate-fade-in px-2 flex gap-3">
+                              <div className="mt-auto pt-2 border-t border-gov-border shrink-0 flex gap-2 px-0.5">
                                  {editingLineId && (
                                    <button
                                      onClick={resetCalculator}
-                                     className="px-4 text-[10px] font-black uppercase tracking-widest text-brand-navy/65 hover:text-red-400 transition-colors"
+                                     className={`px-2 text-[10px] font-black uppercase tracking-widest text-gov-blue/65 hover:text-red-400 transition-colors ${OPT_EXPAND}`}
                                    >
                                      Cancel
                                    </button>
@@ -3183,12 +3088,17 @@ export default function QuotationEditorPage() {
                                      }
 
                                      await syncLineItems(newList);
-                                     resetCalculator();
+                                     onLineItemSaved(newLineItem.title || itemTitle, !!editingLineId);
                                    }}
-                                   className="flex-1 flex items-center justify-center gap-2"
+                                   className="flex-1 flex items-center justify-center gap-1.5 text-xs lg:group-hover/options:text-sm py-2"
                                  >
-                                    {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
-                                    {!!editingLineId ? "Update Line Item" : "Add to Quotation"}
+                                    {!!editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
+                                    <span className={`truncate ${OPT_COMPACT}`}>
+                                      {!!editingLineId ? "Update" : "Add"} · ₹{selectedOffsetOption.pricing.total.toLocaleString()}
+                                    </span>
+                                    <span className={`truncate ${OPT_EXPAND}`}>
+                                      {!!editingLineId ? "Update Line Item" : "Add to Quotation"}
+                                    </span>
                                  </PrimaryButton>
                               </div>
                             )}
@@ -3196,112 +3106,111 @@ export default function QuotationEditorPage() {
                       )}
                   </div>
                 </div>
-            )}
+            ) : null}
           </div>
       </section>
 
 
 
-      {/* 4. New Customer Modal */}
-      {showNewCustModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-           <div className="absolute inset-0 bg-brand-navy/40 backdrop-blur-md" onClick={() => !busy && setShowNewCustModal(false)}></div>
-           <div className="w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden flex flex-col animate-fade-in">
-              <div className="p-8 border-b border-brand-navy/5 bg-zinc-50/50 flex justify-between items-center">
-                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20"><MdPersonAdd className="w-6 h-6"/></div>
-                    <div>
-                       <h2 className="text-xl font-black text-brand-teal leading-none mb-1">New Customer</h2>
-                       <p className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest">Register and link to this quote</p>
-                    </div>
-                 </div>
-                 <button onClick={() => setShowNewCustModal(false)} className="text-brand-navy/70 hover:bg-zinc-100 p-2 rounded-full transition-colors"><MdClose className="w-5 h-5"/></button>
+      <FormDrawer
+        open={showNewCustModal}
+        onClose={() => !busy && setShowNewCustModal(false)}
+        disableClose={busy}
+        title="New Customer"
+        subtitle="Register and link to this quote"
+        icon={<MdPersonAdd className="w-4 h-4" />}
+        footer={
+          <>
+            <button type="button" onClick={() => setShowNewCustModal(false)} className="gov-btn-secondary" disabled={busy}>Cancel</button>
+            <PrimaryButton onClick={handleCreateNewCustomer} disabled={busy}>{busy ? "Registering..." : "Create & Link"}</PrimaryButton>
+          </>
+        }
+      >
+         {newCustError && <div className="mb-3 p-2 bg-red-50 text-red-600 text-xs font-semibold border border-red-200">{newCustError}</div>}
+
+         <div className="space-y-4">
+           <TextField label="Customer Name" placeholder="e.g. Rahul Sharma" value={newCustName} onChange={e => setNewCustName(e.target.value)} disabled={busy} error={newCustFieldErrors.name?.[0]} />
+
+           <div className="grid grid-cols-2 gap-3">
+              <TextField label="Company Name" placeholder="Optional" value={newCustCompany} onChange={e => setNewCustCompany(e.target.value)} disabled={busy} error={newCustFieldErrors.companyName?.[0]} />
+              <TextField label="Tax ID / GST" placeholder="Optional" value={newCustTaxId} onChange={e => setNewCustTaxId(e.target.value)} disabled={busy} error={newCustFieldErrors.taxId?.[0]} />
+           </div>
+
+           <div className="grid grid-cols-2 gap-3">
+              <TextField label="Primary Email" placeholder="client@example.com" value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} disabled={busy} error={newCustFieldErrors.email?.[0]} />
+              <TextField label="Contact Phone" placeholder="+91..." value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} disabled={busy} error={newCustFieldErrors.phone?.[0]} />
+           </div>
+
+           <div className="space-y-3 pt-2 border-t border-gov-border">
+              <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Billing Address</h3>
+              <TextField label="Address Line 1" value={newCustAddress.line1} onChange={e => setNewCustAddress({...newCustAddress, line1: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.line1?.[0]} />
+              <div className="grid grid-cols-2 gap-3">
+                 <TextField label="City" value={newCustAddress.city} onChange={e => setNewCustAddress({...newCustAddress, city: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.city?.[0]} />
+                 <TextField label="Region / State" value={newCustAddress.region} onChange={e => setNewCustAddress({...newCustAddress, region: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.region?.[0]} />
               </div>
-
-              <div className="p-8 space-y-6 overflow-y-auto no-scrollbar max-h-[60vh]">
-                 {newCustError && <div className="p-4 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span> {newCustError}</div>}
-
-                 <TextField label="Customer Name" placeholder="e.g. Rahul Sharma" value={newCustName} onChange={e => setNewCustName(e.target.value)} disabled={busy} error={newCustFieldErrors.name?.[0]} />
-
-                 <div className="grid grid-cols-2 gap-4">
-                    <TextField label="Company Name" placeholder="Optional" value={newCustCompany} onChange={e => setNewCustCompany(e.target.value)} disabled={busy} error={newCustFieldErrors.companyName?.[0]} />
-                    <TextField label="Tax ID / GST" placeholder="Optional" value={newCustTaxId} onChange={e => setNewCustTaxId(e.target.value)} disabled={busy} error={newCustFieldErrors.taxId?.[0]} />
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-4">
-                    <TextField label="Primary Email" placeholder="client@example.com" value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} disabled={busy} error={newCustFieldErrors.email?.[0]} />
-                    <TextField label="Contact Phone" placeholder="+91..." value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} disabled={busy} error={newCustFieldErrors.phone?.[0]} />
-                 </div>
-
-                 <div className="space-y-4 pt-4 border-t border-brand-navy/5">
-                    <h3 className="text-[10px] font-black text-brand-navy/65 uppercase tracking-widest leading-none mb-4">Billing Address</h3>
-                    <TextField label="Address Line 1" value={newCustAddress.line1} onChange={e => setNewCustAddress({...newCustAddress, line1: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.line1?.[0]} />
-                    <div className="grid grid-cols-2 gap-4">
-                       <TextField label="City" value={newCustAddress.city} onChange={e => setNewCustAddress({...newCustAddress, city: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.city?.[0]} />
-                       <TextField label="Region / State" value={newCustAddress.region} onChange={e => setNewCustAddress({...newCustAddress, region: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.region?.[0]} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                       <TextField label="Postal Code" value={newCustAddress.postalCode} onChange={e => setNewCustAddress({...newCustAddress, postalCode: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.postalCode?.[0]} />
-                       <TextField label="Country" value={newCustAddress.country} onChange={e => setNewCustAddress({...newCustAddress, country: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.country?.[0]} />
-                    </div>
-                 </div>
-              </div>
-
-
-              <div className="p-8 border-t border-brand-navy/5 bg-zinc-50/50 flex justify-end gap-3">
-                 <button onClick={() => setShowNewCustModal(false)} className="px-6 py-3 text-[10px] font-black text-brand-navy/65 hover:text-brand-navy transition-all uppercase tracking-widest">Cancel</button>
-                 <PrimaryButton onClick={handleCreateNewCustomer} disabled={busy}>{busy ? "Registering..." : "Create & Link"}</PrimaryButton>
+              <div className="grid grid-cols-2 gap-3">
+                 <TextField label="Postal Code" value={newCustAddress.postalCode} onChange={e => setNewCustAddress({...newCustAddress, postalCode: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.postalCode?.[0]} />
+                 <TextField label="Country" value={newCustAddress.country} onChange={e => setNewCustAddress({...newCustAddress, country: e.target.value})} disabled={busy} error={newCustFieldErrors.billingAddress?.country?.[0]} />
               </div>
            </div>
-        </div>
-      )}
-      {/* 5. Layout Inspection Drawer */}
-      {previewingLayoutOption && (
+         </div>
+      </FormDrawer>
+      {/* 5. Layout / Composition Inspection Drawer */}
+      {(previewingLayoutOption || previewingCompositionPlan) && (
         <div className="fixed inset-0 z-[100] flex justify-end animate-fade-in">
            <div
-            className="absolute inset-0 bg-brand-navy/60 backdrop-blur-md"
-            onClick={() => setPreviewingLayoutOption(null)}
+            className="absolute inset-0 bg-brand-navy/50"
+            onClick={() => { setPreviewingLayoutOption(null); setPreviewingCompositionPlan(null); }}
            />
-           <div className="relative w-full max-w-2xl bg-white shadow-2xl h-full flex flex-col animate-slide-left border-l border-brand-navy/10">
-              {/* Drawer Header */}
-              <div className="p-8 border-b border-brand-navy/5 flex items-center justify-between bg-zinc-50/50">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
-                       <MdOutlineAnalytics className="w-6 h-6" />
+           <div className="relative w-full max-w-xl bg-white shadow-2xl h-full flex flex-col animate-slide-left border-l border-gov-border">
+              <div className="px-3 py-2 border-b border-gov-border flex items-center justify-between bg-gray-50 shrink-0">
+                 <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 bg-gov-blue text-white flex items-center justify-center shrink-0">
+                       {previewingCompositionPlan ? <MdLayers className="w-4 h-4" /> : <MdOutlineAnalytics className="w-4 h-4" />}
                     </div>
-                    <div>
-                       <h2 className="text-xl font-bold text-brand-navy leading-none mb-1">Layout Inspection</h2>
-                       <p className="text-[10px] font-black text-brand-navy/65 uppercase tracking-[0.2em]">{previewingLayoutOption.printerModelName}</p>
+                    <div className="min-w-0">
+                       <h2 className="text-sm font-bold text-gov-blue leading-tight">
+                         {previewingCompositionPlan ? "Composition Inspection" : "Layout Inspection"}
+                       </h2>
+                       <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide truncate">
+                         {previewingCompositionPlan
+                           ? `Option ${previewingCompositionPlan.planIdx + 1} · ${nestedPlanPrinterSummary(previewingCompositionPlan.plan, 2)}`
+                           : previewingLayoutOption.printerModelName}
+                       </p>
                     </div>
                  </div>
                  <button
-                  onClick={() => setPreviewingLayoutOption(null)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-brand-navy/60 hover:bg-zinc-100 hover:text-brand-navy transition-all"
+                  type="button"
+                  onClick={() => { setPreviewingLayoutOption(null); setPreviewingCompositionPlan(null); }}
+                  className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gov-blue hover:bg-white border border-transparent hover:border-gov-border shrink-0"
                  >
-                    <MdClose className="w-6 h-6" />
+                    <MdClose className="w-5 h-5" />
                  </button>
               </div>
 
-              {/* Drawer Content */}
-              <div className="flex-1 overflow-y-auto no-scrollbar p-8">
-                 <PaperLayoutPreview
-                   layout={previewingLayoutOption.layout}
-                   piecesRequested={previewingLayoutOption.piecesRequested}
-                   sheets={previewingLayoutOption.sheets}
-                   parentSheets={previewingLayoutOption.parentSheets}
-                   prints={previewingLayoutOption.prints}
-                   piecesPerSheet={previewingLayoutOption.piecesPerSheet}
-                   printerName={previewingLayoutOption.printerModelName}
-                   totalPrice={previewingLayoutOption.pricing?.total}
-                   currency={currency}
-                 />
+              <div className="flex-1 overflow-y-auto p-3 min-h-0">
+                 {previewingCompositionPlan ? (
+                   renderCompositionPlanInspect(previewingCompositionPlan.plan, previewingCompositionPlan.planIdx)
+                 ) : (
+                   <PaperLayoutPreview
+                     layout={previewingLayoutOption.layout}
+                     piecesRequested={previewingLayoutOption.piecesRequested}
+                     sheets={previewingLayoutOption.sheets}
+                     parentSheets={previewingLayoutOption.parentSheets}
+                     prints={previewingLayoutOption.prints}
+                     piecesPerSheet={previewingLayoutOption.piecesPerSheet}
+                     printerName={previewingLayoutOption.printerModelName}
+                     totalPrice={previewingLayoutOption.pricing?.total}
+                     currency={currency}
+                   />
+                 )}
               </div>
 
-              {/* Drawer Footer */}
-               <div className="p-8 border-t border-brand-navy/5 bg-zinc-50/50 flex justify-end">
+               <div className="px-3 py-2 border-t border-gov-border bg-gray-50 flex justify-end shrink-0">
                   <PrimaryButton
-                   onClick={() => setPreviewingLayoutOption(null)}
-                   className="px-10 py-3 text-[10px] font-black transition-all uppercase tracking-widest shadow-lg shadow-brand-teal/20"
+                   type="button"
+                   onClick={() => { setPreviewingLayoutOption(null); setPreviewingCompositionPlan(null); }}
+                   className="px-6 py-1.5 text-[11px] font-semibold uppercase tracking-wide"
                   >
                      Close Inspection
                   </PrimaryButton>
@@ -3315,17 +3224,17 @@ export default function QuotationEditorPage() {
            <div className="fixed inset-0 z-[100] flex justify-end">
                <div className="absolute inset-0 bg-brand-navy/40 backdrop-blur-sm transition-opacity animate-fade-in" onClick={() => setShowOffsetHelp(false)}></div>
                <div className="w-[450px] bg-white h-full shadow-2xl relative z-10 animate-slide-left p-0 flex flex-col">
-                   <div className="p-8 border-b border-brand-navy/5 flex items-center justify-between bg-zinc-50/50">
+                   <div className="p-8 border-b border-gov-blue/5 flex items-center justify-between bg-zinc-50/50">
                       <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 rounded-2xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
+                         <div className="w-10 h-10 rounded-2xl bg-gov-blue text-white flex items-center justify-center shadow-lg shadow-gov-blue/20">
                             <MdInfo className="w-6 h-6" />
                          </div>
                          <div className="flex flex-col">
-                            <h2 className="text-xl font-black text-brand-teal uppercase tracking-tighter leading-none">Offset Calculation Guide</h2>
-                            <span className="text-[9px] font-bold text-brand-teal uppercase tracking-widest mt-1">Pricing & Logic Blueprint</span>
+                            <h2 className="text-xl font-black text-gov-blue uppercase tracking-tighter leading-none">Offset Calculation Guide</h2>
+                            <span className="text-[9px] font-bold text-gov-blue uppercase tracking-widest mt-1">Pricing & Logic Blueprint</span>
                        </div>
                       </div>
-                      <button onClick={() => setShowOffsetHelp(false)} className="w-10 h-10 flex items-center justify-center rounded-xl text-brand-navy/55 hover:text-brand-navy hover:bg-zinc-100 transition-all">
+                      <button onClick={() => setShowOffsetHelp(false)} className="w-10 h-10 flex items-center justify-center rounded-xl text-gov-blue/55 hover:text-gov-blue hover:bg-zinc-100 transition-all">
                          <MdClose className="w-5 h-5" />
                       </button>
                    </div>
@@ -3333,11 +3242,11 @@ export default function QuotationEditorPage() {
                    <div className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-12 pb-24">
                       {/* Section 1: The Master Formula */}
                       <div className="space-y-4">
-                         <h3 className="text-[11px] font-black text-brand-teal uppercase tracking-[0.2em]">01. The Master Formula</h3>
-                         <div className="p-6 bg-brand-teal text-white rounded-3xl space-y-4 relative overflow-hidden shadow-xl shadow-brand-teal/10">
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-brand-teal/20 rounded-full blur-3xl -mr-12 -mt-12" />
+                         <h3 className="text-[11px] font-black text-gov-blue uppercase tracking-[0.2em]">01. The Master Formula</h3>
+                         <div className="p-6 bg-gov-blue text-white rounded-3xl space-y-4 relative overflow-hidden shadow-xl shadow-gov-blue/10">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-gov-blue/20 rounded-full blur-3xl -mr-12 -mt-12" />
                             <div className="text-3xl font-black tracking-tighter flex items-baseline gap-2">
-                               ₹ <span className="text-brand-teal">Total</span>
+                               ₹ <span className="text-gov-blue">Total</span>
                                <span className="text-xl opacity-30">=</span>
                                <span className="text-xl">Paper</span>
                                <span className="text-xl opacity-30">+</span>
@@ -3351,31 +3260,31 @@ export default function QuotationEditorPage() {
 
                       {/* Section 2: Material Calculation */}
                       <div className="space-y-4">
-                         <h3 className="text-[11px] font-black text-brand-navy/70 uppercase tracking-[0.2em]">02. Material (Paper Sheets)</h3>
-                         <div className="p-5 bg-zinc-50 rounded-2xl border border-brand-navy/5 space-y-4">
+                         <h3 className="text-[11px] font-black text-gov-blue/70 uppercase tracking-[0.2em]">02. Material (Paper Sheets)</h3>
+                         <div className="p-5 bg-zinc-50 rounded-2xl border border-gov-blue/5 space-y-4">
                             <div className="flex items-start gap-3">
-                               <div className="w-6 h-6 rounded-lg bg-brand-teal/10 text-brand-teal flex items-center justify-center text-[10px] font-black flex-shrink-0">A</div>
+                               <div className="w-6 h-6 rounded-lg bg-gov-blue/10 text-gov-blue flex items-center justify-center text-[10px] font-black flex-shrink-0">A</div>
                                <div className="space-y-1">
-                                  <div className="text-[10px] font-black text-brand-navy uppercase tracking-tighter">Sheets for Pieces</div>
-                                  <p className="text-[11px] text-brand-navy/60 font-medium leading-normal">
+                                  <div className="text-[10px] font-black text-gov-blue uppercase tracking-tighter">Sheets for Pieces</div>
+                                  <p className="text-[11px] text-gov-blue/60 font-medium leading-normal">
                                      Pieces per machine sheet (e.g., 4-up layout). 100 copies = 25 machine sheets.
                                   </p>
                                </div>
                             </div>
                             <div className="flex items-start gap-3">
-                               <div className="w-6 h-6 rounded-lg bg-brand-teal/10 text-brand-teal flex items-center justify-center text-[10px] font-black flex-shrink-0">B</div>
+                               <div className="w-6 h-6 rounded-lg bg-gov-blue/10 text-gov-blue flex items-center justify-center text-[10px] font-black flex-shrink-0">B</div>
                                <div className="space-y-1">
-                                  <div className="text-[10px] font-black text-brand-navy uppercase tracking-tighter">Waste Sheets</div>
-                                  <p className="text-[11px] text-brand-navy/60 font-medium leading-normal">
+                                  <div className="text-[10px] font-black text-gov-blue uppercase tracking-tighter">Waste Sheets</div>
+                                  <p className="text-[11px] text-gov-blue/60 font-medium leading-normal">
                                      Setup impressions added for ink balancing (Example: 25 pieces + 2 waste = 27 sheets).
                                   </p>
                                </div>
                             </div>
                             <div className="flex items-start gap-3">
-                               <div className="w-6 h-6 rounded-lg bg-brand-teal/10 text-brand-teal flex items-center justify-center text-[10px] font-black flex-shrink-0">C</div>
+                               <div className="w-6 h-6 rounded-lg bg-gov-blue/10 text-gov-blue flex items-center justify-center text-[10px] font-black flex-shrink-0">C</div>
                                <div className="space-y-1">
-                                  <div className="text-[10px] font-black text-brand-navy uppercase tracking-tighter">Portioning (Parent Sheets)</div>
-                                  <p className="text-[11px] text-brand-navy/60 font-medium leading-normal">
+                                  <div className="text-[10px] font-black text-gov-blue uppercase tracking-tighter">Portioning (Parent Sheets)</div>
+                                  <p className="text-[11px] text-gov-blue/60 font-medium leading-normal">
                                      If the machine sheet is cut from a larger stock (e.g., 1/4 size), we divide total sheets by the portion to find the billed <strong>Full Sheets</strong>.
                                   </p>
                                </div>
@@ -3385,33 +3294,33 @@ export default function QuotationEditorPage() {
 
                       {/* Section 3: Machine Setup (Plates) */}
                       <div className="space-y-4">
-                         <h3 className="text-[11px] font-black text-brand-navy/70 uppercase tracking-[0.2em]">03. Machine Run (Logic)</h3>
-                         <div className="p-5 bg-brand-mint/50 rounded-2xl border border-brand-teal/10 relative overflow-hidden space-y-6">
+                         <h3 className="text-[11px] font-black text-gov-blue/70 uppercase tracking-[0.2em]">03. Machine Run (Logic)</h3>
+                         <div className="p-5 bg-gov-blue-light/50 rounded-2xl border border-gov-blue/10 relative overflow-hidden space-y-6">
                             <div className="absolute top-0 right-0 p-3 opacity-10">
-                               <MdLayers className="w-12 h-12 text-brand-teal" />
+                               <MdLayers className="w-12 h-12 text-gov-blue" />
                             </div>
                             
                             <div className="space-y-2">
-                               <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">A. Plate Set Multiplier</div>
+                               <div className="text-[10px] font-black text-gov-blue uppercase tracking-widest">A. Plate Set Multiplier</div>
                                <div className="space-y-2">
-                                  <div className="flex justify-between items-center bg-white/50 p-2 rounded-lg border border-brand-teal/5">
-                                     <span className="text-[11px] font-bold text-brand-navy">Single Side</span>
-                                     <span className="text-[11px] font-black text-brand-teal">1 Set</span>
+                                  <div className="flex justify-between items-center bg-white/50 p-2 rounded-lg border border-gov-blue/5">
+                                     <span className="text-[11px] font-bold text-gov-blue">Single Side</span>
+                                     <span className="text-[11px] font-black text-gov-blue">1 Set</span>
                                   </div>
-                                  <div className="flex justify-between items-center bg-white/50 p-2 rounded-lg border border-brand-teal/5">
-                                     <span className="text-[11px] font-bold text-brand-navy">Double (Same Back)</span>
-                                     <span className="text-[11px] font-black text-brand-teal">1 Set</span>
+                                  <div className="flex justify-between items-center bg-white/50 p-2 rounded-lg border border-gov-blue/5">
+                                     <span className="text-[11px] font-bold text-gov-blue">Double (Same Back)</span>
+                                     <span className="text-[11px] font-black text-gov-blue">1 Set</span>
                                   </div>
-                                  <div className="flex justify-between items-center bg-brand-teal text-white p-2 rounded-lg shadow-sm">
+                                  <div className="flex justify-between items-center bg-gov-blue text-white p-2 rounded-lg shadow-sm">
                                      <span className="text-[11px] font-bold">Double (Diff Back)</span>
                                      <span className="text-[11px] font-black">2 Sets</span>
                                   </div>
                                </div>
                             </div>
 
-                            <div className="space-y-2 pt-2 border-t border-brand-teal/10">
-                               <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">B. Billed Impressions</div>
-                               <div className="p-3 bg-white/40 rounded-xl space-y-2 text-[11px] font-medium text-brand-navy/70 italic">
+                            <div className="space-y-2 pt-2 border-t border-gov-blue/10">
+                               <div className="text-[10px] font-black text-gov-blue uppercase tracking-widest">B. Billed Impressions</div>
+                               <div className="p-3 bg-white/40 rounded-xl space-y-2 text-[11px] font-medium text-gov-blue/70 italic">
                                   <div>Sheets Billed = (Copies / PiecesPerSheet) + Waste</div>
                                   <div>Total Imp. = Sheets Billed × (2 for Double, else 1)</div>
                                </div>
@@ -3421,8 +3330,8 @@ export default function QuotationEditorPage() {
 
                       {/* Section 4: Bulk Threshold Boundary */}
                       <div className="space-y-4">
-                         <h3 className="text-[11px] font-black text-brand-navy/70 uppercase tracking-[0.2em]">04. Bulk Threshold Boundary</h3>
-                         <div className="p-6 bg-brand-mint text-brand-teal rounded-3xl relative overflow-hidden border border-brand-teal/20">
+                         <h3 className="text-[11px] font-black text-gov-blue/70 uppercase tracking-[0.2em]">04. Bulk Threshold Boundary</h3>
+                         <div className="p-6 bg-gov-blue-light text-gov-blue rounded-3xl relative overflow-hidden border border-gov-blue/20">
                             <div className="text-sm font-black mb-1 uppercase tracking-tighter">The "Inclusive Switch"</div>
                             <p className="text-[10px] font-bold opacity-60 mb-6 uppercase tracking-widest leading-none">Status based on Billed Impressions</p>
                             
@@ -3432,14 +3341,14 @@ export default function QuotationEditorPage() {
                                   <div className="text-[9px] font-bold opacity-60 leading-tight">Minimum Fee +<br/>Setup + Extra Steps</div>
                                </div>
                                <div className="space-y-2 text-right">
-                                  <div className="text-[10px] font-black text-brand-teal uppercase tracking-widest">Bulk Applied</div>
+                                  <div className="text-[10px] font-black text-gov-blue uppercase tracking-widest">Bulk Applied</div>
                                   <div className="text-[9px] font-bold opacity-60 leading-tight">Setup +<br/>Volume Step Only</div>
                                </div>
                             </div>
                             
-                            <div className="mt-4 h-1.5 bg-brand-teal/10 rounded-full relative">
-                               <div className="absolute top-1/2 left-[50%] w-4 h-4 bg-white border-2 border-brand-teal rounded-full -translate-x-1/2 -translate-y-1/2 shadow-md flex items-center justify-center group">
-                                  <div className="w-1.5 h-1.5 bg-brand-teal rounded-full animate-pulse" />
+                            <div className="mt-4 h-1.5 bg-gov-blue/10 rounded-full relative">
+                               <div className="absolute top-1/2 left-[50%] w-4 h-4 bg-white border-2 border-gov-blue rounded-full -translate-x-1/2 -translate-y-1/2 shadow-md flex items-center justify-center group">
+                                  <div className="w-1.5 h-1.5 bg-gov-blue rounded-full animate-pulse" />
                                   <div className="absolute top-full mt-2 bg-brand-navy text-white text-[8px] font-black px-2 py-1 rounded-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
                                      Threshold (e.g. 10k)
                                   </div>
@@ -3447,15 +3356,15 @@ export default function QuotationEditorPage() {
                             </div>
                             
                             <div className="mt-8 space-y-3">
-                               <div className="p-3 bg-white/60 rounded-xl border border-brand-teal/10">
-                                  <div className="text-[9px] font-black uppercase text-brand-navy/70 mb-1 text-center">Boundary Comparison (Example)</div>
+                               <div className="p-3 bg-white/60 rounded-xl border border-gov-blue/10">
+                                  <div className="text-[9px] font-black uppercase text-gov-blue/70 mb-1 text-center">Boundary Comparison (Example)</div>
                                   <div className="flex items-center justify-between text-[11px]">
                                      <span className="font-bold">9,999 Imp. <span className="opacity-30">(Standard)</span></span>
                                      <span className="font-black text-red-500">₹ 3,800</span>
                                   </div>
-                                  <div className="flex items-center justify-between text-[11px] mt-1 pt-1 border-t border-brand-teal/5">
-                                     <span className="font-bold text-brand-teal">10,000 Imp. <span className="opacity-30">(Bulk)</span></span>
-                                     <span className="font-black text-brand-teal">₹ 3,500</span>
+                                  <div className="flex items-center justify-between text-[11px] mt-1 pt-1 border-t border-gov-blue/5">
+                                     <span className="font-bold text-gov-blue">10,000 Imp. <span className="opacity-30">(Bulk)</span></span>
+                                     <span className="font-black text-gov-blue">₹ 3,500</span>
                                   </div>
                                </div>
                                <p className="text-[9px] leading-relaxed font-bold opacity-60 italic">
@@ -3466,9 +3375,9 @@ export default function QuotationEditorPage() {
                       </div>
                    </div>
 
-                   <div className="p-8 border-t border-brand-navy/5 bg-zinc-50/50 flex flex-col gap-1">
-                      <div className="text-[10px] font-black text-brand-navy uppercase tracking-widest">Need more detail?</div>
-                      <div className="text-[11px] font-medium text-brand-navy/70">The machine rates shown are final calculations based on the printer's current tiered configuration.</div>
+                   <div className="p-8 border-t border-gov-blue/5 bg-zinc-50/50 flex flex-col gap-1">
+                      <div className="text-[10px] font-black text-gov-blue uppercase tracking-widest">Need more detail?</div>
+                      <div className="text-[11px] font-medium text-gov-blue/70">The machine rates shown are final calculations based on the printer's current tiered configuration.</div>
                    </div>
                </div>
            </div>
@@ -3481,13 +3390,13 @@ export default function QuotationEditorPage() {
 function CompactInput({ label, value, onChange, isAmount = false }) {
   return (
     <div className="flex flex-col gap-1.5 flex-1 min-w-[100px]">
-       <label className="text-[9px] font-black text-brand-navy/65 uppercase tracking-widest pl-1">{label}</label>
+       <label className="text-[9px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">{label}</label>
        <input
         type="text"
         placeholder={label}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className={`h-10 px-4 rounded-xl border border-brand-navy/10 text-xs font-bold text-brand-navy outline-none focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/5 transition-all shadow-sm ${isAmount ? 'bg-zinc-50 border-brand-teal/20' : 'bg-white'}`}
+        className={`h-10 px-4 rounded-xl border border-gov-blue/10 text-xs font-bold text-gov-blue outline-none focus:border-gov-blue focus:ring-4 focus:ring-brand-teal/5 transition-all shadow-sm ${isAmount ? 'bg-zinc-50 border-gov-blue/20' : 'bg-white'}`}
        />
     </div>
   );
