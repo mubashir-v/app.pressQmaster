@@ -1329,25 +1329,41 @@ export default function QuotationEditorPage() {
           {brochureWorkflowBadges(plan).map((badge) => renderBrochureWorkflowBadge(badge))}
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px border border-gov-border bg-gov-border">
-          {[
-            { label: "Print sets", value: plan.printRunCount },
-            { label: "Print sheets", value: plan.printedSheetsForCopies ?? plan.physicalSheetsPerBrochure },
-            { label: "Plan", value: sigSummary },
-            { label: "Trim waste", value: `${wasteStats.wastePercent}%` },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-white px-2.5 py-2 min-w-0">
-              <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">{stat.label}</div>
-              <div className="text-sm font-bold text-gov-blue truncate tabular-nums">{stat.value}</div>
-            </div>
-          ))}
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {[
+              { label: "Print sets", value: plan.printRunCount },
+              { label: "Print sheets", value: plan.printedSheetsForCopies ?? plan.physicalSheetsPerBrochure },
+              {
+                label: "Impressions",
+                value: plan.totals?.prints ?? "—",
+                hint:
+                  plan.totals?.prints != null
+                    ? `${plan.totals.colorPrints ?? 0} color · ${plan.totals.bwPrints ?? 0} B&W`
+                    : null,
+              },
+              { label: "Trim waste", value: `${wasteStats.wastePercent}%` },
+            ].map((stat) => (
+              <div key={stat.label} className="border border-gov-border bg-white px-3 py-2.5 min-w-0">
+                <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">{stat.label}</div>
+                <div className="text-base font-bold text-gov-blue tabular-nums mt-0.5">{stat.value}</div>
+                {stat.hint && (
+                  <div className="text-[9px] text-gray-500 tabular-nums mt-1">{stat.hint}</div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="border border-gov-border bg-white px-3 py-2.5">
+            <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Signature plan</div>
+            <div className="text-sm font-bold text-gov-blue mt-0.5 break-words">{sigSummary}</div>
+          </div>
         </div>
 
-        <div className="px-2 py-1.5 bg-gray-50 border border-gov-border text-[10px] text-gray-600 leading-relaxed">
+        <div className="px-3 py-2 bg-gray-50 border border-gov-border text-[10px] text-gray-600 leading-relaxed">
           {nestedPlanInstruction(plan)}
         </div>
 
-        <div className="flex flex-wrap gap-x-3 gap-y-1 px-2 py-1.5 bg-gray-50 border border-gov-border text-[10px]">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-3 py-2 bg-gray-50 border border-gov-border text-[10px]">
           <span className="text-gray-500">Printer: <strong className="text-gov-blue">{nestedPlanPrinterSummary(plan, 4)}</strong></span>
           <span className="text-gray-500">Paper used: <strong className="text-gov-blue">{wasteStats.usedPercent}%</strong></span>
           {plan.totals?.price != null && (
