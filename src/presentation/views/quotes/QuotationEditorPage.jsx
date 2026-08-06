@@ -107,6 +107,8 @@ export default function QuotationEditorPage() {
 
   const [lineItems, setLineItems] = useState([]);
   const [itemsPanelExpanded, setItemsPanelExpanded] = useState(true);
+  /** When true, user explicitly opened items — skip auto-collapse on form hover until they collapse again. */
+  const [itemsPanelPinnedOpen, setItemsPanelPinnedOpen] = useState(false);
   const [itemAddedToast, setItemAddedToast] = useState(null);
   const itemAddedToastTimerRef = useRef(null);
   const [currentItem, setCurrentItem] = useState({
@@ -202,6 +204,71 @@ export default function QuotationEditorPage() {
   const [selectedLaserOption, setSelectedLaserOption] = useState(null);
   const [shareError, setShareError] = useState("");
 
+  const quoteOptionsBusy = laserLoading || brochureLoading || offsetLoading;
+
+  const closeOptionInspection = () => {
+    setPreviewingLayoutOption(null);
+    setPreviewingCompositionPlan(null);
+  };
+
+  const clearLaserQuoteOptions = () => {
+    setLaserPricingOptions([]);
+    setSelectedLaserOption(null);
+    closeOptionInspection();
+  };
+
+  const clearOffsetQuoteOptions = () => {
+    setOffsetPricingOptions([]);
+    setSelectedOffsetOption(null);
+    closeOptionInspection();
+  };
+
+  const clearBrochureQuoteOptions = () => {
+    setBrochureViews([]);
+    setBrochureNestedPrintPlans([]);
+    setSelectedBrochureView(null);
+    setSelectedBrochureOption(null);
+    setSelectedNestedPrintPlan(null);
+    closeOptionInspection();
+  };
+
+  const inspectButtonClass = (enabled = true) =>
+    `px-2 py-1 text-[9px] font-semibold uppercase tracking-wide border border-gov-border shrink-0 ${
+      enabled && !quoteOptionsBusy
+        ? "text-gov-blue hover:bg-gov-blue/10"
+        : "text-gray-400 opacity-50 cursor-not-allowed"
+    }`;
+
+  const renderOptionsLoadingState = (message = "Updating options…") => (
+    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+      <div className="w-8 h-8 border-2 border-gov-border border-t-gov-blue animate-spin" />
+      <p className="text-[10px] font-semibold text-gov-blue/70 uppercase tracking-widest max-w-[200px]">{message}</p>
+    </div>
+  );
+
+  const toggleQuotationItemsPanel = () => {
+    setItemsPanelExpanded((expanded) => {
+      const next = !expanded;
+      setItemsPanelPinnedOpen(next);
+      return next;
+    });
+  };
+
+  const collapseQuotationItemsForForm = () => {
+    setItemsPanelExpanded(false);
+    setItemsPanelPinnedOpen(false);
+  };
+
+  const expandQuotationItemsPanel = () => {
+    setItemsPanelExpanded(true);
+    setItemsPanelPinnedOpen(true);
+  };
+
+  const handleCalculatorSectionMouseEnter = () => {
+    if (itemsPanelPinnedOpen || !itemsPanelExpanded) return;
+    setItemsPanelExpanded(false);
+  };
+
 
   useEffect(() => {
     if (id && id !== "new") {
@@ -235,6 +302,8 @@ export default function QuotationEditorPage() {
         id: li.id || li._id || `item-${index}-${Date.now()}`
       }));
       setLineItems(items);
+      setItemsPanelExpanded(true);
+      setItemsPanelPinnedOpen(false);
   }
 
 
@@ -729,6 +798,7 @@ export default function QuotationEditorPage() {
 
     setLaserLoading(true);
     setLaserError("");
+    clearLaserQuoteOptions();
     try {
       const payload = {
         size: sizePayload,
@@ -776,6 +846,7 @@ export default function QuotationEditorPage() {
 
     setOffsetLoading(true);
     setOffsetError("");
+    clearOffsetQuoteOptions();
     try {
       const payload = {
         size: sizePayload,
@@ -815,6 +886,7 @@ export default function QuotationEditorPage() {
 
     setBrochureLoading(true);
     setBrochureError("");
+    clearBrochureQuoteOptions();
     try {
       const payload = {
         pageSize: sizePayload,
@@ -894,7 +966,7 @@ export default function QuotationEditorPage() {
 
   // Effect to trigger calculation
   useEffect(() => {
-    setSelectedLaserOption(null); // Clear selection on input change
+    clearLaserQuoteOptions();
     if (activeTab === "laser" && laserSizeId && laserStockItemId && laserCopies) {
       const timer = setTimeout(recalculateLaserPricing, 500);
       return () => clearTimeout(timer);
@@ -902,7 +974,7 @@ export default function QuotationEditorPage() {
   }, [laserSizeId, laserStockItemId, laserColorMode, laserSides, laserCopies, isOnlyClipCharge, activeTab, customWidth, customBreadth, customUnit, recalculateLaserPricing]);
 
   useEffect(() => {
-    setSelectedOffsetOption(null);
+    clearOffsetQuoteOptions();
     if (activeTab === "offset" && offsetSizeId && offsetStockItemId && offsetCopies) {
       const timer = setTimeout(recalculateOffsetPricing, 500);
       return () => clearTimeout(timer);
@@ -915,6 +987,7 @@ export default function QuotationEditorPage() {
         skipNextBrochureAutoRecalcRef.current = false;
         return;
       }
+      clearBrochureQuoteOptions();
       const timer = setTimeout(recalculateBrochurePricing, 500);
       return () => clearTimeout(timer);
     }
@@ -1278,41 +1351,32 @@ export default function QuotationEditorPage() {
     };
   };
 
-  /** Size nested inspect preview from physical sheet + repeat, with readable minimum cell size. */
+  /** Size nested inspect preview from imposition cell footprint (preserves Normal portrait vs Rotated landscape cells). */
   const nestedImpositionPreviewBox = (signature, metrics, planPreviewScale) => {
-    const { rowCount, colCount } = metrics;
-    const repeatAcross = Math.max(1, signature.repeatOnPortion?.across ?? 1);
+    const { previewWidth, previewBreadth, rowCount, colCount } = metrics;
     const repeatDown = Math.max(1, signature.repeatOnPortion?.down ?? 1);
-    const portionW = Number(signature.portion?.width) || metrics.previewWidth;
-    const portionB = Number(signature.portion?.breadth) || metrics.previewBreadth;
-    const physicalW = portionW * repeatAcross;
-    const physicalH = portionB * repeatDown;
-    const sheetAspect = physicalW / Math.max(physicalH, 0.01);
+    const gridAspect = previewWidth / Math.max(previewBreadth, 0.01);
 
     const maxWidthPx = planPreviewScale?.maxPreviewWidth
-      ? Math.max(300, Math.min(480, planPreviewScale.maxPreviewWidth * 10))
-      : 400;
-    const maxHeightPx = colCount >= 4 || rowCount >= 4 ? 400 : 320;
-    const minCellPx = colCount >= 4 ? 34 : rowCount >= 4 ? 30 : 26;
+      ? Math.max(280, Math.min(460, planPreviewScale.maxPreviewWidth * 10))
+      : 380;
+    const maxHeightPx = colCount >= 4 || rowCount >= 4 ? 440 : 340;
+    const minCellPx = colCount >= 4 ? 30 : rowCount >= 4 ? 28 : 24;
 
     let widthPx = maxWidthPx;
-    let heightPx = widthPx / sheetAspect;
+    let heightPx = widthPx / gridAspect;
 
     if (heightPx > maxHeightPx) {
       heightPx = maxHeightPx;
-      widthPx = heightPx * sheetAspect;
+      widthPx = heightPx * gridAspect;
     }
 
     widthPx = Math.max(widthPx, minCellPx * colCount);
-    heightPx = Math.max(heightPx, minCellPx * rowCount * 0.75);
+    heightPx = widthPx / gridAspect;
 
-    if (widthPx > maxWidthPx) {
-      widthPx = maxWidthPx;
-      heightPx = widthPx / sheetAspect;
-    }
     if (heightPx > maxHeightPx) {
       heightPx = maxHeightPx;
-      widthPx = heightPx * sheetAspect;
+      widthPx = heightPx * gridAspect;
     }
 
     let fontClass = "text-sm";
@@ -1320,12 +1384,13 @@ export default function QuotationEditorPage() {
     else if (colCount >= 3 || rowCount >= 4) fontClass = "text-xs";
 
     return {
-      widthPx: Math.round(Math.max(140, widthPx)),
-      heightPx: Math.round(Math.max(120, heightPx)),
+      widthPx: Math.round(Math.max(120, widthPx)),
+      heightPx: Math.round(Math.max(100, heightPx)),
       fontClass,
       dense: colCount >= 4 || rowCount >= 4,
       baseRows: canonicalBaseGrid(signature.signaturePages || 0).rows,
       repeatDown,
+      gridAspect,
     };
   };
 
@@ -1389,9 +1454,9 @@ export default function QuotationEditorPage() {
     const repeatCopies =
       Math.max(1, signature.repeatOnPortion?.across ?? 1) * Math.max(1, signature.repeatOnPortion?.down ?? 1);
     const metrics = nestedPreviewMetrics(signature, displayRows);
-    const { rowCount, colCount, isNormalImposition, impositionFootprint } = metrics;
+    const { rowCount, colCount, isNormalImposition, impositionFootprint, previewWidth, previewBreadth } = metrics;
     const previewBox = nestedImpositionPreviewBox(signature, metrics, planPreviewScale);
-    const { widthPx, heightPx, fontClass, dense, baseRows, repeatDown } = previewBox;
+    const { widthPx, fontClass, dense, baseRows, repeatDown } = previewBox;
     const isShortEdgePair = impositionFootprint === "ROTATED";
     const numberRotation = (cell, rowIndex, colIndex) => {
       if (typeof cell.previewRotationDeg === "number") {
@@ -1418,7 +1483,7 @@ export default function QuotationEditorPage() {
           style={{
             width: widthPx,
             maxWidth: "100%",
-            height: heightPx,
+            aspectRatio: `${previewWidth} / ${previewBreadth}`,
             gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
             gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
           }}
@@ -1850,7 +1915,7 @@ export default function QuotationEditorPage() {
               <div className="px-3 py-1 border-b border-gov-border bg-gray-50 flex items-center justify-between gap-2">
                  <button
                    type="button"
-                   onClick={() => setItemsPanelExpanded((v) => !v)}
+                   onClick={toggleQuotationItemsPanel}
                    className="flex items-center gap-1.5 min-w-0 hover:text-gov-blue transition-colors"
                    title={itemsPanelExpanded ? "Collapse items list" : "Expand items list"}
                  >
@@ -1934,7 +1999,7 @@ export default function QuotationEditorPage() {
                      <span className="text-gray-500 hidden sm:inline">Status: <strong className="text-gov-blue uppercase">{status}</strong></span>
                      {shareError && <span className="text-red-500 text-[10px] truncate">{shareError}</span>}
                      {lineItems.length > 3 && itemsPanelExpanded && (
-                       <button type="button" onClick={() => setItemsPanelExpanded(false)} className="text-[10px] text-gov-blue/70 hover:text-gov-blue underline underline-offset-2 hidden md:inline">
+                       <button type="button" onClick={collapseQuotationItemsForForm} className="text-[10px] text-gov-blue/70 hover:text-gov-blue underline underline-offset-2 hidden md:inline">
                          Collapse to focus on form
                        </button>
                      )}
@@ -1993,7 +2058,7 @@ export default function QuotationEditorPage() {
             {!itemsPanelExpanded && (
               <button
                 type="button"
-                onClick={() => setItemsPanelExpanded(true)}
+                onClick={expandQuotationItemsPanel}
                 className="text-[10px] font-semibold text-emerald-700 underline underline-offset-2 shrink-0"
               >
                 View list
@@ -2012,7 +2077,7 @@ export default function QuotationEditorPage() {
       )}
 
       {/* 3. Print Configuration Calculator — flex-1 fills all remaining viewport height */}
-      <section id="calc-top" className="no-print bg-white flex flex-col flex-1 min-h-0 basis-0">
+      <section id="calc-top" className="no-print bg-white flex flex-col flex-1 min-h-0 basis-0" onMouseEnter={handleCalculatorSectionMouseEnter}>
           {/* Tab bar: both columns always show sub-tab row (icons when parent inactive) */}
           <div className="flex items-stretch border-b border-gov-border bg-gray-50 shrink-0">
              {/* Laser Printing + sub-options */}
@@ -2126,14 +2191,6 @@ export default function QuotationEditorPage() {
                              ref={laserSizeRef}
                            />
 
-
-                          {laserSizeId === 'custom' && renderCustomSizeFields({
-                            className: "col-span-full",
-                            widthRef: customWidthRef,
-                            onWidthEnter: () => customBreadthRef.current?.focus(),
-                            onBreadthEnter: () => laserStockRef.current?.focus(),
-                          })}
-
                           <SearchableSelect
                              label="Paper / Stock"
                              options={laserStockOptions}
@@ -2146,6 +2203,13 @@ export default function QuotationEditorPage() {
                              onSearch={fetchLaserStocks}
                              ref={laserStockRef}
                            />
+
+                          {laserSizeId === 'custom' && renderCustomSizeFields({
+                            className: "col-span-full",
+                            widthRef: customWidthRef,
+                            onWidthEnter: () => customBreadthRef.current?.focus(),
+                            onBreadthEnter: () => laserStockRef.current?.focus(),
+                          })}
 
                       </div>
 
@@ -2233,7 +2297,9 @@ export default function QuotationEditorPage() {
                           {laserLoading && <div className="w-3.5 h-3.5 border border-gov-border border-t-gov-blue animate-spin shrink-0"></div>}
                        </div>
 
-                      {laserError ? (
+                      {laserLoading ? (
+                        renderOptionsLoadingState()
+                      ) : laserError ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdWarningAmber className="w-12 h-12 text-red-400 opacity-20" />
                            <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{laserError}</p>
@@ -2261,8 +2327,8 @@ export default function QuotationEditorPage() {
                                  return (
                                    <div
                                     key={idx}
-                                    onClick={() => isPrintable && setSelectedLaserOption(opt)}
-                                    className={`p-2 lg:group-hover/options:p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between gap-2 group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-gov-blue ring-2 lg:group-hover/options:ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'hover:border-gov-blue/40 border-gov-blue/5')}`}
+                                    onClick={() => !quoteOptionsBusy && isPrintable && setSelectedLaserOption(opt)}
+                                    className={`p-2 lg:group-hover/options:p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between gap-2 group transition-all ${quoteOptionsBusy ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"} ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-gov-blue ring-2 lg:group-hover/options:ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'hover:border-gov-blue/40 border-gov-blue/5')}`}
                                    >
                                       <div className="flex-1 min-w-0">
                                          <div className={`${OPT_COMPACT} flex items-center justify-between gap-2`}>
@@ -2298,11 +2364,14 @@ export default function QuotationEditorPage() {
                                       <div className={`${OPT_EXPAND_FLEX} items-center gap-4 shrink-0`}>
                                          {opt.layout && isPrintable && (
                                            <button
+                                            type="button"
+                                            disabled={quoteOptionsBusy}
                                             onClick={(e) => {
                                               e.stopPropagation();
+                                              if (quoteOptionsBusy) return;
                                               setPreviewingLayoutOption(opt);
                                             }}
-                                            className="p-2 text-gov-blue font-black text-[9px] uppercase tracking-widest hover:bg-gov-blue/10 rounded-lg transition-all"
+                                            className={inspectButtonClass(isPrintable && !!opt.layout)}
                                            >
                                               Inspect
                                            </button>
@@ -2319,7 +2388,7 @@ export default function QuotationEditorPage() {
                            </div>
 
                            {/* Global Add/Update Button */}
-                           {selectedLaserOption && (
+                           {selectedLaserOption && !quoteOptionsBusy && (
                              <div className="mt-auto pt-2 border-t border-gov-border shrink-0 flex gap-2 px-0.5">
                                 {editingLineId && (
                                   <button
@@ -2455,6 +2524,7 @@ export default function QuotationEditorPage() {
                                  setBrochureSizeId("custom");
                                  setCustomWidth("");
                                  setCustomBreadth("");
+                                 setTimeout(() => customWidthRef.current?.focus(), 100);
                                  return;
                                }
                                setBrochureSizeId(next);
@@ -2578,7 +2648,9 @@ export default function QuotationEditorPage() {
                         </div>
                       )}
 
-                      {brochureError ? (
+                      {brochureLoading ? (
+                        renderOptionsLoadingState()
+                      ) : brochureError ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdWarningAmber className="w-12 h-12 text-red-400 opacity-20" />
                            <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{brochureError}</p>
@@ -2599,13 +2671,15 @@ export default function QuotationEditorPage() {
                                {brochureViews.map((view) => (
                                  <button
                                    key={view.viewId}
+                                   disabled={quoteOptionsBusy}
                                    onClick={() => {
+                                     if (quoteOptionsBusy) return;
                                      setSelectedBrochureView(view);
                                      if (view.singlePrinterRanked?.length > 0) {
                                        setSelectedBrochureOption({ viewId: view.viewId, optionIdx: 0, kind: 'SINGLE' });
                                      }
                                    }}
-                                   className={`flex-shrink-0 px-4 py-3 rounded-xl border transition-all text-left min-w-[140px] ${selectedBrochureView?.viewId === view.viewId ? 'bg-gov-blue text-white border-gov-blue shadow-lg shadow-gov-blue/20' : 'bg-white text-gov-blue border-gov-blue/5 hover:border-gov-blue/30'}`}
+                                   className={`flex-shrink-0 px-4 py-3 rounded-xl border transition-all text-left min-w-[140px] ${quoteOptionsBusy ? "opacity-50 cursor-not-allowed" : ""} ${selectedBrochureView?.viewId === view.viewId ? 'bg-gov-blue text-white border-gov-blue shadow-lg shadow-gov-blue/20' : 'bg-white text-gov-blue border-gov-blue/5 hover:border-gov-blue/30'}`}
                                  >
                                     <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Split</div>
                                     <div className="flex items-center gap-1 flex-wrap mb-1">
@@ -2635,8 +2709,8 @@ export default function QuotationEditorPage() {
                                    return (
                                    <div
                                      key={plan.planId}
-                                    onClick={() => setSelectedNestedPrintPlan(plan)}
-                                    className={`p-2 border bg-white flex items-center gap-2 cursor-pointer transition-all w-full min-w-0 ${isPlanSelected ? "border-gov-blue ring-1 ring-gov-blue bg-gov-blue/[0.02]" : "border-gov-border hover:border-gov-blue/40"}`}
+                                    onClick={() => !quoteOptionsBusy && setSelectedNestedPrintPlan(plan)}
+                                    className={`p-2 border bg-white flex items-center gap-2 transition-all w-full min-w-0 ${quoteOptionsBusy ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"} ${isPlanSelected ? "border-gov-blue ring-1 ring-gov-blue bg-gov-blue/[0.02]" : "border-gov-border hover:border-gov-blue/40"}`}
                                    >
                                      <div className="flex-1 min-w-0">
                                        <div className="flex items-center gap-1.5 flex-wrap">
@@ -2652,11 +2726,13 @@ export default function QuotationEditorPage() {
                                      </div>
                                      <button
                                        type="button"
+                                       disabled={quoteOptionsBusy}
                                        onClick={(e) => {
                                          e.stopPropagation();
+                                         if (quoteOptionsBusy) return;
                                          setPreviewingCompositionPlan({ plan, planIdx });
                                        }}
-                                       className="px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-gov-blue hover:bg-gov-blue/10 border border-gov-border shrink-0"
+                                       className={inspectButtonClass()}
                                      >
                                        Inspect
                                      </button>
@@ -2667,7 +2743,7 @@ export default function QuotationEditorPage() {
                                  );})}
                                </div>
 
-                               {selectedNestedPrintPlan && (
+                               {selectedNestedPrintPlan && !quoteOptionsBusy && (
                                  <div className="mt-auto pt-2 border-t border-gov-border shrink-0 flex gap-2">
                                      {editingLineId && (
                                        <button
@@ -2770,8 +2846,8 @@ export default function QuotationEditorPage() {
                                       {selectedBrochureView.singlePrinterRanked.map((opt, oIdx) => (
                                         <div
                                           key={`single-${oIdx}`}
-                                          onClick={() => setSelectedBrochureOption({ viewId: selectedBrochureView.viewId, optionIdx: oIdx, kind: 'SINGLE' })}
-                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between cursor-pointer transition-all ${selectedBrochureOption?.kind === 'SINGLE' && selectedBrochureOption?.optionIdx === oIdx ? 'border-gov-blue ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'border-gov-blue/5 hover:border-gov-blue/40'}`}
+                                          onClick={() => !quoteOptionsBusy && setSelectedBrochureOption({ viewId: selectedBrochureView.viewId, optionIdx: oIdx, kind: 'SINGLE' })}
+                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between transition-all ${quoteOptionsBusy ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"} ${selectedBrochureOption?.kind === 'SINGLE' && selectedBrochureOption?.optionIdx === oIdx ? 'border-gov-blue ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'border-gov-blue/5 hover:border-gov-blue/40'}`}
                                         >
                                            <div className="flex-1">
                                               <div className="text-xs font-black text-gov-blue flex items-center gap-2">
@@ -2792,8 +2868,8 @@ export default function QuotationEditorPage() {
                                       {selectedBrochureView.mixedPrinterRanked.map((opt, oIdx) => (
                                         <div
                                           key={`mixed-${oIdx}`}
-                                          onClick={() => setSelectedBrochureOption({ viewId: selectedBrochureView.viewId, optionIdx: oIdx, kind: 'MIXED' })}
-                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between cursor-pointer transition-all ${selectedBrochureOption?.kind === 'MIXED' && selectedBrochureOption?.optionIdx === oIdx ? 'border-gov-blue ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'border-gov-blue/5 hover:border-gov-blue/40'}`}
+                                          onClick={() => !quoteOptionsBusy && setSelectedBrochureOption({ viewId: selectedBrochureView.viewId, optionIdx: oIdx, kind: 'MIXED' })}
+                                          className={`p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between transition-all ${quoteOptionsBusy ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"} ${selectedBrochureOption?.kind === 'MIXED' && selectedBrochureOption?.optionIdx === oIdx ? 'border-gov-blue ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'border-gov-blue/5 hover:border-gov-blue/40'}`}
                                         >
                                            <div className="flex-1">
                                               <div className="text-xs font-black text-gov-blue flex items-center gap-2">
@@ -2897,7 +2973,7 @@ export default function QuotationEditorPage() {
                                 </div>
 
                                 {/* Global Add Button */}
-                                {selectedBrochureOption && (
+                                {selectedBrochureOption && !quoteOptionsBusy && (
                                   <div className="mt-4 pt-6 border-t border-gov-blue/5 flex gap-3">
                                      {editingLineId && (
                                        <button
@@ -3010,9 +3086,6 @@ export default function QuotationEditorPage() {
                             onChange={e => setOffsetSizeId(e.target.value)}
                           />
 
-
-                          {offsetSizeId === 'custom' && renderCustomSizeFields({ className: "col-span-full" })}
-
                           <SearchableSelect
                             label="Paper / Stock"
                             options={offsetStockOptions}
@@ -3021,6 +3094,8 @@ export default function QuotationEditorPage() {
                             onChange={e => setOffsetStockItemId(e.target.value)}
                             onSearch={fetchOffsetStocks}
                           />
+
+                          {offsetSizeId === 'custom' && renderCustomSizeFields({ className: "col-span-full" })}
                       </div>
 
                       <div className="grid grid-cols-4 gap-4">
@@ -3093,7 +3168,9 @@ export default function QuotationEditorPage() {
                            {offsetLoading && <div className="w-3.5 h-3.5 border border-gov-border border-t-gov-blue animate-spin shrink-0"></div>}
                        </div>
 
-                      {offsetError ? (
+                      {offsetLoading ? (
+                        renderOptionsLoadingState()
+                      ) : offsetError ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                            <MdWarningAmber className="w-12 h-12 text-red-400 opacity-20" />
                            <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{offsetError}</p>
@@ -3119,8 +3196,8 @@ export default function QuotationEditorPage() {
                                   return (
                                     <div
                                      key={idx}
-                                     onClick={() => isPrintable && setSelectedOffsetOption(opt)}
-                                     className={`p-2 lg:group-hover/options:p-3 rounded-xl border bg-white shadow-sm flex items-center justify-between gap-2 group cursor-pointer transition-all ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-gov-blue ring-2 lg:group-hover/options:ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'hover:border-gov-blue/40 border-gov-blue/5')}`}
+                                     onClick={() => !quoteOptionsBusy && isPrintable && setSelectedOffsetOption(opt)}
+                                     className={`p-2 lg:group-hover/options:p-3 rounded-xl border bg-white shadow-sm flex items-center justify-between gap-2 group transition-all ${quoteOptionsBusy ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"} ${!isPrintable ? 'opacity-50 grayscale bg-zinc-50 border-red-100 cursor-not-allowed' : (isSelected ? 'border-gov-blue ring-2 lg:group-hover/options:ring-4 ring-brand-teal/10 bg-gov-blue/[0.02]' : 'hover:border-gov-blue/40 border-gov-blue/5')}`}
                                     >
                                        <div className="flex-1 min-w-0">
                                           <div className={`${OPT_COMPACT} flex items-center justify-between gap-2`}>
@@ -3167,11 +3244,14 @@ export default function QuotationEditorPage() {
                                        <div className={`${OPT_EXPAND_FLEX} items-center gap-4 shrink-0`}>
                                           {opt.layout && isPrintable && (
                                             <button
+                                             type="button"
+                                             disabled={quoteOptionsBusy}
                                              onClick={(e) => {
                                                e.stopPropagation();
+                                               if (quoteOptionsBusy) return;
                                                setPreviewingLayoutOption(opt);
                                              }}
-                                             className="p-2 text-gov-blue font-black text-[9px] uppercase tracking-widest hover:bg-gov-blue/10 rounded-lg transition-all"
+                                             className={inspectButtonClass(isPrintable && !!opt.layout)}
                                             >
                                                Inspect
                                             </button>
@@ -3188,7 +3268,7 @@ export default function QuotationEditorPage() {
                             </div>
 
                             {/* Offset Save Button */}
-                            {selectedOffsetOption && (
+                            {selectedOffsetOption && !quoteOptionsBusy && (
                               <div className="mt-auto pt-2 border-t border-gov-border shrink-0 flex gap-2 px-0.5">
                                  {editingLineId && (
                                    <button
