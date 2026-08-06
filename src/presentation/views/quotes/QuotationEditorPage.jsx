@@ -1165,15 +1165,107 @@ export default function QuotationEditorPage() {
       return parts;
     });
 
-  const nestedPreviewMetrics = (signature, sideRows) => {
-    const rowCount = Math.max(1, sideRows.length);
-    const colCount = Math.max(1, sideRows[0]?.length || 1);
-    const pageFootprintWidth = signature.portion.width / Math.max(1, signature.fit.across);
-    const pageFootprintBreadth = signature.portion.breadth / Math.max(1, signature.fit.down);
-    const previewWidth = pageFootprintWidth * colCount;
-    const previewBreadth = pageFootprintBreadth * rowCount;
+  const getBrochureTrimPageSize = () => {
+    if (brochureSizeId === "custom") {
+      const width = Number(customWidth);
+      const breadth = Number(customBreadth);
+      if (!width || !breadth) return null;
+      return { width, breadth, unit: customUnit };
+    }
+    const selectedSize = sizeList.find((s) => s.id === brochureSizeId);
+    if (!selectedSize) return null;
+    return { width: selectedSize.width, breadth: selectedSize.breadth, unit: selectedSize.unit };
+  };
 
-    return { rowCount, colCount, previewWidth, previewBreadth };
+  /** Portrait trim page with width as the shorter edge. */
+  const normalizeTrimPage = (trimPage) => {
+    if (!trimPage?.width || !trimPage?.breadth) return null;
+    const w = Number(trimPage.width);
+    const b = Number(trimPage.breadth);
+    if (!w || !b) return null;
+    return w <= b ? { width: w, breadth: b, unit: trimPage.unit } : { width: b, breadth: w, unit: trimPage.unit };
+  };
+
+  /**
+   * UI Normal  → long-edge pair   → portrait imposition cells.
+   * UI Rotated → short-edge pair  → landscape cells (page turned on sheet).
+   */
+  const previewFootprintForUi = (uiOrientation = brochureOrientation) => uiOrientation;
+
+  /** Trim short/long edges in cm-ish numbers; falls back to A5 when size chart unavailable. */
+  const trimEdgesForPreview = (trimPage = getBrochureTrimPageSize()) => {
+    const page = normalizeTrimPage(trimPage);
+    if (page) {
+      return { short: Math.min(page.width, page.breadth), long: Math.max(page.width, page.breadth) };
+    }
+    return { short: 14.8, long: 21 };
+  };
+
+  /** Cell footprint for imposition preview (ROTATED footprint = landscape cell on grid). */
+  const impositionCellFootprint = (trimPage, footprintOrientation) => {
+    const { short, long } = trimEdgesForPreview(trimPage);
+    if (footprintOrientation === "ROTATED") {
+      return { cellWidth: long, cellBreadth: short, cellAspectRatio: `${long} / ${short}` };
+    }
+    return { cellWidth: short, cellBreadth: long, cellAspectRatio: `${short} / ${long}` };
+  };
+
+  /** One signature tile (canonical imposition), not the full repeated printer sheet. */
+  const canonicalBaseGrid = (signaturePages) => {
+    if (signaturePages === 2) return { rows: 1, cols: 1 };
+    if (signaturePages === 4) return { rows: 1, cols: 2 };
+    if (signaturePages === 8) return { rows: 2, cols: 2 };
+    if (signaturePages === 16) return { rows: 2, cols: 4 };
+    if (signaturePages === 32) return { rows: 4, cols: 4 };
+    const perSide = Math.max(1, signaturePages / 2);
+    return { rows: Math.max(1, Math.round(Math.sqrt(perSide))), cols: Math.max(1, Math.round(perSide / Math.max(1, Math.round(Math.sqrt(perSide))))) };
+  };
+
+  const baseImpositionSideRows = (sideRows, repeatOnPortion = { across: 1, down: 1 }, signaturePages = 0) => {
+    if (!sideRows?.length) return [[]];
+    const repeatAcross = Math.max(1, repeatOnPortion.across ?? 1);
+    const repeatDown = Math.max(1, repeatOnPortion.down ?? 1);
+    const canonical = signaturePages > 0 ? canonicalBaseGrid(signaturePages) : null;
+    const derivedRows = Math.max(1, Math.round(sideRows.length / repeatDown));
+    const derivedCols = Math.max(1, Math.round((sideRows[0]?.length ?? 1) / repeatAcross));
+    const baseRows = canonical ? Math.min(canonical.rows, sideRows.length) : derivedRows;
+    const baseCols = canonical
+      ? Math.min(canonical.cols, sideRows[0]?.length ?? canonical.cols)
+      : derivedCols;
+
+    return sideRows.slice(0, baseRows).map((row) => row.slice(0, baseCols));
+  };
+
+  /** Metrics for one imposition side tile (sideRows should already be the base tile). */
+  const nestedPreviewMetrics = (signature, sideRows) => {
+    const rowCount = Math.max(1, sideRows?.length || 1);
+    const colCount = Math.max(1, sideRows?.[0]?.length || 1);
+    const impositionFootprint =
+      signature?.imposition?.previewFootprintOrientation ??
+      signature?.imposition?.orientation ??
+      brochureOrientation;
+    const footprint = impositionCellFootprint(getBrochureTrimPageSize(), impositionFootprint);
+    const previewWidth = footprint.cellWidth * colCount;
+    const previewBreadth = footprint.cellBreadth * rowCount;
+
+    return {
+      rowCount,
+      colCount,
+      previewWidth,
+      previewBreadth,
+      cellAspectRatio: footprint.cellAspectRatio,
+      isLandscapeSpread: previewWidth >= previewBreadth,
+      isNormalImposition: impositionFootprint === "NORMAL",
+      impositionFootprint,
+    };
+  };
+
+  const impositionPreviewBoxSize = (previewWidth, previewBreadth, maxPx = 260) => {
+    const scale = maxPx / Math.max(previewWidth, previewBreadth, 1);
+    return {
+      widthPx: Math.max(72, Math.round(previewWidth * scale)),
+      heightPx: Math.max(72, Math.round(previewBreadth * scale)),
+    };
   };
 
   const renderCustomSizeFields = ({ className = "", widthRef, onWidthEnter, onBreadthEnter } = {}) => (
@@ -1232,15 +1324,16 @@ export default function QuotationEditorPage() {
   );
 
   const renderNestedImpositionSide = (signature, sideRows, tone = "teal", planPreviewScale = null) => {
-    const { rowCount, colCount, previewWidth, previewBreadth } = nestedPreviewMetrics(signature, sideRows);
-    const paperIsHorizontal = previewWidth >= previewBreadth;
-    const paperRatio = `${previewWidth} / ${previewBreadth}`;
-    const scaleWidth = planPreviewScale?.maxPreviewWidth
-      ? Math.max(0.22, Math.min(1, previewWidth / planPreviewScale.maxPreviewWidth))
-      : 1;
-    const referenceWidthRem = planPreviewScale?.paperIsHorizontal === false ? 18 : 34;
-    const signaturePages = signature.signaturePages ?? 0;
-    const isLandscape = signature.imposition.orientation === "ROTATED";
+    const displayRows = baseImpositionSideRows(sideRows, signature.repeatOnPortion, signature.signaturePages);
+    const repeatCopies =
+      Math.max(1, signature.repeatOnPortion?.across ?? 1) * Math.max(1, signature.repeatOnPortion?.down ?? 1);
+    const { rowCount, colCount, previewWidth, previewBreadth, isNormalImposition, impositionFootprint } =
+      nestedPreviewMetrics(signature, displayRows);
+    const maxPx = planPreviewScale?.maxPreviewWidth
+      ? Math.max(160, Math.min(320, planPreviewScale.maxPreviewWidth * 6))
+      : 260;
+    const { widthPx, heightPx } = impositionPreviewBoxSize(previewWidth, previewBreadth, maxPx);
+    const isShortEdgePair = impositionFootprint === "ROTATED";
     const numberRotation = (cell, rowIndex, colIndex) => {
       if (typeof cell.previewRotationDeg === "number") {
         return `rotate(${cell.previewRotationDeg}deg)`;
@@ -1248,36 +1341,43 @@ export default function QuotationEditorPage() {
       if (colCount === 1) {
         return "rotate(90deg)";
       }
-      // 4pp: left upside-down, right upright — portrait and landscape.
-      if (signaturePages === 4) {
-        return colIndex === 0 ? "rotate(180deg)" : "rotate(0deg)";
+      if (isShortEdgePair) {
+        if (rowCount >= 2) {
+          return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
+        }
+        return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
       }
-      if (isLandscape && signaturePages === 8) {
-        return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
-      }
-      if (paperIsHorizontal) {
-        return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
+      if (rowCount >= 2) {
+        return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
       }
       return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
     };
 
     return (
       <div className="overflow-x-auto pb-1">
+        <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+          {isShortEdgePair ? "Rotated imposition" : "Normal imposition"}
+          {repeatCopies > 1 ? ` · ×${repeatCopies} on sheet` : ""}
+          <span className="text-gray-400 font-normal normal-case">
+            {" "}
+            · {isNormalImposition ? "long-edge pair" : "short-edge pair"}
+          </span>
+        </div>
         <div
-          className={`grid gap-1 mx-auto max-w-full border p-2 ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
+          className={`grid gap-1 mx-auto border p-2 ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
           style={{
-            aspectRatio: paperRatio,
-            width: `min(100%, ${Math.max(7, referenceWidthRem * scaleWidth)}rem)`,
+            width: widthPx,
+            height: heightPx,
             gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
             gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
           }}
         >
-          {sideRows.flatMap((row, ri) =>
+          {displayRows.flatMap((row, ri) =>
             row.map((cell, ci) => (
               <div
                 key={`${ri}-${ci}-${cell.pageNumber}`}
                 title={`${cell.designOrientation.toLowerCase()} page design${isBrochureColorPage(cell.pageNumber) ? " • color page" : ""}`}
-                className={`flex items-center justify-center rounded-sm border shadow-sm ${brochurePreviewPageClass(cell.pageNumber)}`}
+                className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${brochurePreviewPageClass(cell.pageNumber)}`}
               >
                 <span
                   className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
@@ -1296,38 +1396,51 @@ export default function QuotationEditorPage() {
   const renderBrochureImpositionSide = (seg, sideRows, tone = "teal") => {
     const rowCount = Math.max(1, sideRows.length);
     const colCount = Math.max(1, sideRows[0]?.length || 1);
-    const cellWidth = seg.spreadSize.width / colCount;
-    const cellBreadth = seg.spreadSize.breadth / rowCount;
-    const previewWidth = cellWidth * colCount;
-    const previewBreadth = cellBreadth * rowCount;
-    const paperIsHorizontal = previewWidth >= previewBreadth;
-    const paperRatio = `${previewWidth} / ${previewBreadth}`;
-    const orientation = seg.pageNumbering?.orientation ?? "NORMAL";
+    const footprint = impositionCellFootprint(getBrochureTrimPageSize(), previewFootprintForUi(brochureOrientation));
+    const previewWidth = footprint.cellWidth * colCount;
+    const previewBreadth = footprint.cellBreadth * rowCount;
+    const { widthPx, heightPx } = impositionPreviewBoxSize(previewWidth, previewBreadth);
+    const isNormalImposition = brochureOrientation === "NORMAL";
     const partPages = seg.partPages ?? 0;
     const numberRotation = (pageNumber, rowIndex, colIndex) => {
       if (colCount === 1) {
         return "rotate(90deg)";
       }
-      if (partPages === 4) {
-        return colIndex === 0 ? "rotate(180deg)" : "rotate(0deg)";
+      if (brochureOrientation === "ROTATED") {
+        if (partPages === 8 && rowCount >= 2) {
+          return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
+        }
+        if (partPages === 4) {
+          return "rotate(0deg)";
+        }
+        return colIndex % 2 === 0 ? "rotate(-90deg)" : "rotate(90deg)";
       }
-      if (orientation === "ROTATED" && partPages === 8) {
-        const inverted = (rowIndex + colIndex) % 2 === 1;
-        return inverted ? "rotate(90deg)" : "rotate(-90deg)";
+      if (partPages === 4) {
+        return "rotate(0deg)";
+      }
+      if (partPages === 8 && rowCount >= 2) {
+        return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
       }
       if (rowCount >= 2) {
         return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
       }
-      return colIndex === 0 ? "rotate(180deg)" : "rotate(0deg)";
+      return "rotate(0deg)";
     };
 
     return (
       <div className="overflow-x-auto pb-1">
+        <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+          {brochureOrientation === "ROTATED" ? "Rotated imposition" : "Normal imposition"}
+          <span className="text-gray-400 font-normal normal-case">
+            {" "}
+            · {isNormalImposition ? "long-edge pair" : "short-edge pair"}
+          </span>
+        </div>
         <div
-          className={`grid gap-2 mx-auto min-w-72 max-w-full rounded-2xl border p-3 ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-blue/10 bg-white"}`}
+          className={`grid gap-2 mx-auto border p-3 ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-blue/10 bg-white"}`}
           style={{
-            aspectRatio: paperRatio,
-            width: paperIsHorizontal ? "min(100%, 34rem)" : "min(100%, 18rem)",
+            width: widthPx,
+            height: heightPx,
             gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
             gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
           }}
@@ -1337,7 +1450,7 @@ export default function QuotationEditorPage() {
               <div
                 key={`${ri}-${ci}-${pageNumber}`}
                 title={isBrochureColorPage(pageNumber) ? "Color page" : "Black and white page"}
-                className={`flex items-center justify-center rounded-sm border shadow-sm ${brochurePreviewPageClass(pageNumber)}`}
+                className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 ${brochurePreviewPageClass(pageNumber)}`}
               >
                 <span
                   className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
@@ -1374,7 +1487,8 @@ export default function QuotationEditorPage() {
     const scale = plan.signatures.filter((signature) => !signature.piggybackOnRunIndex).reduce(
       (acc, signature) => {
         [signature.imposition.front, signature.imposition.back].forEach((sideRows) => {
-          const metrics = nestedPreviewMetrics(signature, sideRows);
+          const baseSide = baseImpositionSideRows(sideRows, signature.repeatOnPortion, signature.signaturePages);
+          const metrics = nestedPreviewMetrics(signature, baseSide);
           acc.maxPreviewWidth = Math.max(acc.maxPreviewWidth, metrics.previewWidth);
           acc.maxPreviewBreadth = Math.max(acc.maxPreviewBreadth, metrics.previewBreadth);
         });
@@ -2315,7 +2429,7 @@ export default function QuotationEditorPage() {
                                 onClick={() => handleBrochureOrientationChange("NORMAL")}
                                 className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 border-r border-gov-border transition-colors min-w-0 ${brochureOrientation === "NORMAL" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                               >
-                                <span className="text-xs font-semibold truncate">Portrait</span>
+                                <span className="text-xs font-semibold truncate">Normal</span>
                                 <div className={`w-5 h-6 border flex items-center justify-center shrink-0 ${brochureOrientation === "NORMAL" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
                                   <span className="text-sm font-bold leading-none">A</span>
                                 </div>
@@ -2325,7 +2439,7 @@ export default function QuotationEditorPage() {
                                 onClick={() => handleBrochureOrientationChange("ROTATED")}
                                 className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 transition-colors min-w-0 ${brochureOrientation === "ROTATED" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                               >
-                                <span className="text-xs font-semibold truncate">Landscape</span>
+                                <span className="text-xs font-semibold truncate">Rotated</span>
                                 <div className={`w-9 h-4 border flex items-center justify-center shrink-0 ${brochureOrientation === "ROTATED" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
                                   <span className="text-[10px] font-bold leading-none">A</span>
                                 </div>
