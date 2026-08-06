@@ -20,6 +20,14 @@ import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
 
 const ADDRESS_TEMPLATE = { line1: "", line2: "", city: "", region: "", postalCode: "", country: "" };
 
+function formatPaperStockOptionLabel(stock) {
+  const dims = stock?.dimensions;
+  if (dims?.length != null && dims?.breadth != null) {
+    const unit = dims.unit ?? "";
+    return `${stock.name} (${dims.length}x${dims.breadth}${unit})`;
+  }
+  return stock?.name ?? "";
+}
 
 const LASER_SUB_TABS = [
   { id: "laser", label: "Normal Print", icon: MdComputer },
@@ -652,7 +660,7 @@ export default function QuotationEditorPage() {
       const data = await getLaserPaperStocks(q, 0, 20);
       setStockItemList(data.items || []);
       setLaserStockOptions((data.items || []).map(s => ({
-        label: `${s.name} (${s.unitOfMeasurement || 'Count'})`,
+        label: formatPaperStockOptionLabel(s),
         value: s.id
       })));
     } catch (e) { console.error(e); }
@@ -679,7 +687,7 @@ export default function QuotationEditorPage() {
       const data = await getOffsetPaperStocks(q, 0, 20);
       setStockItemList(data.items || []);
       setOffsetStockOptions((data.items || []).map(s => ({
-        label: `${s.name} (${s.unitOfMeasurement || 'Count'})`,
+        label: formatPaperStockOptionLabel(s),
         value: s.id
       })));
     } catch (e) { console.error(e); }
@@ -1168,6 +1176,61 @@ export default function QuotationEditorPage() {
     return { rowCount, colCount, previewWidth, previewBreadth };
   };
 
+  const renderCustomSizeFields = ({ className = "", widthRef, onWidthEnter, onBreadthEnter } = {}) => (
+    <div className={`p-3 bg-gov-blue-light border border-gov-border ${className}`.trim()}>
+      <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Custom page size</div>
+      <div className="flex flex-wrap items-end gap-x-2 gap-y-2 max-w-lg">
+        <label className="flex-1 min-w-[5.5rem]">
+          <span className="text-[10px] font-medium text-gray-500 mb-1 block">Width</span>
+          <input
+            type="number"
+            ref={widthRef}
+            placeholder="e.g. 210"
+            value={customWidth}
+            onChange={(e) => setCustomWidth(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onWidthEnter?.();
+              }
+            }}
+            className="gov-input w-full"
+          />
+        </label>
+        <span className="pb-2.5 text-sm text-gray-400 shrink-0">×</span>
+        <label className="flex-1 min-w-[5.5rem]">
+          <span className="text-[10px] font-medium text-gray-500 mb-1 block">Height</span>
+          <input
+            type="number"
+            ref={customBreadthRef}
+            placeholder="e.g. 297"
+            value={customBreadth}
+            onChange={(e) => setCustomBreadth(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onBreadthEnter?.();
+              }
+            }}
+            className="gov-input w-full"
+          />
+        </label>
+        <label className="w-[4.5rem] shrink-0">
+          <span className="text-[10px] font-medium text-gray-500 mb-1 block">Unit</span>
+          <select
+            value={customUnit}
+            onChange={(e) => setCustomUnit(e.target.value)}
+            className="gov-input w-full px-2"
+          >
+            <option value="mm">mm</option>
+            <option value="cm">cm</option>
+            <option value="inch">in</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+
   const renderNestedImpositionSide = (signature, sideRows, tone = "teal", planPreviewScale = null) => {
     const { rowCount, colCount, previewWidth, previewBreadth } = nestedPreviewMetrics(signature, sideRows);
     const paperIsHorizontal = previewWidth >= previewBreadth;
@@ -1176,15 +1239,21 @@ export default function QuotationEditorPage() {
       ? Math.max(0.22, Math.min(1, previewWidth / planPreviewScale.maxPreviewWidth))
       : 1;
     const referenceWidthRem = planPreviewScale?.paperIsHorizontal === false ? 18 : 34;
-    const numberRotation = (cell) => {
+    const signaturePages = signature.signaturePages ?? 0;
+    const isLandscape = signature.imposition.orientation === "ROTATED";
+    const numberRotation = (cell, rowIndex, colIndex) => {
       if (typeof cell.previewRotationDeg === "number") {
         return `rotate(${cell.previewRotationDeg}deg)`;
       }
-      if (signature.imposition.orientation === "ROTATED") {
-        return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
-      }
       if (colCount === 1) {
         return "rotate(90deg)";
+      }
+      // 4pp: left upside-down, right upright — portrait and landscape.
+      if (signaturePages === 4) {
+        return colIndex === 0 ? "rotate(180deg)" : "rotate(0deg)";
+      }
+      if (isLandscape && signaturePages === 8) {
+        return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
       }
       if (paperIsHorizontal) {
         return cell.designOrientation === "INVERTED" ? "rotate(90deg)" : "rotate(-90deg)";
@@ -1212,7 +1281,7 @@ export default function QuotationEditorPage() {
               >
                 <span
                   className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
-                  style={{ transform: numberRotation(cell) }}
+                  style={{ transform: numberRotation(cell, ri, ci) }}
                 >
                   {cell.pageNumber}
                 </span>
@@ -1234,20 +1303,22 @@ export default function QuotationEditorPage() {
     const paperIsHorizontal = previewWidth >= previewBreadth;
     const paperRatio = `${previewWidth} / ${previewBreadth}`;
     const orientation = seg.pageNumbering?.orientation ?? "NORMAL";
+    const partPages = seg.partPages ?? 0;
     const numberRotation = (pageNumber, rowIndex, colIndex) => {
-      if (orientation === "ROTATED") {
-        const inverted = (rowIndex + colIndex) % 2 === 1;
-        return inverted ? "rotate(90deg)" : "rotate(-90deg)";
-      }
       if (colCount === 1) {
         return "rotate(90deg)";
       }
-      if (paperIsHorizontal) {
-        const inverted = colIndex === 0;
+      if (partPages === 4) {
+        return colIndex === 0 ? "rotate(180deg)" : "rotate(0deg)";
+      }
+      if (orientation === "ROTATED" && partPages === 8) {
+        const inverted = (rowIndex + colIndex) % 2 === 1;
         return inverted ? "rotate(90deg)" : "rotate(-90deg)";
       }
-      const inverted = rowIndex === 0;
-      return inverted ? "rotate(180deg)" : "rotate(0deg)";
+      if (rowCount >= 2) {
+        return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
+      }
+      return colIndex === 0 ? "rotate(180deg)" : "rotate(0deg)";
     };
 
     return (
@@ -1889,54 +1960,12 @@ export default function QuotationEditorPage() {
                            />
 
 
-                          {laserSizeId === 'custom' && (
-                            <div className="p-5 bg-gov-blue/5 h-16 rounded-2xl border border-gov-blue/10 flex items-center gap-4 animate-slide-down">
-                               <div className="flex-1">
-                                  <input
-                                    type="number"
-                                    placeholder="Width"
-                                    ref={customWidthRef}
-                                    onKeyDown={e => {
-                                       if (e.key === "Enter") {
-                                          e.preventDefault();
-                                          customBreadthRef.current?.focus();
-                                       }
-                                    }}
-                                    value={customWidth}
-                                    onChange={e => setCustomWidth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-gov-blue/20 outline-none text-xs font-black text-gov-blue placeholder:text-gov-blue/55 py-1"
-                                  />
-                               </div>
-                               <span className="text-[10px] font-black text-gov-blue/55">×</span>
-                               <div className="flex-1">
-                                  <input
-                                    type="number"
-                                    placeholder="Breadth"
-                                    ref={customBreadthRef}
-                                    onKeyDown={e => {
-                                       if (e.key === "Enter") {
-                                          e.preventDefault();
-                                          laserStockRef.current?.focus();
-                                       }
-                                    }}
-                                    value={customBreadth}
-                                    onChange={e => setCustomBreadth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-gov-blue/20 outline-none text-xs font-black text-gov-blue placeholder:text-gov-blue/55 py-1"
-                                  />
-                               </div>
-                               <div className="w-16">
-                                  <select
-                                    value={customUnit}
-                                    onChange={e => setCustomUnit(e.target.value)}
-                                    className="w-full bg-transparent outline-none text-[10px] font-black text-gov-blue uppercase tracking-widest cursor-pointer"
-                                  >
-                                     <option value="mm">mm</option>
-                                     <option value="cm">cm</option>
-                                     <option value="inch">in</option>
-                                  </select>
-                               </div>
-                            </div>
-                          )}
+                          {laserSizeId === 'custom' && renderCustomSizeFields({
+                            className: "col-span-full",
+                            widthRef: customWidthRef,
+                            onWidthEnter: () => customBreadthRef.current?.focus(),
+                            onBreadthEnter: () => laserStockRef.current?.focus(),
+                          })}
 
                           <SearchableSelect
                              label="Paper / Stock"
@@ -2266,16 +2295,7 @@ export default function QuotationEditorPage() {
                            />
                           </div>
 
-                          {brochureSizeId === 'custom' && (
-                            <div className="p-2 bg-gov-blue-light border border-gov-border flex items-center gap-2">
-                               <input type="number" placeholder="Width" value={customWidth} onChange={e => setCustomWidth(e.target.value)} className="gov-input flex-1 py-1 text-xs" />
-                               <span className="text-xs text-gray-400">×</span>
-                               <input type="number" placeholder="Breadth" value={customBreadth} onChange={e => setCustomBreadth(e.target.value)} className="gov-input flex-1 py-1 text-xs" />
-                               <select value={customUnit} onChange={e => setCustomUnit(e.target.value)} className="gov-input w-16 py-1 text-xs">
-                                  <option value="mm">mm</option><option value="cm">cm</option><option value="inch">in</option>
-                               </select>
-                            </div>
-                          )}
+                          {brochureSizeId === 'custom' && renderCustomSizeFields()}
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <SearchableSelect
@@ -2306,8 +2326,8 @@ export default function QuotationEditorPage() {
                                 className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 transition-colors min-w-0 ${brochureOrientation === "ROTATED" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                               >
                                 <span className="text-xs font-semibold truncate">Landscape</span>
-                                <div className={`w-6 h-5 border flex items-center justify-center shrink-0 ${brochureOrientation === "ROTATED" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
-                                  <span className="text-sm font-bold leading-none rotate-90 inline-block">A</span>
+                                <div className={`w-9 h-4 border flex items-center justify-center shrink-0 ${brochureOrientation === "ROTATED" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
+                                  <span className="text-[10px] font-bold leading-none">A</span>
                                 </div>
                               </button>
                             </div>
@@ -2824,40 +2844,7 @@ export default function QuotationEditorPage() {
                           />
 
 
-                          {offsetSizeId === 'custom' && (
-                            <div className="p-5 bg-gov-blue/5 h-16 rounded-2xl border border-gov-blue/10 flex items-center gap-4 animate-slide-down">
-                               <div className="flex-1">
-                                  <input
-                                    type="number"
-                                    placeholder="Width"
-                                    value={customWidth}
-                                    onChange={e => setCustomWidth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-gov-blue/20 outline-none text-xs font-black text-gov-blue placeholder:text-gov-blue/55 py-1"
-                                  />
-                               </div>
-                               <span className="text-[10px] font-black text-gov-blue/55">×</span>
-                               <div className="flex-1">
-                                  <input
-                                    type="number"
-                                    placeholder="Breadth"
-                                    value={customBreadth}
-                                    onChange={e => setCustomBreadth(e.target.value)}
-                                    className="w-full bg-transparent border-b border-gov-blue/20 outline-none text-xs font-black text-gov-blue placeholder:text-gov-blue/55 py-1"
-                                  />
-                               </div>
-                               <div className="w-16">
-                                  <select
-                                    value={customUnit}
-                                    onChange={e => setCustomUnit(e.target.value)}
-                                    className="w-full bg-transparent outline-none text-[10px] font-black text-gov-blue uppercase tracking-widest cursor-pointer"
-                                  >
-                                     <option value="mm">mm</option>
-                                     <option value="cm">cm</option>
-                                     <option value="inch">in</option>
-                                  </select>
-                               </div>
-                            </div>
-                          )}
+                          {offsetSizeId === 'custom' && renderCustomSizeFields({ className: "col-span-full" })}
 
                           <SearchableSelect
                             label="Paper / Stock"
