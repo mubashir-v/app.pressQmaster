@@ -1278,6 +1278,57 @@ export default function QuotationEditorPage() {
     };
   };
 
+  /** Size nested inspect preview from physical sheet + repeat, with readable minimum cell size. */
+  const nestedImpositionPreviewBox = (signature, metrics, planPreviewScale) => {
+    const { rowCount, colCount } = metrics;
+    const repeatAcross = Math.max(1, signature.repeatOnPortion?.across ?? 1);
+    const repeatDown = Math.max(1, signature.repeatOnPortion?.down ?? 1);
+    const portionW = Number(signature.portion?.width) || metrics.previewWidth;
+    const portionB = Number(signature.portion?.breadth) || metrics.previewBreadth;
+    const physicalW = portionW * repeatAcross;
+    const physicalH = portionB * repeatDown;
+    const sheetAspect = physicalW / Math.max(physicalH, 0.01);
+
+    const maxWidthPx = planPreviewScale?.maxPreviewWidth
+      ? Math.max(300, Math.min(480, planPreviewScale.maxPreviewWidth * 10))
+      : 400;
+    const maxHeightPx = colCount >= 4 || rowCount >= 4 ? 400 : 320;
+    const minCellPx = colCount >= 4 ? 34 : rowCount >= 4 ? 30 : 26;
+
+    let widthPx = maxWidthPx;
+    let heightPx = widthPx / sheetAspect;
+
+    if (heightPx > maxHeightPx) {
+      heightPx = maxHeightPx;
+      widthPx = heightPx * sheetAspect;
+    }
+
+    widthPx = Math.max(widthPx, minCellPx * colCount);
+    heightPx = Math.max(heightPx, minCellPx * rowCount * 0.75);
+
+    if (widthPx > maxWidthPx) {
+      widthPx = maxWidthPx;
+      heightPx = widthPx / sheetAspect;
+    }
+    if (heightPx > maxHeightPx) {
+      heightPx = maxHeightPx;
+      widthPx = heightPx * sheetAspect;
+    }
+
+    let fontClass = "text-sm";
+    if (colCount >= 4 || rowCount >= 6) fontClass = "text-[10px]";
+    else if (colCount >= 3 || rowCount >= 4) fontClass = "text-xs";
+
+    return {
+      widthPx: Math.round(Math.max(140, widthPx)),
+      heightPx: Math.round(Math.max(120, heightPx)),
+      fontClass,
+      dense: colCount >= 4 || rowCount >= 4,
+      baseRows: canonicalBaseGrid(signature.signaturePages || 0).rows,
+      repeatDown,
+    };
+  };
+
   const renderCustomSizeFields = ({ className = "", widthRef, onWidthEnter, onBreadthEnter } = {}) => (
     <div className={`p-3 bg-gov-blue-light border border-gov-border ${className}`.trim()}>
       <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Custom page size</div>
@@ -1337,12 +1388,10 @@ export default function QuotationEditorPage() {
     const displayRows = impositionSideRowsForDisplay(sideRows, signature.repeatOnPortion, signature.signaturePages);
     const repeatCopies =
       Math.max(1, signature.repeatOnPortion?.across ?? 1) * Math.max(1, signature.repeatOnPortion?.down ?? 1);
-    const { rowCount, colCount, previewWidth, previewBreadth, isNormalImposition, impositionFootprint } =
-      nestedPreviewMetrics(signature, displayRows);
-    const maxPx = planPreviewScale?.maxPreviewWidth
-      ? Math.max(160, Math.min(320, planPreviewScale.maxPreviewWidth * 6))
-      : 260;
-    const { widthPx, heightPx } = impositionPreviewBoxSize(previewWidth, previewBreadth, maxPx);
+    const metrics = nestedPreviewMetrics(signature, displayRows);
+    const { rowCount, colCount, isNormalImposition, impositionFootprint } = metrics;
+    const previewBox = nestedImpositionPreviewBox(signature, metrics, planPreviewScale);
+    const { widthPx, heightPx, fontClass, dense, baseRows, repeatDown } = previewBox;
     const isShortEdgePair = impositionFootprint === "ROTATED";
     const numberRotation = (cell, rowIndex, colIndex) => {
       if (typeof cell.previewRotationDeg === "number") {
@@ -1355,7 +1404,7 @@ export default function QuotationEditorPage() {
     };
 
     return (
-      <div className="overflow-x-auto pb-1">
+      <div className="overflow-x-auto pb-1 w-full">
         <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
           {isShortEdgePair ? "Rotated imposition" : "Normal imposition"}
           {repeatCopies > 1 ? ` · full sheet ×${repeatCopies}` : ""}
@@ -1365,9 +1414,10 @@ export default function QuotationEditorPage() {
           </span>
         </div>
         <div
-          className={`grid gap-1 mx-auto border p-2 ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
+          className={`grid gap-1 mx-auto border w-full max-w-full ${dense ? "gap-0.5 p-1" : "p-2"} ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
           style={{
             width: widthPx,
+            maxWidth: "100%",
             height: heightPx,
             gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
             gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
@@ -1378,10 +1428,12 @@ export default function QuotationEditorPage() {
               <div
                 key={`${ri}-${ci}-${cell.pageNumber}`}
                 title={`${cell.designOrientation.toLowerCase()} page design${isBrochureColorPage(cell.pageNumber) ? " • color page" : ""}`}
-                className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${brochurePreviewPageClass(cell.pageNumber)}`}
+                className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${brochurePreviewPageClass(cell.pageNumber)} ${
+                  repeatDown > 1 && ri > 0 && ri % baseRows === 0 ? "border-t-2 border-dashed border-gov-blue/25" : ""
+                }`}
               >
                 <span
-                  className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
+                  className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
                   style={{ transform: numberRotation(cell, ri, ci) }}
                 >
                   {cell.pageNumber}
@@ -1599,12 +1651,12 @@ export default function QuotationEditorPage() {
                     <div className="border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-800">{signature.cutAfterPrint}</div>
                   )}
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                    <div className="border border-gov-border bg-gray-50 p-2">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 min-w-0">
+                    <div className="border border-gov-border bg-gray-50 p-2 min-w-0">
                       <div className="text-[9px] font-semibold text-gray-500 uppercase mb-1.5">Front side</div>
                       {renderNestedImpositionSide(signature, signature.imposition.front, "teal", previewScale)}
                     </div>
-                    <div className="border border-gov-border bg-gray-50 p-2">
+                    <div className="border border-gov-border bg-gray-50 p-2 min-w-0">
                       <div className="text-[9px] font-semibold text-gray-500 uppercase mb-1.5">Back side</div>
                       {renderNestedImpositionSide(signature, signature.imposition.back, "navy", previewScale)}
                     </div>
