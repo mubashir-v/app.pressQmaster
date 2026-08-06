@@ -1236,7 +1236,17 @@ export default function QuotationEditorPage() {
     return sideRows.slice(0, baseRows).map((row) => row.slice(0, baseCols));
   };
 
-  /** Metrics for one imposition side tile (sideRows should already be the base tile). */
+  /** Full press sheet when multi-up; otherwise the single signature tile. */
+  const impositionSideRowsForDisplay = (sideRows, repeatOnPortion = { across: 1, down: 1 }, signaturePages = 0) => {
+    const repeatCopies =
+      Math.max(1, repeatOnPortion?.across ?? 1) * Math.max(1, repeatOnPortion?.down ?? 1);
+    if (repeatCopies > 1 && sideRows?.length) {
+      return sideRows;
+    }
+    return baseImpositionSideRows(sideRows, repeatOnPortion, signaturePages);
+  };
+
+  /** Metrics for the imposition grid shown in inspect (base tile or full repeated sheet). */
   const nestedPreviewMetrics = (signature, sideRows) => {
     const rowCount = Math.max(1, sideRows?.length || 1);
     const colCount = Math.max(1, sideRows?.[0]?.length || 1);
@@ -1324,7 +1334,7 @@ export default function QuotationEditorPage() {
   );
 
   const renderNestedImpositionSide = (signature, sideRows, tone = "teal", planPreviewScale = null) => {
-    const displayRows = baseImpositionSideRows(sideRows, signature.repeatOnPortion, signature.signaturePages);
+    const displayRows = impositionSideRowsForDisplay(sideRows, signature.repeatOnPortion, signature.signaturePages);
     const repeatCopies =
       Math.max(1, signature.repeatOnPortion?.across ?? 1) * Math.max(1, signature.repeatOnPortion?.down ?? 1);
     const { rowCount, colCount, previewWidth, previewBreadth, isNormalImposition, impositionFootprint } =
@@ -1338,17 +1348,8 @@ export default function QuotationEditorPage() {
       if (typeof cell.previewRotationDeg === "number") {
         return `rotate(${cell.previewRotationDeg}deg)`;
       }
-      if (colCount === 1) {
+      if (colCount === 1 && !isShortEdgePair) {
         return "rotate(90deg)";
-      }
-      if (isShortEdgePair) {
-        if (rowCount >= 2) {
-          return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
-        }
-        return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
-      }
-      if (rowCount >= 2) {
-        return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
       }
       return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
     };
@@ -1357,7 +1358,7 @@ export default function QuotationEditorPage() {
       <div className="overflow-x-auto pb-1">
         <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
           {isShortEdgePair ? "Rotated imposition" : "Normal imposition"}
-          {repeatCopies > 1 ? ` · ×${repeatCopies} on sheet` : ""}
+          {repeatCopies > 1 ? ` · full sheet ×${repeatCopies}` : ""}
           <span className="text-gray-400 font-normal normal-case">
             {" "}
             · {isNormalImposition ? "long-edge pair" : "short-edge pair"}
@@ -1413,7 +1414,7 @@ export default function QuotationEditorPage() {
         if (partPages === 4) {
           return "rotate(0deg)";
         }
-        return colIndex % 2 === 0 ? "rotate(-90deg)" : "rotate(90deg)";
+        return "rotate(0deg)";
       }
       if (partPages === 4) {
         return "rotate(0deg)";
@@ -1487,8 +1488,8 @@ export default function QuotationEditorPage() {
     const scale = plan.signatures.filter((signature) => !signature.piggybackOnRunIndex).reduce(
       (acc, signature) => {
         [signature.imposition.front, signature.imposition.back].forEach((sideRows) => {
-          const baseSide = baseImpositionSideRows(sideRows, signature.repeatOnPortion, signature.signaturePages);
-          const metrics = nestedPreviewMetrics(signature, baseSide);
+          const displaySide = impositionSideRowsForDisplay(sideRows, signature.repeatOnPortion, signature.signaturePages);
+          const metrics = nestedPreviewMetrics(signature, displaySide);
           acc.maxPreviewWidth = Math.max(acc.maxPreviewWidth, metrics.previewWidth);
           acc.maxPreviewBreadth = Math.max(acc.maxPreviewBreadth, metrics.previewBreadth);
         });
