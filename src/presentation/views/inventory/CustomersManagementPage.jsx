@@ -242,7 +242,7 @@ export default function CustomersManagementPage() {
                       <tbody>
                           {items.length === 0 ? (
                               <tr>
-                                  <td colSpan="4" className="px-6 py-12 text-center text-gov-blue/40 font-bold">No customer accounts registered.</td>
+                                  <td colSpan="4" className="py-8 text-center text-gov-blue/40 font-bold">No customer accounts registered.</td>
                               </tr>
                           ) : (
                               items.map(item => (

@@ -14,8 +14,14 @@ export default function SizeChartsManagementPage() {
   const { user } = useAuth();
   
   // Scopes protection
-  const canEdit = user?.scopes?.includes("all_scope") || user?.scopes?.includes("edit_sizeChart") || user?.scopes?.includes("manage_sizeChart");
-  const canDelete = user?.scopes?.includes("all_scope") || user?.scopes?.includes("manage_sizeChart");
+  const canEdit = user?.scopes?.includes("all_scope")
+    || user?.scopes?.includes("edit_sizeChart")
+    || user?.scopes?.includes("manage_sizeChart")
+    || user?.scopes?.includes("edit_stocks")
+    || user?.scopes?.includes("manage_stocks");
+  const canDelete = user?.scopes?.includes("all_scope")
+    || user?.scopes?.includes("manage_sizeChart")
+    || user?.scopes?.includes("manage_stocks");
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -174,7 +180,7 @@ export default function SizeChartsManagementPage() {
                       </thead>
                       <tbody>
                           {items.length === 0 ? (
-                              <tr><td colSpan="4" className="px-6 py-12 text-center text-gov-blue/40 font-bold italic underline decoration-brand-navy/10 underline-offset-4">No size charts registered yet.</td></tr>
+                              <tr><td colSpan="4" className="py-8 text-center text-gov-blue/40 font-bold italic underline decoration-brand-navy/10 underline-offset-4">No size charts registered yet.</td></tr>
                           ) : (
                               items.map(item => (
                                   <tr key={item.id}>

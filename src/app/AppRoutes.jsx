@@ -14,7 +14,11 @@ import PrintersManagementPage from "../presentation/views/inventory/PrintersMana
 import CustomersManagementPage from "../presentation/views/inventory/CustomersManagementPage.jsx";
 import QuotationsManagementPage from "../presentation/views/quotes/QuotationsManagementPage.jsx";
 import QuotationEditorPage from "../presentation/views/quotes/QuotationEditorPage.jsx";
+import QuotationViewPage from "../presentation/views/quotes/QuotationViewPage.jsx";
 import SizeChartsManagementPage from "../presentation/views/inventory/SizeChartsManagementPage.jsx";
+import JobsManagementPage from "../presentation/views/jobs/JobsManagementPage.jsx";
+import JobQuotationPage from "../presentation/views/jobs/JobQuotationPage.jsx";
+import JobDetailPage from "../presentation/views/jobs/JobDetailPage.jsx";
 
 import ProtectedRoute from "../presentation/components/routing/ProtectedRoute.jsx";
 
@@ -38,11 +42,14 @@ export default function AppRoutes() {
             <Route path="customers" element={<CustomersManagementPage />} />
             <Route path="quotes" element={<QuotationsManagementPage />} />
             <Route path="quotes/new" element={<QuotationEditorPage />} />
+            <Route path="quotes/:id/view" element={<QuotationViewPage />} />
             <Route path="quotes/:id" element={<QuotationEditorPage />} />
             <Route path="invoices" element={<GenericDashboardView />} />
 
 
-            <Route path="jobs" element={<GenericDashboardView />} />
+            <Route path="jobs" element={<JobsManagementPage />} />
+            <Route path="jobs/quotation/:quotationId" element={<JobQuotationPage />} />
+            <Route path="jobs/:jobId" element={<JobDetailPage />} />
             <Route path="users" element={<UsersManagementPage />} />
             
             {/* Inventory Routes */}

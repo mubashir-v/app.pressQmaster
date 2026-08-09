@@ -218,11 +218,11 @@ body {
   color: #999;
 }
 
-/* Data table */
+/* Data table — compact density for all list views */
 .gov-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
 }
 
 .gov-table thead tr {
@@ -231,19 +231,21 @@ body {
 }
 
 .gov-table th {
-  padding: 0.625rem 1rem;
+  padding: 0.375rem 0.5rem;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   font-weight: 700;
   color: #444;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .gov-table td {
-  padding: 0.75rem 1rem;
+  padding: 0.375rem 0.5rem;
   border-bottom: 1px solid #eee;
   color: #333;
+  vertical-align: middle;
 }
 
 .gov-table tbody tr:hover {

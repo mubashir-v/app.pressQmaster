@@ -11,6 +11,7 @@ export default function PaperLayoutPreview({
   printerName,
   totalPrice,
   currency = "INR",
+  hidePricing = false,
 }) {
   if (!layout || !layout.paper || !layout.placements) {
     return (
@@ -46,14 +47,18 @@ export default function PaperLayoutPreview({
     },
     {
       label: "Usage",
-      value: `${sheets} / ${parentSheets ?? "—"}`,
+      value: `${sheets ?? "—"} / ${parentSheets ?? "—"}`,
       sub: "portion / stock",
     },
-    {
-      label: "Total",
-      value: `${currency} ${totalPrice?.toLocaleString() ?? "—"}`,
-      sub: `${prints ?? 0} imps`,
-    },
+    ...(hidePricing
+      ? []
+      : [
+          {
+            label: "Total",
+            value: `${currency} ${totalPrice?.toLocaleString() ?? "—"}`,
+            sub: `${prints ?? 0} imps`,
+          },
+        ]),
   ];
 
   return (

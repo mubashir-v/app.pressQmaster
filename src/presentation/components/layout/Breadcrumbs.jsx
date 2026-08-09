@@ -11,6 +11,8 @@ const ROUTE_LABELS = {
   "size-charts": "Size Charts",
   "organization-settings": "Organization Settings",
   organizations: "Organizations",
+  jobs: "Jobs",
+  quotation: "Create job",
   support: "Support",
 };
 
@@ -23,9 +25,14 @@ function buildCrumbs(pathname) {
     const seg = segments[i];
     accumulated += `/${seg}`;
 
-    // MongoDB ObjectId → "Edit Quote"
+    // MongoDB ObjectId → contextual label
     if (/^[a-f0-9]{24}$/.test(seg)) {
-      crumbs.push({ label: "Edit Quote", href: accumulated });
+      const prev = segments[i - 1];
+      let label = "Detail";
+      if (prev === "quotation") label = "Quotation detail";
+      else if (prev === "quotes") label = "Edit Quote";
+      else if (prev === "jobs") label = "Job detail";
+      crumbs.push({ label, href: accumulated });
       continue;
     }
 

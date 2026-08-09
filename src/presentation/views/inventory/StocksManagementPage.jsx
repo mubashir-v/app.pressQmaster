@@ -483,23 +483,23 @@ export default function StocksManagementPage() {
                       <tbody>
                           {items.length === 0 ? (
                               <tr>
-                                  <td colSpan="4" className="px-6 py-12 text-center text-gov-blue/40 font-bold">No stock items provisioned yet.</td>
+                                  <td colSpan="4" className="py-8 text-center text-gov-blue/40 font-bold">No stock items provisioned yet.</td>
                               </tr>
                           ) : (
                               items.map(item => (
                                   <tr key={item.id}>
-                                      <td className="px-6 py-4">
+                                      <td>
                                           <div className="font-bold text-gov-blue">{item.name}</div>
                                           <div className={`text-[10px] font-bold uppercase ${item.isActive ? 'text-gov-blue' : 'text-gov-blue/40'}`}>
                                               {item.isActive ? 'Active' : 'Archived'}
                                           </div>
                                       </td>
-                                      <td className="px-6 py-4">
+                                      <td>
                                           <span className="px-3 py-1 rounded-full bg-brand-navy/5 text-gov-blue text-[11px] font-bold border border-gov-blue/5">
                                               {ITEM_TYPES.find(t => t.value === item.itemType)?.label || item.itemType}
                                           </span>
                                       </td>
-                                      <td className="px-6 py-4">
+                                      <td>
                                           <div className="text-sm font-medium text-gov-blue/80">
                                               {item.gsm ? `${item.gsm} GSM` : "N/A"}
                                           </div>
@@ -507,7 +507,7 @@ export default function StocksManagementPage() {
                                               {item.dimensions ? `${item.dimensions.length}×${item.dimensions.breadth} ${item.dimensions.unit}` : ""}
                                           </div>
                                       </td>
-                                      <td className="px-6 py-4 text-right">
+                                      <td className="text-right">
                                           {canEdit && (
                                               <div className="flex justify-end gap-2">
                                                   <button 

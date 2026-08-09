@@ -1,16 +1,18 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
+import { canEditQuotes } from "../../../application/auth/orgScopes.js";
 
 const MAIN_ITEMS = [
   { label: "Customers", href: "/dashboard/customers", requiredScopes: ["view_customers", "edit_customers", "manage_customers"] },
   { label: "Quotation", href: "/dashboard/quotes", requiredScopes: ["view_quotes", "edit_quotes", "manage_quotes"] },
+  { label: "Jobs", href: "/dashboard/jobs", requiredScopes: ["view_jobs", "edit_jobs", "manage_jobs", "view_production", "view_quotes", "edit_quotes", "manage_quotes"] },
   { label: "Users", href: "/dashboard/users", requiredScopes: ["view_users", "edit_users", "manage_users"] },
 ];
 
 const INVENTORY_ITEMS = [
   { label: "Printer & Plates", href: "/dashboard/printers", requiredScopes: ["view_printers", "edit_printers", "manage_printers"] },
-  { label: "Paper & Stock", href: "/dashboard/papers", requiredScopes: ["view_stocks", "edit_stocks", "manage_stocks"] },
-  { label: "Size Charts", href: "/dashboard/size-charts", requiredScopes: ["view_sizeChart", "edit_sizeChart", "manage_sizeChart"] },
+  { label: "Paper & Stock", href: "/dashboard/papers", requiredScopes: ["view_stocks", "view_stock", "edit_stocks", "manage_stocks"] },
+  { label: "Size Charts", href: "/dashboard/size-charts", requiredScopes: ["view_sizeChart", "edit_sizeChart", "manage_sizeChart", "view_stocks", "view_stock", "edit_stocks", "manage_stocks"] },
 ];
 
 function filterByScope(items, user) {
@@ -24,6 +26,7 @@ function filterByScope(items, user) {
 export default function TopNavBar() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const canCreateQuote = canEditQuotes(user?.scopes, user);
 
   const mainItems = filterByScope(MAIN_ITEMS, user);
   const inventoryItems = filterByScope(INVENTORY_ITEMS, user);
@@ -50,14 +53,16 @@ export default function TopNavBar() {
         ))}
       </div>
 
-      <div className="flex items-center px-4 border-l border-white/20 shrink-0">
-        <button
-          onClick={() => navigate("/dashboard/quotes/new")}
-          className="px-3 py-1 text-xs font-semibold bg-white text-gov-blue hover:bg-gray-100 transition-colors"
-        >
-          + New Quote
-        </button>
-      </div>
+      {canCreateQuote && (
+        <div className="flex items-center px-4 border-l border-white/20 shrink-0">
+          <button
+            onClick={() => navigate("/dashboard/quotes/new")}
+            className="px-3 py-1 text-xs font-semibold bg-white text-gov-blue hover:bg-gray-100 transition-colors"
+          >
+            + New Quote
+          </button>
+        </div>
+      )}
     </nav>
   );
 }

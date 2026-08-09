@@ -4,6 +4,11 @@ import { PrimaryButton, TextField } from "../../components/auth/AuthFormPrimitiv
 import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import { MdAdd, MdClose, MdShield, MdEdit } from "react-icons/md";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
+import {
+  canInviteOrganizationMembers,
+  canManageOrganizationMembers,
+  canViewOrganizationMembers,
+} from "../../../application/auth/orgScopes.js";
 
 function getInitials(name, email) {
   if (name) {
@@ -23,11 +28,78 @@ const RESOURCE_SCOPES = [
    { id: "users", title: "Users", actions: ["view", "edit", "manage"] },
    { id: "printers", title: "Printer & Plates", actions: ["view", "edit", "manage"] },
    { id: "stocks", title: "Paper & Stock", actions: ["view", "edit", "manage"] },
-   { id: "sizeChart", title: "Size Charts", actions: ["view", "edit", "manage"] },
 ];
+
+/** Stock permissions also cover size charts (single RBAC row). */
+const STOCK_BUNDLED_RESOURCES = ["stocks", "sizeChart"];
+
+/** Maps UI resource ids to backend scope tokens. */
+function scopeToken(action, resourceId) {
+  if (resourceId === "stocks" && action === "view") return "view_stock";
+  return `${action}_${resourceId}`;
+}
+
+function parseScopeId(scopeId) {
+  const sep = scopeId.indexOf("_");
+  return { action: scopeId.slice(0, sep), resource: scopeId.slice(sep + 1) };
+}
+
+function bundledResources(resource) {
+  if (resource === "stocks" || resource === "sizeChart") return STOCK_BUNDLED_RESOURCES;
+  return [resource];
+}
+
+function scopeIsPresent(inviteScopes, action, resource) {
+  if (inviteScopes.includes("all_scope")) return true;
+  if (resource === "stocks" && action === "view" && inviteScopes.includes("view_stocks")) return true;
+  return bundledResources(resource).some((r) => inviteScopes.includes(scopeToken(action, r)));
+}
+
+function removeScopeTokens(newScopes, action, resource) {
+  let result = newScopes;
+  for (const r of bundledResources(resource)) {
+    const actionsToClear =
+      action === "view" ? ["view", "edit", "manage"] : action === "edit" ? ["edit", "manage"] : ["manage"];
+    for (const a of actionsToClear) {
+      result = result.filter((s) => s !== scopeToken(a, r));
+      if (r === "stocks" && a === "view") {
+        result = result.filter((s) => s !== "view_stocks");
+      }
+    }
+  }
+  return result;
+}
+
+function addScopeTokens(newScopes, action, resource) {
+  let result = [...newScopes];
+  for (const r of bundledResources(resource)) {
+    if (action === "manage") {
+      for (const a of ["view", "edit", "manage"]) {
+        const token = scopeToken(a, r);
+        if (!result.includes(token)) result.push(token);
+      }
+    } else if (action === "edit") {
+      for (const a of ["view", "edit"]) {
+        const token = scopeToken(a, r);
+        if (!result.includes(token)) result.push(token);
+      }
+    } else {
+      const token = scopeToken("view", r);
+      if (!result.includes(token)) result.push(token);
+    }
+  }
+  return result;
+}
+
+function scopeCheckedForResource(inviteScopes, action, resource) {
+  return scopeIsPresent(inviteScopes, action, resource);
+}
 
 export default function UsersManagementPage() {
   const { user } = useAuth();
+  const canViewTeam = canViewOrganizationMembers(user);
+  const canManageTeam = canManageOrganizationMembers(user);
+  const canInvite = canInviteOrganizationMembers(user);
   
   const [members, setMembers] = useState([]);
   const [pending, setPending] = useState([]);
@@ -66,24 +138,14 @@ export default function UsersManagementPage() {
   }, []);
 
   function handleScopeToggle(scopeId) {
-      if (inviteRole === "ADMIN" || inviteRole === "OWNER") return; // Natively blocked by UI
-      
+      if (inviteRole === "ADMIN" || inviteRole === "OWNER") return;
+
       let newScopes = [...inviteScopes].filter(s => s !== "all_scope");
-      
-      if (newScopes.includes(scopeId)) {
-          newScopes = newScopes.filter(s => s !== scopeId);
-      } else {
-          newScopes.push(scopeId);
-          // Smart cascade logic
-          const [action, resource] = scopeId.split('_');
-          if (action === "manage") {
-              if (!newScopes.includes(`view_${resource}`)) newScopes.push(`view_${resource}`);
-              if (!newScopes.includes(`edit_${resource}`)) newScopes.push(`edit_${resource}`);
-          }
-          if (action === "edit") {
-              if (!newScopes.includes(`view_${resource}`)) newScopes.push(`view_${resource}`);
-          }
-      }
+      const { action, resource } = parseScopeId(scopeId);
+      const isOn = scopeIsPresent(newScopes, action, resource);
+      newScopes = isOn
+        ? removeScopeTokens(newScopes, action, resource)
+        : addScopeTokens(newScopes, action, resource);
       setInviteScopes(newScopes);
   }
 
@@ -193,7 +255,19 @@ export default function UsersManagementPage() {
          </div>
       )}
 
-      {loading ? (
+      {!canViewTeam && (
+         <div className="mb-4 bg-amber-50 p-3 text-sm font-semibold text-amber-900 border border-amber-200">
+            You do not have permission to view the team roster.
+         </div>
+      )}
+
+      {canViewTeam && !canManageTeam && (
+         <div className="mb-4 bg-amber-50 p-3 text-sm font-semibold text-amber-900 border border-amber-200">
+            View only — you can see team members but cannot invite or change access.
+         </div>
+      )}
+
+      {!canViewTeam ? null : loading ? (
           <div className="flex justify-center p-20">
              <div className="w-8 h-8 border-2 border-gov-border border-t-gov-blue animate-spin"></div>
           </div>
@@ -204,6 +278,7 @@ export default function UsersManagementPage() {
                      <h2 className="text-lg font-bold text-gray-900">Active Staff</h2>
                      <div className="flex items-center gap-3">
                          <span className="text-xs font-semibold text-gray-500 border border-gov-border px-2 py-1">{members.length} Total</span>
+                         {canInvite && (
                          <button
                             onClick={openInviteModal}
                             className="gov-btn-primary"
@@ -211,6 +286,7 @@ export default function UsersManagementPage() {
                             <MdAdd className="w-4 h-4" />
                             Invite User
                          </button>
+                         )}
                      </div>
                  </div>
                  
@@ -219,8 +295,8 @@ export default function UsersManagementPage() {
                  ) : (
                      <ul className="divide-y divide-gov-border">
                         {members.map(member => (
-                            <li key={member.membershipId} className={`p-6 hover:bg-zinc-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${member.memberActive === false ? 'opacity-50 grayscale' : ''}`}>
-                                <div className="flex items-center gap-4">
+                            <li key={member.membershipId} className={`px-3 py-2 hover:bg-zinc-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${member.memberActive === false ? 'opacity-50 grayscale' : ''}`}>
+                                <div className="flex items-center gap-3">
                                    <div className="relative">
                                      {member.photoUrl && !failedImages[member.membershipId] ? (
                                         <img 
@@ -228,24 +304,24 @@ export default function UsersManagementPage() {
                                            alt="profile" 
                                            referrerPolicy="no-referrer"
                                            onError={() => setFailedImages(prev => ({ ...prev, [member.membershipId]: true }))}
-                                           className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" 
+                                           className="w-8 h-8 rounded-full border-2 border-white shadow-sm object-cover" 
                                         />
                                      ) : (
-                                        <div className="w-10 h-10 flex items-center justify-center rounded-full bg-brand-navy text-white font-bold tracking-widest shadow-sm text-sm">
+                                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-brand-navy text-white font-bold tracking-widest shadow-sm text-xs">
                                            {getInitials(member.displayName, member.email)}
                                         </div>
                                      )}
-                                     <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-white rounded-full ${member.memberActive === false ? 'bg-red-500' : 'bg-gov-blue'}`}></div>
+                                     <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 border-2 border-white rounded-full ${member.memberActive === false ? 'bg-red-500' : 'bg-gov-blue'}`}></div>
                                    </div>
                                    <div>
-                                      <div className="font-bold text-gov-blue tracking-tight">{member.displayName || "Unregistered Account"}</div>
-                                      <div className="text-sm text-gov-blue/60 font-medium">{member.email} {member.memberActive === false && <span className="text-red-500 font-bold ml-1">(Suspended)</span>}</div>
+                                      <div className="text-sm font-bold text-gov-blue tracking-tight leading-tight">{member.displayName || "Unregistered Account"}</div>
+                                      <div className="text-xs text-gov-blue/60 font-medium leading-tight">{member.email} {member.memberActive === false && <span className="text-red-500 font-bold ml-1">(Suspended)</span>}</div>
                                    </div>
                                 </div>
                                 
-                                <div className="flex flex-wrap items-center gap-4">
-                                     <div className="flex items-center gap-2">
-                                         <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${
+                                <div className="flex flex-wrap items-center gap-2">
+                                     <div className="flex items-center gap-1.5">
+                                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 ${
                                              member.role === 'OWNER' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
                                              member.role === 'ADMIN' ? 'bg-brand-navy text-white' :
                                              member.role === 'MANAGER' ? 'bg-gov-blue-light text-gov-blue border border-gov-blue/20' :
@@ -256,20 +332,21 @@ export default function UsersManagementPage() {
                                          </span>
                                          
                                          {member.scopes.includes("all_scope") && (
-                                             <span className="px-3 py-1.5 rounded-full bg-gov-blue/10 text-gov-blue border border-gov-blue/20 text-xs font-bold">
+                                             <span className="px-2 py-0.5 rounded-full bg-gov-blue/10 text-gov-blue border border-gov-blue/20 text-[10px] font-bold">
                                                 ALL PERMISSIONS
                                              </span>
                                          )}
                                      </div>
 
-                                     {/* Edit Access Action Button */}
+                                     {canManageTeam && (
                                      <button 
                                         onClick={() => openEditModal(member)}
-                                        className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gov-blue hover:bg-gray-50 transition-colors flex-shrink-0"
+                                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gov-blue hover:bg-gray-50 transition-colors shrink-0"
                                         title="Edit User Access"
                                      >
-                                         <MdEdit className="w-5 h-5" />
+                                         <MdEdit className="w-4 h-4" />
                                      </button>
+                                     )}
                                 </div>
                             </li>
                         ))}
@@ -286,17 +363,17 @@ export default function UsersManagementPage() {
                      </div>
                      <ul className="divide-y divide-gov-border">
                         {pending.map(invite => (
-                            <li key={invite.invitationId} className="p-6 hover:bg-zinc-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="flex items-center gap-4 opacity-60">
-                                   <div className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-800 font-bold tracking-widest shadow-sm">
+                            <li key={invite.invitationId} className="px-3 py-2 hover:bg-zinc-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center gap-3 opacity-60">
+                                   <div className="w-8 h-8 flex items-center justify-center rounded-full bg-orange-100 text-orange-800 font-bold tracking-widest shadow-sm text-xs">
                                        {getInitials(null, invite.emailNormalized)}
                                    </div>
                                    <div>
-                                      <div className="font-bold text-gov-blue tracking-tight">{invite.emailNormalized}</div>
-                                      <div className="text-xs text-orange-600 font-semibold mt-0.5">Activation required</div>
+                                      <div className="text-sm font-bold text-gov-blue tracking-tight leading-tight">{invite.emailNormalized}</div>
+                                      <div className="text-[10px] text-orange-600 font-semibold">Activation required</div>
                                    </div>
                                 </div>
-                                <span className="opacity-60 px-4 py-1.5 rounded-full bg-zinc-100 text-gov-blue/60 text-xs font-bold uppercase tracking-widest border border-zinc-200">
+                                <span className="opacity-60 px-2 py-0.5 rounded-full bg-zinc-100 text-gov-blue/60 text-[10px] font-bold uppercase tracking-wide border border-zinc-200">
                                     PENDING {invite.role}
                                 </span>
                             </li>
@@ -402,11 +479,19 @@ export default function UsersManagementPage() {
                               <div className="space-y-2">
                                  {RESOURCE_SCOPES.map(resource => (
                                      <div key={resource.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gov-border bg-gray-50 gap-4">
-                                         <div className="font-bold text-sm text-gov-blue w-1/3">{resource.title}</div>
+                                         <div className="font-bold text-sm text-gov-blue w-1/3">
+                                            {resource.title}
+                                            {resource.id === "stocks" && (
+                                              <div className="text-[10px] font-medium text-gov-blue/50 normal-case tracking-normal mt-0.5">Includes size charts</div>
+                                            )}
+                                            {resource.id === "quotes" && (
+                                              <div className="text-[10px] font-medium text-gov-blue/50 normal-case tracking-normal mt-0.5">Includes read access to stock, printers &amp; customers for quoting</div>
+                                            )}
+                                         </div>
                                          <div className="flex flex-wrap items-center gap-6">
                                             {resource.actions.map(action => {
                                                 const scopeId = `${action}_${resource.id}`;
-                                                const isChecked = inviteScopes.includes(scopeId) || inviteScopes.includes("all_scope");
+                                                const isChecked = scopeCheckedForResource(inviteScopes, action, resource.id);
                                                 
                                                 return (
                                                     <label 

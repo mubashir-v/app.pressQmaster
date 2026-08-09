@@ -9,7 +9,9 @@ export default function DashboardLayout() {
 
   const isEditorView =
     location.pathname.includes("/dashboard/quotes/new") ||
-    /\/dashboard\/quotes\/[a-f0-9]{24}/.test(location.pathname);
+    /\/dashboard\/quotes\/[a-f0-9]{24}(\/view)?/.test(location.pathname) ||
+    /\/dashboard\/jobs\/[a-f0-9]{24}$/.test(location.pathname) ||
+    /\/dashboard\/jobs\/quotation\/[a-f0-9]{24}/.test(location.pathname);
 
   return (
     <div className="gov-app flex h-screen flex-col overflow-hidden bg-gov-bg font-sans text-brand-dark">

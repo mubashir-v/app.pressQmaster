@@ -328,12 +328,12 @@ export default function PrintersManagementPage() {
                       <tbody>
                           {items.length === 0 ? (
                               <tr>
-                                  <td colSpan="4" className="px-6 py-12 text-center text-gov-blue/40 font-bold">No printers provisioned yet.</td>
+                                  <td colSpan="4" className="py-8 text-center text-gov-blue/40 font-bold">No printers provisioned yet.</td>
                               </tr>
                           ) : (
                               items.map(item => (
                                   <tr key={item.id}>
-                                      <td className="px-6 py-4">
+                                      <td>
                                            <div className="font-bold text-gov-blue">{item.name}</div>
                                            <div className="flex items-center gap-2 mt-1">
                                               <div className={`text-[10px] font-bold uppercase ${item.isActive ? 'text-gov-blue' : 'text-gov-blue/40'}`}>
@@ -346,7 +346,7 @@ export default function PrintersManagementPage() {
                                               )}
                                            </div>
                                        </td>
-                                       <td className="px-6 py-4">
+                                       <td>
                                            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-tight border ${item.printerTechnology === 'OFFSET' ? 'bg-brand-navy text-white border-gov-blue' : 'bg-gov-blue-light text-gov-blue border-brand-mint'}`}>
                                                {item.printerTechnology === 'OFFSET' ? <MdLayers className="w-3.5 h-3.5" /> : <MdInvertColors className="w-3.5 h-3.5" />}
                                                {item.printerTechnology}
@@ -357,7 +357,7 @@ export default function PrintersManagementPage() {
                                              </div>
                                            )}
                                        </td>
-                                      <td className="px-6 py-4">
+                                      <td>
                                           <div className="flex flex-col gap-2">
                                               {item.pricingModes?.map((m, idx) => (
                                                   <div key={idx} className="flex items-center gap-2">
@@ -375,7 +375,7 @@ export default function PrintersManagementPage() {
                                           </div>
                                       </td>
 
-                                      <td className="px-6 py-4 text-right">
+                                      <td className="text-right">
                                           {canEdit && (
                                               <div className="flex justify-end gap-1">
                                                   <button 

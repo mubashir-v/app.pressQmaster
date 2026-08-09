@@ -8,12 +8,15 @@ import {
 
 
 import BrandLogo from "../../components/logo/BrandLogo.jsx";
-import { MdAdd, MdClose, MdContentCopy, MdDeleteOutline, MdLayers, MdArrowBack, MdEdit, MdCheckCircle, MdPrint, MdOutlineAnalytics, MdWarningAmber, MdPrint as MdPrintIcon, MdComputer, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn, MdInfo, MdHelpOutline, MdExpandMore, MdExpandLess } from "react-icons/md";
+import QuotationModeToggle from "../../components/quotes/QuotationModeToggle.jsx";
+import { MdAdd, MdClose, MdContentCopy, MdDeleteOutline, MdLayers, MdArrowBack, MdEdit, MdCheckCircle, MdPrint, MdOutlineAnalytics, MdWarningAmber, MdPrint as MdPrintIcon, MdComputer, MdPersonAdd, MdBusiness, MdPhone, MdEmail, MdLocationOn, MdInfo, MdHelpOutline, MdExpandMore, MdExpandLess, MdUnfoldMore, MdUnfoldLess } from "react-icons/md";
 import { FaWhatsapp } from "react-icons/fa";
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
+import { canEditQuotes } from "../../../application/auth/orgScopes.js";
 import { TextField, PrimaryButton, SearchableSelect, SelectField } from "../../components/auth/AuthFormPrimitives.jsx";
 import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
+import { layoutPreviewSnapshotFromOption } from "../../components/quotes/layoutPreviewProps.js";
 
 
 
@@ -63,6 +66,7 @@ export default function QuotationEditorPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const canEdit = canEditQuotes(user?.scopes, user);
 
   const isNew = !id || id === "new";
 
@@ -109,6 +113,7 @@ export default function QuotationEditorPage() {
   const [itemsPanelExpanded, setItemsPanelExpanded] = useState(true);
   /** When true, user explicitly opened items — skip auto-collapse on form hover until they collapse again. */
   const [itemsPanelPinnedOpen, setItemsPanelPinnedOpen] = useState(false);
+  const [itemsPanelDrawerExpanded, setItemsPanelDrawerExpanded] = useState(false);
   const [itemAddedToast, setItemAddedToast] = useState(null);
   const itemAddedToastTimerRef = useRef(null);
 
@@ -247,6 +252,7 @@ export default function QuotationEditorPage() {
     setItemsPanelExpanded((expanded) => {
       const next = !expanded;
       setItemsPanelPinnedOpen(next);
+      if (!next) setItemsPanelDrawerExpanded(false);
       return next;
     });
   };
@@ -254,6 +260,17 @@ export default function QuotationEditorPage() {
   const collapseQuotationItemsForForm = () => {
     setItemsPanelExpanded(false);
     setItemsPanelPinnedOpen(false);
+    setItemsPanelDrawerExpanded(false);
+  };
+
+  const expandItemsPanelDrawer = () => {
+    setItemsPanelDrawerExpanded(true);
+    setItemsPanelExpanded(true);
+    setItemsPanelPinnedOpen(true);
+  };
+
+  const compactItemsPanelDrawer = () => {
+    setItemsPanelDrawerExpanded(false);
   };
 
   const expandQuotationItemsPanel = () => {
@@ -266,6 +283,12 @@ export default function QuotationEditorPage() {
     setItemsPanelExpanded(false);
   };
 
+
+  useEffect(() => {
+    if (isNew && user && !canEdit) {
+      navigate("/dashboard/quotes", { replace: true });
+    }
+  }, [isNew, user, canEdit, navigate]);
 
   useEffect(() => {
     if (id && id !== "new") {
@@ -320,6 +343,7 @@ export default function QuotationEditorPage() {
   }
 
   const handleUpdateLineItem = (itemId, updates) => {
+    if (!canEdit) return;
     const newList = lineItems.map(item => {
       const matchId = item.id || item._id;
       if (matchId === itemId) {
@@ -414,6 +438,7 @@ export default function QuotationEditorPage() {
 
 
   async function syncLineItems(newList) {
+    if (!canEdit) return;
     if (isNew) {
       setLineItems(newList);
       return;
@@ -426,14 +451,19 @@ export default function QuotationEditorPage() {
       setLineItems(newList);
     } catch (e) {
       console.error("Sync Error:", e);
-      // Fallback to local state update if backend fails or skip if critical
-      setLineItems(newList); 
+      try {
+        const data = await getQuotation(id);
+        applyQuotationData(data.quotation);
+      } catch (reloadError) {
+        console.error("Failed to reload quotation after sync error", reloadError);
+      }
     } finally {
       setBusy(false);
     }
   }
   // Line Item Handlers
    async function handleDeleteLineItem(targetId) {
+     if (!canEdit) return;
      if (!targetId) {
        console.warn("Attempted to delete item with null/undefined ID. Operation aborted to prevent full list wipe.");
        return;
@@ -519,6 +549,7 @@ export default function QuotationEditorPage() {
    }, []);
 
    function handleEditLineItem(item) {
+     if (!canEdit) return;
      const targetId = item.id || item._id;
      if (!targetId) {
        console.error("Cannot edit item: No ID found", item);
@@ -579,6 +610,7 @@ export default function QuotationEditorPage() {
   }
 
    async function syncHeader(fields) {
+     if (!canEdit) return;
      if (!id || id === "new") return;
 
     setHeaderErrors({});
@@ -596,6 +628,7 @@ export default function QuotationEditorPage() {
 
    // Handle Customer Selection & Sync
    async function handleCustomerSelect(cust) {
+      if (!canEdit) return;
       setCustomerId(cust.id);
       setSelectedCustomer(cust);
       setShowCustomerSearch(false);
@@ -631,6 +664,7 @@ export default function QuotationEditorPage() {
    }
 
    async function handleInitialCreation(cId) {
+     if (!canEdit) return;
      setBusy(true);
      try {
        const res = await createQuotation({ customerId: cId, title: title.trim(), status: "DRAFT" });
@@ -1816,6 +1850,11 @@ export default function QuotationEditorPage() {
       </div>
 
        {/* 1. Compact Quote Header */}
+       {!canEdit && !isNew && (
+         <div className="no-print border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-900">
+           View only — you can review this quotation but cannot edit it.
+         </div>
+       )}
        <section className="no-print border-b border-gov-border bg-white px-3 py-1.5 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
               <button
@@ -1837,6 +1876,7 @@ export default function QuotationEditorPage() {
                      <div className="relative flex flex-col items-start min-w-0">
                         <div className="w-full flex items-center gap-1">
                            {!selectedCustomer ? (
+                              canEdit ? (
                               <div className="relative flex-1 min-w-0">
                                  <input
                                    type="text"
@@ -1861,15 +1901,20 @@ export default function QuotationEditorPage() {
                                    </div>
                                  )}
                               </div>
+                              ) : (
+                                <span className="text-[11px] font-semibold text-gov-blue/50 italic">No customer linked</span>
+                              )
                            ) : (
                              <div className="flex-1 flex items-center justify-between border-b border-gov-border py-0 min-w-0">
                                 <span className="text-[11px] font-semibold text-gov-blue truncate">{selectedCustomer.name}</span>
+                                {canEdit && (
                                 <button onClick={() => { setSelectedCustomer(null); setCustomerId(null); syncHeader({ customerId: null }); }} className="shrink-0 ml-1">
                                    <MdClose className="w-3 h-3 text-red-400" />
                                 </button>
+                                )}
                              </div>
                            )}
-                           {!selectedCustomer && (
+                           {!selectedCustomer && canEdit && (
                               <button onClick={() => setShowNewCustModal(true)} className="p-0.5 px-1 bg-gov-blue-light text-gov-blue hover:bg-gov-blue hover:text-white border border-gov-border shrink-0" title="Register new customer">
                                  <MdPersonAdd className="w-3.5 h-3.5" />
                               </button>
@@ -1879,13 +1924,13 @@ export default function QuotationEditorPage() {
                      </div>
                   <span className="text-gray-500">Phone :</span>
                   <span className="font-medium text-gov-blue truncate">
-                    {!selectedCustomer && customerSearch.trim() ? (
+                    {!selectedCustomer && customerSearch.trim() && canEdit ? (
                         <input ref={phoneInputRef} type="text" placeholder="Phone..." value={pendingPhone} onFocus={() => setShowCustomerSearch(false)} onChange={e => setPendingPhone(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addressInputRef.current?.focus(); } }} className="w-full text-[11px] font-semibold text-gov-blue outline-none border-b border-gov-border bg-transparent py-0" />
                     ) : (selectedCustomer?.phone || "--")}
                   </span>
                   <span className="text-gray-500">Address :</span>
                   <span className="font-medium text-gov-blue truncate">
-                    {!selectedCustomer && customerSearch.trim() ? (
+                    {!selectedCustomer && customerSearch.trim() && canEdit ? (
                         <input ref={addressInputRef} type="text" placeholder="Address..." value={pendingAddress} onFocus={() => setShowCustomerSearch(false)} onChange={e => setPendingAddress(e.target.value)} onKeyDown={async e => { if (e.key === "Enter") { e.preventDefault(); setBusy(true); try { const payload = { name: customerSearch.trim(), phone: pendingPhone.trim() || undefined, billingAddress: pendingAddress.trim() ? { line1: pendingAddress.trim() } : undefined, isActive: true }; const res = await createCustomer(payload); handleCustomerSelect(res.customer); setCustomerSearch(""); } catch (err) { console.error("Failed to quick-create customer", err); } finally { setBusy(false); } } }} className="w-full text-[11px] font-semibold text-gov-blue outline-none border-b border-gov-border bg-transparent py-0" />
                     ) : (selectedCustomer?.billingAddress ? `${selectedCustomer.billingAddress.line1}${selectedCustomer.billingAddress.city ? ', ' + selectedCustomer.billingAddress.city : ''}` : "--")}
                   </span>
@@ -1896,23 +1941,26 @@ export default function QuotationEditorPage() {
           <div className="flex items-end gap-2 flex-1 min-w-[280px]">
               <div className="flex-1 min-w-[120px]">
                  <label className="text-[10px] font-medium text-gray-500 block mb-0.5">Subject</label>
-                 <input type="text" placeholder="Title..." value={title} onChange={e => setTitle(e.target.value)} onBlur={() => syncHeader({ title: title.trim() })} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); itemTitleRef.current?.focus(); } }} ref={titleInputRef} className={`gov-input py-1 text-xs ${headerErrors.title ? 'border-red-400' : ''}`} />
+                 <input type="text" placeholder="Title..." value={title} readOnly={!canEdit} onChange={e => setTitle(e.target.value)} onBlur={() => syncHeader({ title: title.trim() })} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); itemTitleRef.current?.focus(); } }} ref={titleInputRef} className={`gov-input py-1 text-xs ${headerErrors.title ? 'border-red-400' : ''} ${!canEdit ? 'bg-gray-50 cursor-default' : ''}`} />
                  {headerErrors.title && <span className="text-[8px] text-red-500">{headerErrors.title[0]}</span>}
                </div>
               <div className="w-24">
                  <label className="text-[10px] font-medium text-gray-500 block mb-0.5">Status</label>
-                 <select value={status} onChange={(e) => { const v = e.target.value; setStatus(v); syncHeader({ status: v }); }} className="gov-input py-1 text-xs cursor-pointer">
+                 <select value={status} disabled={!canEdit} onChange={(e) => { const v = e.target.value; setStatus(v); syncHeader({ status: v }); }} className={`gov-input py-1 text-xs ${canEdit ? 'cursor-pointer' : 'bg-gray-50 cursor-default'}`}>
                     <option value="DRAFT">Draft</option><option value="SENT">Sent</option><option value="ACCEPTED">Accepted</option><option value="REJECTED">Rejected</option><option value="EXPIRED">Expired</option><option value="CANCELLED">Cancelled</option>
                  </select>
               </div>
               <div className="w-28">
                  <label className="text-[10px] font-medium text-gray-500 block mb-0.5">Valid Till</label>
-                 <input type="date" value={validUntil} onChange={(e) => { setValidUntil(e.target.value); syncHeader({ validUntil: e.target.value || null }); }} className="gov-input py-1 text-xs" />
+                 <input type="date" value={validUntil} readOnly={!canEdit} onChange={(e) => { setValidUntil(e.target.value); syncHeader({ validUntil: e.target.value || null }); }} className={`gov-input py-1 text-xs ${!canEdit ? 'bg-gray-50 cursor-default' : ''}`} />
               </div>
           </div>
 
           {/* Quote # & actions */}
           <div className="flex items-center gap-1.5 shrink-0">
+              {!isNew && id && (
+                <QuotationModeToggle quotationId={id} mode="edit" canEdit={canEdit} />
+              )}
               <BrandLogo className="w-6 h-6" />
               <span className="px-2 py-1 bg-gov-blue text-white text-[11px] font-bold">{quoteNumber || "DRAFT"}</span>
               <button onClick={handleWhatsAppShare} className={`flex items-center gap-1 px-2 py-1 border text-[11px] ${shareError ? 'border-red-400 text-red-500 bg-red-50' : 'border-gov-border text-gray-600 hover:border-gov-blue'}`} title="WhatsApp">
@@ -1925,15 +1973,19 @@ export default function QuotationEditorPage() {
       </div>
       </section>
 
-      {/* 2. Quotation Items — capped height + collapsible so form/options keep space */}
-      <section className="bg-white print:bg-white border-b border-gov-border shrink-0 no-print">
-          <div className="w-full overflow-hidden flex flex-col">
+      {/* 2. Quotation Items — capped height, or expand drawer to page bottom */}
+      <section
+        className={`bg-white print:bg-white border-b border-gov-border no-print flex flex-col min-h-0 ${
+          itemsPanelDrawerExpanded ? "flex-1 basis-0" : "shrink-0"
+        }`}
+      >
+          <div className="w-full overflow-hidden flex flex-col flex-1 min-h-0">
               <div className="px-3 py-1 border-b border-gov-border bg-gray-50 flex items-center justify-between gap-2">
                  <button
                    type="button"
                    onClick={toggleQuotationItemsPanel}
                    className="flex items-center gap-1.5 min-w-0 hover:text-gov-blue transition-colors"
-                   title={itemsPanelExpanded ? "Collapse items list" : "Expand items list"}
+                   title={itemsPanelExpanded ? "Minimize" : "Expand"}
                  >
                    {itemsPanelExpanded ? (
                      <MdExpandLess className="w-4 h-4 text-gov-blue shrink-0" />
@@ -1946,6 +1998,17 @@ export default function QuotationEditorPage() {
                    </span>
                  </button>
                  <div className="flex items-center gap-3 shrink-0">
+                   {itemsPanelDrawerExpanded && (
+                     <button
+                       type="button"
+                       onClick={compactItemsPanelDrawer}
+                       className="flex items-center gap-1 text-[10px] font-semibold text-gov-blue hover:text-gov-blue/80"
+                       title="Minimize"
+                     >
+                       <MdUnfoldLess className="w-3.5 h-3.5" />
+                       <span className="hidden sm:inline">Minimize</span>
+                     </button>
+                   )}
                    {!itemsPanelExpanded && lineItems.length > 0 && (
                      <span className="text-[10px] text-gray-500 hidden sm:inline truncate max-w-[200px]">
                        {lineItems.map((i) => i.meta?.itemTitle || i.title).filter(Boolean).slice(0, 3).join(" · ")}
@@ -1959,9 +2022,9 @@ export default function QuotationEditorPage() {
               </div>
 
               {itemsPanelExpanded && (
-              <div className={`overflow-y-auto no-scrollbar ${QUOTE_ITEMS_SCROLL_MAX} ${lineItems.length === 0 ? "py-4" : ""}`}>
+              <div className={`overflow-y-auto no-scrollbar flex-1 min-h-0 ${itemsPanelDrawerExpanded ? "" : QUOTE_ITEMS_SCROLL_MAX} ${lineItems.length === 0 ? "py-4" : ""}`}>
                  {lineItems.length === 0 ? (
-                   <div className="py-4 flex items-center justify-center text-[11px] text-gray-400 uppercase tracking-wider">No items yet — use the form below</div>
+                   <div className="py-4 flex items-center justify-center text-[11px] text-gray-400 uppercase tracking-wider">{canEdit ? "No items yet — use the form below" : "No items on this quotation"}</div>
                  ) : (
                    <table className="gov-table text-xs">
                       <thead className="sticky top-0 z-[1] bg-gray-50 shadow-[0_1px_0_0_#d1d5db]">
@@ -1970,7 +2033,7 @@ export default function QuotationEditorPage() {
                             <th>Description</th>
                             <th className="w-16 text-center">Qty</th>
                             <th className="w-28 text-right pr-3">Total (₹)</th>
-                            <th className="w-16 text-right pr-3">Actions</th>
+                            {canEdit && <th className="w-16 text-right pr-3">Actions</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1982,23 +2045,25 @@ export default function QuotationEditorPage() {
                               <td className="pl-3 py-1 text-gray-400 tabular-nums align-top">{idx + 1}</td>
                               <td className="py-1 align-top max-w-0">
                                  <div className="flex flex-col pr-2 min-w-0">
-                                    <input type="text" value={item.meta?.itemTitle || item.title || ''} onChange={(e) => handleUpdateLineItem(item.id || item._id, { meta: { ...item.meta, itemTitle: e.target.value }, title: e.target.value })} className="bg-transparent border-none text-xs font-semibold text-gov-blue focus:ring-0 p-0 w-full truncate" placeholder="Title..." />
-                                    <input type="text" value={item.description} onChange={(e) => handleUpdateLineItem(item.id || item._id, { description: e.target.value })} className="bg-transparent border-none text-[10px] text-gray-500 focus:ring-0 p-0 w-full truncate" title={item.description} />
+                                    <input type="text" readOnly={!canEdit} value={item.meta?.itemTitle || item.title || ''} onChange={(e) => handleUpdateLineItem(item.id || item._id, { meta: { ...item.meta, itemTitle: e.target.value }, title: e.target.value })} className={`bg-transparent border-none text-xs font-semibold text-gov-blue focus:ring-0 p-0 w-full truncate ${!canEdit ? 'cursor-default' : ''}`} placeholder="Title..." />
+                                    <input type="text" readOnly={!canEdit} value={item.description} onChange={(e) => handleUpdateLineItem(item.id || item._id, { description: e.target.value })} className={`bg-transparent border-none text-[10px] text-gray-500 focus:ring-0 p-0 w-full truncate ${!canEdit ? 'cursor-default' : ''}`} title={item.description} />
                                  </div>
                               </td>
                               <td className="py-1 text-center font-medium text-gray-700 align-top tabular-nums">{item.quantity}</td>
                               <td className="py-1 text-right pr-3 align-top">
                                  <div className="flex flex-col items-end">
-                                    <input type="number" value={activeEditId === (item.id || item._id) ? activeEditValue : lineTotal.toFixed(2)} onFocus={() => { setActiveEditId(item.id || item._id); setActiveEditValue(lineTotal || ""); }} onBlur={() => { setActiveEditId(null); setActiveEditValue(""); }} onChange={(e) => { setActiveEditValue(e.target.value); if (e.target.value !== "") { handleUpdateLineItem(item.id || item._id, { totalAmount: e.target.value }); } }} onWheel={(e) => e.currentTarget.blur()} className="w-20 bg-transparent border-none text-right text-xs font-bold text-gov-blue focus:ring-0 p-0 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                                    <input type="number" readOnly={!canEdit} value={activeEditId === (item.id || item._id) ? activeEditValue : lineTotal.toFixed(2)} onFocus={() => { if (!canEdit) return; setActiveEditId(item.id || item._id); setActiveEditValue(lineTotal || ""); }} onBlur={() => { setActiveEditId(null); setActiveEditValue(""); }} onChange={(e) => { if (!canEdit) return; setActiveEditValue(e.target.value); if (e.target.value !== "") { handleUpdateLineItem(item.id || item._id, { totalAmount: e.target.value }); } }} onWheel={(e) => e.currentTarget.blur()} className={`w-20 bg-transparent border-none text-right text-xs font-bold text-gov-blue focus:ring-0 p-0 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${!canEdit ? 'cursor-default' : ''}`} />
                                     <span className="text-[9px] text-gray-400">{currency}</span>
                                  </div>
                               </td>
+                              {canEdit && (
                               <td className="py-1 pr-2 align-top">
                                  <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100">
                                     <button onClick={() => handleEditLineItem(item)} className="p-1 text-gray-400 hover:text-gov-blue border border-transparent hover:border-gov-border" title="Edit"><MdEdit className="w-3.5 h-3.5" /></button>
                                     <button onClick={() => handleDeleteLineItem(item.id || item._id)} className="p-1 text-gray-300 hover:text-red-500 border border-transparent hover:border-red-200" title="Delete"><MdDeleteOutline className="w-3.5 h-3.5" /></button>
                                  </div>
                               </td>
+                              )}
                             </tr>
                           );
                         })}
@@ -2013,10 +2078,28 @@ export default function QuotationEditorPage() {
                      <span className="text-gray-500">Items: <strong className="text-gov-blue">{lineItems.length}</strong></span>
                      <span className="text-gray-500 hidden sm:inline">Status: <strong className="text-gov-blue uppercase">{status}</strong></span>
                      {shareError && <span className="text-red-500 text-[10px] truncate">{shareError}</span>}
-                     {lineItems.length > 3 && itemsPanelExpanded && (
-                       <button type="button" onClick={collapseQuotationItemsForForm} className="text-[10px] text-gov-blue/70 hover:text-gov-blue underline underline-offset-2 hidden md:inline">
-                         Collapse to focus on form
-                       </button>
+                     {itemsPanelExpanded && lineItems.length > 0 && (
+                       <div className="hidden md:flex items-center gap-2">
+                         {!itemsPanelDrawerExpanded && (
+                           <>
+                             <button type="button" onClick={collapseQuotationItemsForForm} className="inline-flex items-center gap-1 text-[10px] text-gov-blue/70 hover:text-gov-blue underline underline-offset-2">
+                               <MdExpandLess className="w-3 h-3" />
+                               Minimize
+                             </button>
+                             <span className="text-gray-300" aria-hidden="true">·</span>
+                             <button type="button" onClick={expandItemsPanelDrawer} className="inline-flex items-center gap-1 text-[10px] text-gov-blue/70 hover:text-gov-blue underline underline-offset-2">
+                               <MdUnfoldMore className="w-3 h-3" />
+                               Expand
+                             </button>
+                           </>
+                         )}
+                         {itemsPanelDrawerExpanded && (
+                           <button type="button" onClick={compactItemsPanelDrawer} className="inline-flex items-center gap-1 text-[10px] text-gov-blue/70 hover:text-gov-blue underline underline-offset-2">
+                             <MdUnfoldLess className="w-3 h-3" />
+                             Minimize
+                           </button>
+                         )}
+                       </div>
                      )}
                   </div>
                   <div className="flex items-baseline gap-2 shrink-0">
@@ -2092,6 +2175,7 @@ export default function QuotationEditorPage() {
       )}
 
       {/* 3. Print Configuration Calculator — flex-1 fills all remaining viewport height */}
+      {canEdit && !itemsPanelDrawerExpanded && (
       <section id="calc-top" className="no-print bg-white flex flex-col flex-1 min-h-0 basis-0" onMouseEnter={handleCalculatorSectionMouseEnter}>
           {/* Tab bar: both columns always show sub-tab row (icons when parent inactive) */}
           <div className="flex items-stretch border-b border-gov-border bg-gray-50 shrink-0">
@@ -2443,7 +2527,8 @@ export default function QuotationEditorPage() {
                                         isOnlyClipCharge, 
                                         printerModelId: opt.printerModelId,
                                         printerModelName: opt.printerModelName,
-                                        layout: opt.layout
+                                        layout: opt.layout,
+                                        layoutPreview: layoutPreviewSnapshotFromOption(opt),
                                       },
                                       chargeComponents: [
                                         {
@@ -2567,7 +2652,12 @@ export default function QuotationEditorPage() {
                                 onClick={() => handleBrochureOrientationChange("NORMAL")}
                                 className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 border-r border-gov-border transition-colors min-w-0 ${brochureOrientation === "NORMAL" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                               >
-                                <span className="text-xs font-semibold truncate">Normal</span>
+                                <div className="min-w-0 text-left">
+                                  <span className="text-xs font-semibold block truncate">Normal</span>
+                                  <span className={`text-[9px] block truncate ${brochureOrientation === "NORMAL" ? "text-white/80" : "text-gray-400"}`}>
+                                    Long edge pair
+                                  </span>
+                                </div>
                                 <div className={`w-5 h-6 border flex items-center justify-center shrink-0 ${brochureOrientation === "NORMAL" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
                                   <span className="text-sm font-bold leading-none">A</span>
                                 </div>
@@ -2577,7 +2667,12 @@ export default function QuotationEditorPage() {
                                 onClick={() => handleBrochureOrientationChange("ROTATED")}
                                 className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 transition-colors min-w-0 ${brochureOrientation === "ROTATED" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                               >
-                                <span className="text-xs font-semibold truncate">Rotated</span>
+                                <div className="min-w-0 text-left">
+                                  <span className="text-xs font-semibold block truncate">Rotated</span>
+                                  <span className={`text-[9px] block truncate ${brochureOrientation === "ROTATED" ? "text-white/80" : "text-gray-400"}`}>
+                                    Short edge pair
+                                  </span>
+                                </div>
                                 <div className={`w-9 h-4 border flex items-center justify-center shrink-0 ${brochureOrientation === "ROTATED" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
                                   <span className="text-[10px] font-bold leading-none">A</span>
                                 </div>
@@ -3322,7 +3417,8 @@ export default function QuotationEditorPage() {
                                          offsetSides, offsetIsBackSideDifferent, offsetColorMode, offsetCopies, offsetWaste,
                                          printerModelId: opt.printerModelId,
                                          printerModelName: opt.printerModelName,
-                                         layout: opt.layout
+                                         layout: opt.layout,
+                                         layoutPreview: layoutPreviewSnapshotFromOption(opt),
                                        },
                                        chargeComponents: opt.pricing.chargeComponents ? opt.pricing.chargeComponents.map(c => ({
                                          ...c,
@@ -3374,7 +3470,7 @@ export default function QuotationEditorPage() {
             ) : null}
           </div>
       </section>
-
+      )}
 
 
       <FormDrawer

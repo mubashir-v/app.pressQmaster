@@ -245,6 +245,39 @@ export async function getOffsetPaperStocks(searchQuery = "", offset = 0, limit =
   return response.data;
 }
 
+// --- Job Management ---
+
+export async function getJobs(searchQuery = "", offset = 0, limit = 20, status = "", quotationId = "") {
+  let url = `/v1/jobs?offset=${offset}&limit=${limit}`;
+  if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+  if (quotationId) url += `&quotationId=${encodeURIComponent(quotationId)}`;
+  const response = await apiClient.get(url);
+  return response.data;
+}
+
+export async function getJob(jobId) {
+  const response = await apiClient.get(`/v1/jobs/${jobId}`);
+  return response.data;
+}
+
+export async function getJobQuotationBacklog(searchQuery = "", offset = 0, limit = 20) {
+  let url = `/v1/jobs/quotation-backlog?offset=${offset}&limit=${limit}`;
+  if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
+  const response = await apiClient.get(url);
+  return response.data;
+}
+
+export async function createJobFromQuotation(payload) {
+  const response = await apiClient.post("/v1/jobs", payload);
+  return response.data;
+}
+
+export async function updateJob(jobId, payload) {
+  const response = await apiClient.patch(`/v1/jobs/${jobId}`, payload);
+  return response.data;
+}
+
 
 
 

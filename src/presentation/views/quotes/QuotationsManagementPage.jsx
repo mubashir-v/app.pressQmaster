@@ -7,6 +7,8 @@ import {
 } from "react-icons/md";
 
 import { useAuth } from "../../../application/hooks/useAuth.jsx";
+import { canEditQuotes } from "../../../application/auth/orgScopes.js";
+import QuotationOpenModeModal from "../../components/quotes/QuotationOpenModeModal.jsx";
 
 const STATUS_CONFIG = {
   DRAFT: { label: "Draft", class: "bg-gray-100 text-gray-600" },
@@ -34,10 +36,12 @@ export default function QuotationsManagementPage() {
 
   // Modals
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showOpenModeModal, setShowOpenModeModal] = useState(false);
+  const [openModeTarget, setOpenModeTarget] = useState(null);
   const [busy, setBusy] = useState(false);
   const [deleteTargetItem, setDeleteTargetItem] = useState(null);
 
-  const canEdit = user?.scopes?.includes("all_scope") || user?.scopes?.includes("edit_quotes") || user?.scopes?.includes("manage_quotes");
+  const canEdit = canEditQuotes(user?.scopes, user);
 
   async function fetchItems(query = "", currentOffset = 0) {
     setLoading(true);
@@ -77,6 +81,33 @@ export default function QuotationsManagementPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleQuoteRowClick(item) {
+    if (canEdit) {
+      setOpenModeTarget(item);
+      setShowOpenModeModal(true);
+      return;
+    }
+    navigate(`/dashboard/quotes/${item.id}/view`);
+  }
+
+  function closeOpenModeModal() {
+    if (busy) return;
+    setShowOpenModeModal(false);
+    setOpenModeTarget(null);
+  }
+
+  function openQuoteEditMode() {
+    if (!openModeTarget) return;
+    navigate(`/dashboard/quotes/${openModeTarget.id}`);
+    closeOpenModeModal();
+  }
+
+  function openQuoteViewMode() {
+    if (!openModeTarget) return;
+    navigate(`/dashboard/quotes/${openModeTarget.id}/view`);
+    closeOpenModeModal();
   }
 
   return (
@@ -127,41 +158,41 @@ export default function QuotationsManagementPage() {
                               <th>Client</th>
                               <th>Financials</th>
                               <th>Status</th>
-                              <th className="text-right">Actions</th>
+                              {canEdit && <th className="text-right">Actions</th>}
                           </tr>
                       </thead>
                       <tbody>
                           {items.length === 0 ? (
                               <tr>
-                                  <td colSpan="5" className="px-6 py-12 text-center text-gov-blue/40 font-bold italic underline decoration-brand-teal/20 decoration-2 underline-offset-4">No quotations found in this organization.</td>
+                                  <td colSpan={canEdit ? 5 : 4} className="py-8 text-center text-gov-blue/40 font-bold italic underline decoration-brand-teal/20 decoration-2 underline-offset-4">No quotations found in this organization.</td>
                               </tr>
                           ) : (
                               items.map(item => (
-                                  <tr key={item.id}>
-                                      <td className="px-6 py-4">
-                                          <button 
-                                            onClick={() => navigate(`/dashboard/quotes/${item.id}`)}
-                                            className="text-left group/cell"
-                                          >
-                                            <div className="font-bold text-gov-blue text-sm group-hover/cell:text-gov-blue transition-colors">
+                                  <tr
+                                    key={item.id}
+                                    onClick={() => handleQuoteRowClick(item)}
+                                    className="cursor-pointer hover:bg-gray-50/80 transition-colors"
+                                  >
+                                      <td>
+                                          <div className="text-left">
+                                            <div className="font-bold text-gov-blue text-xs leading-tight">
                                                 {item.quoteNumber || <span className="text-gov-blue/30 font-medium italic">No Number</span>}
                                             </div>
-                                            <div className="text-xs font-semibold text-gov-blue/50 mt-0.5 line-clamp-1">{item.title || "Untitiled Presentation"}</div>
-                                            <div className="flex flex-col gap-1 mt-1.5">
-                                               <div className="text-[10px] font-bold text-gov-blue/20 flex items-center gap-1 text-[9px] uppercase tracking-wider">
+                                            <div className="text-[11px] font-semibold text-gov-blue/50 line-clamp-1">{item.title || "Untitiled Presentation"}</div>
+                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                               <div className="text-[9px] font-bold text-gov-blue/20 flex items-center gap-1 uppercase tracking-wider">
                                                  <MdCalendarToday className="w-3 h-3"/> {new Date(item.createdAt).toLocaleDateString()}
                                                </div>
                                                {item.createdBy && (
-                                                 <div className="text-[9px] font-black text-gov-blue uppercase tracking-[0.1em] px-1.5 py-0.5 bg-gov-blue/5 rounded inline-block w-fit">
+                                                 <div className="text-[9px] font-black text-gov-blue uppercase tracking-wide px-1 py-px bg-gov-blue/5 rounded inline-block">
                                                     BY {item.createdBy.displayName || item.createdBy.name}
                                                  </div>
                                                )}
                                              </div>
-
-                                          </button>
+                                          </div>
                                       </td>
 
-                                      <td className="px-6 py-4">
+                                      <td>
                                           {item.customer ? (
                                             <>
                                               <div className="text-xs font-bold text-gov-blue">{item.customer.name}</div>
@@ -171,37 +202,45 @@ export default function QuotationsManagementPage() {
                                             <span className="text-[10px] font-bold text-gov-blue/20 uppercase tracking-widest italic">Personal Quote</span>
                                           )}
                                       </td>
-                                      <td className="px-6 py-4">
-                                          <div className="text-sm font-black text-gov-blue flex items-center gap-1.5 leading-none">
+                                      <td>
+                                          <div className="text-xs font-black text-gov-blue flex items-center gap-1 leading-none tabular-nums">
                                               <span className="text-[10px] text-gov-blue font-black">{item.currency || 'INR'}</span>
                                               {(item.totalAmount || 0).toLocaleString()}
                                           </div>
-                                          <div className="text-[9px] font-black text-gov-blue/20 uppercase tracking-widest mt-1">Total Aggregate</div>
+                                          <div className="text-[9px] font-black text-gov-blue/20 uppercase tracking-widest mt-0.5">Total Aggregate</div>
                                       </td>
-                                      <td className="px-6 py-4">
-                                          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${STATUS_CONFIG[item.status]?.class || 'bg-zinc-100'}`}>
+                                      <td>
+                                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${STATUS_CONFIG[item.status]?.class || 'bg-zinc-100'}`}>
                                               <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
                                               {STATUS_CONFIG[item.status]?.label || item.status}
                                           </div>
                                       </td>
-                                      <td className="px-6 py-4 text-right">
-                                          {canEdit && (
-                                              <div className="flex justify-end gap-1">
+                                      {canEdit && (
+                                      <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                                              <div className="flex justify-end gap-0.5">
                                                   <button 
-                                                    onClick={() => navigate(`/dashboard/quotes/${item.id}`)}
-                                                    className="p-2 text-gray-400 hover:text-gov-blue hover:bg-gray-50 transition-colors"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      navigate(`/dashboard/quotes/${item.id}`);
+                                                    }}
+                                                    className="p-1.5 text-gray-400 hover:text-gov-blue hover:bg-gray-50 transition-colors"
+                                                    title="Edit quotation"
                                                   >
-                                                      <MdEdit className="w-5 h-5" />
+                                                      <MdEdit className="w-4 h-4" />
                                                   </button>
                                                   <button 
-                                                    onClick={() => { setDeleteTargetItem(item); setShowDeleteModal(true); }}
-                                                    className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setDeleteTargetItem(item);
+                                                      setShowDeleteModal(true);
+                                                    }}
+                                                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
                                                   >
-                                                      <MdOutlineDelete className="w-5 h-5" />
+                                                      <MdOutlineDelete className="w-4 h-4" />
                                                   </button>
                                               </div>
-                                          )}
                                       </td>
+                                      )}
                                   </tr>
                               ))
                           )}
@@ -223,6 +262,17 @@ export default function QuotationsManagementPage() {
           </>
       )}
       </div>
+
+      {/* Open mode picker */}
+      <QuotationOpenModeModal
+        open={showOpenModeModal && Boolean(openModeTarget)}
+        quoteLabel={openModeTarget?.quoteNumber || openModeTarget?.title || "Quotation"}
+        canEdit={canEdit}
+        busy={busy}
+        onClose={closeOpenModeModal}
+        onEdit={openQuoteEditMode}
+        onView={openQuoteViewMode}
+      />
 
       {/* Delete Confirmation */}
       {showDeleteModal && deleteTargetItem && (
