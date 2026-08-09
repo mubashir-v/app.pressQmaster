@@ -1001,10 +1001,10 @@ export default function QuotationEditorPage() {
     COST_FRIENDLY: { label: "Cost Friendly", tone: "sky" },
     BALANCED: { label: "Balanced", tone: "slate" },
     LOOSE_CENTER_CLIP: { label: "Loose Clip", tone: "rose" },
+    LOOSE_PERFECT_BINDING: { label: "Loose 2pp", tone: "rose" },
   };
 
-  const hasLooseCenterClip = (item) => {
-    if (!isCenterClipBinding) return false;
+  const hasLooseClipPlan = (item) => {
     if (item?.signatures?.length) {
       return item.signatures.some((sig) => Number(sig.signaturePages) <= 2);
     }
@@ -1014,11 +1014,17 @@ export default function QuotationEditorPage() {
     return false;
   };
 
+  const hasLooseCenterClip = (item) => isCenterClipBinding && hasLooseClipPlan(item);
+
   const brochureWorkflowBadges = (item) => {
     const tags = item?.workflowTags || [];
-    const displayTags = hasLooseCenterClip(item) && !tags.includes("LOOSE_CENTER_CLIP")
-      ? [...tags, "LOOSE_CENTER_CLIP"]
-      : tags;
+    let displayTags = [...tags];
+    if (hasLooseCenterClip(item) && !displayTags.includes("LOOSE_CENTER_CLIP")) {
+      displayTags.push("LOOSE_CENTER_CLIP");
+    }
+    if (isPerfectBinding && hasLooseClipPlan(item) && !displayTags.includes("LOOSE_PERFECT_BINDING")) {
+      displayTags.push("LOOSE_PERFECT_BINDING");
+    }
     return displayTags.map((tag) => ({
       key: tag,
       label: brochureWorkflowBadgeMeta[tag]?.label || tag,
@@ -1052,6 +1058,12 @@ export default function QuotationEditorPage() {
   };
 
   const nestedPlanInstruction = (plan) => {
+    if (isPerfectBinding) {
+      if (hasLooseClipPlan(plan)) {
+        return "Perfect binding in page order: folded stack sets plus loose 2pp duplex pairs where needed. Collate every set in sequence, then bind—no center-pin nesting.";
+      }
+      return "Perfect binding in page order: print each folded stack below, collate in sequence, trim, and bind—no inner inserts or center-pin nesting.";
+    }
     if (hasLooseCenterClip(plan)) {
       return "Includes loose 2pp insert sheets; print and clip these with the folded center-pin sets instead of treating the whole plan as a nested fold.";
     }
@@ -1681,7 +1693,9 @@ export default function QuotationEditorPage() {
                 <div className="min-w-0">
                   <div className="text-[10px] font-semibold text-gov-blue uppercase tracking-wide">
                     {isPerfectBinding
-                      ? `${group.signaturePages}pp stack`
+                      ? group.signaturePages === 2
+                        ? "2pp loose clip"
+                        : `${group.signaturePages}pp folded stack`
                       : group.signaturePages === 2
                         ? "2pp loose insert"
                         : `${group.signaturePages}pp fold`}
@@ -1698,7 +1712,7 @@ export default function QuotationEditorPage() {
                   <div className="flex justify-between gap-2 text-[10px]">
                     <div className="min-w-0">
                       <div className="font-semibold text-gov-blue">
-                        Set {signature.runIndex}: {isPerfectBinding ? "Stack" : nestedRoleLabel(signature.nestRole)}
+                        Set {signature.runIndex}: {isPerfectBinding ? (signature.signaturePages === 2 ? "Loose clip" : "Folded stack") : nestedRoleLabel(signature.nestRole)}
                       </div>
                       <div className="text-gray-500 truncate">Pages {signature.readerPages.join(", ")}</div>
                       <div className="text-gray-500 truncate">{signature.printerModelName || "Printer TBD"}</div>
