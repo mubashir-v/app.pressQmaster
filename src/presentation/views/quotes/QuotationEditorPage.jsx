@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getQuotation, createQuotation, updateQuotation, getCustomers, createCustomer,
-  getLaserQuoteOptions, getSizeCharts, getStockItems, getLaserPaperStocks,
+  getLaserQuoteOptions, getSizeCharts, getLaserPaperStocks,
   getOffsetQuoteOptions, getOffsetPaperStocks, getBrochureLaserQuoteOptions
 } from "../../../infrastructure/api/backendService.js";
 
@@ -74,10 +74,10 @@ export default function QuotationEditorPage() {
   const [title, setTitle] = useState("");
   const [quoteNumber, setQuoteNumber] = useState("");
   const [status, setStatus] = useState("DRAFT");
-  const [currency, setCurrency] = useState("INR");
-  const [notes, setNotes] = useState("");
+  const [currency] = useState("INR");
+  const [_notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState("");
-  const [customerId, setCustomerId] = useState(null);
+  const [_customerId, setCustomerId] = useState(null);
   const [headerErrors, setHeaderErrors] = useState({});
   const [createdBy, setCreatedBy] = useState(null);
 
@@ -111,9 +111,6 @@ export default function QuotationEditorPage() {
   const [itemsPanelPinnedOpen, setItemsPanelPinnedOpen] = useState(false);
   const [itemAddedToast, setItemAddedToast] = useState(null);
   const itemAddedToastTimerRef = useRef(null);
-  const [currentItem, setCurrentItem] = useState({
-    size: "", side: "", colour: "", paper: "", qty: "", waste: "", printer: "", amount: ""
-  });
 
   // --- Laser Calculator State ---
   const [laserSizeId, setLaserSizeId] = useState("");
@@ -282,7 +279,7 @@ export default function QuotationEditorPage() {
        }
     } else {
       // In case we were loading another quote before, reset loading for /new
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
     }
   }, [id, location.state]);
 
@@ -763,16 +760,18 @@ export default function QuotationEditorPage() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "laser") {
-      fetchLaserSizes();
-      fetchLaserStocks();
-    } else if (activeTab === "offset") {
-      fetchOffsetSizes();
-      fetchOffsetStocks();
-    } else if (activeTab === "brochure") {
-      fetchLaserSizes(); // Brochures use laser stocks and sizes
-      fetchLaserStocks();
-    }
+    queueMicrotask(() => {
+      if (activeTab === "laser") {
+        fetchLaserSizes();
+        fetchLaserStocks();
+      } else if (activeTab === "offset") {
+        fetchOffsetSizes();
+        fetchOffsetStocks();
+      } else if (activeTab === "brochure") {
+        fetchLaserSizes(); // Brochures use laser stocks and sizes
+        fetchLaserStocks();
+      }
+    });
   }, [activeTab, fetchLaserSizes, fetchLaserStocks, fetchOffsetSizes, fetchOffsetStocks]);
 
   const recalculateLaserPricing = useCallback(async () => {
@@ -966,7 +965,6 @@ export default function QuotationEditorPage() {
 
   // Effect to trigger calculation
   useEffect(() => {
-    clearLaserQuoteOptions();
     if (activeTab === "laser" && laserSizeId && laserStockItemId && laserCopies) {
       const timer = setTimeout(recalculateLaserPricing, 500);
       return () => clearTimeout(timer);
@@ -974,7 +972,6 @@ export default function QuotationEditorPage() {
   }, [laserSizeId, laserStockItemId, laserColorMode, laserSides, laserCopies, isOnlyClipCharge, activeTab, customWidth, customBreadth, customUnit, recalculateLaserPricing]);
 
   useEffect(() => {
-    clearOffsetQuoteOptions();
     if (activeTab === "offset" && offsetSizeId && offsetStockItemId && offsetCopies) {
       const timer = setTimeout(recalculateOffsetPricing, 500);
       return () => clearTimeout(timer);
@@ -987,20 +984,10 @@ export default function QuotationEditorPage() {
         skipNextBrochureAutoRecalcRef.current = false;
         return;
       }
-      clearBrochureQuoteOptions();
       const timer = setTimeout(recalculateBrochurePricing, 500);
       return () => clearTimeout(timer);
     }
   }, [brochureSizeId, brochureStockItemId, brochureColorPagesInput, brochureCopies, brochurePagesPerBrochure, brochureIsOnlyClipCharge, brochureOrientation, bookletBindingType, activeTab, customWidth, customBreadth, customUnit, recalculateBrochurePricing]);
-
-
-
-
-  const addItemToPreview = () => {
-    if (!currentItem.size && !currentItem.amount) return;
-    setLineItems([...lineItems, { ...currentItem, id: Date.now() }]);
-    setCurrentItem({ size: "", side: "", colour: "", paper: "", qty: "", waste: "", printer: "", amount: "" });
-  };
 
   const nestedRoleLabel = (role) => {
     if (role === "ONLY") return "Single folded signature";
@@ -1132,7 +1119,10 @@ export default function QuotationEditorPage() {
 
   const parseBrochureColorPages = (value, totalPages) => {
     const total = Number.parseInt(totalPages, 10) || 0;
-    const normalized = String(value || "").trim().toUpperCase();
+    const normalized = String(value || "")
+      .trim()
+      .replace(/[\u2013\u2014\u2212]/g, "-")
+      .toUpperCase();
     if (!normalized || total <= 0) return new Set();
     if (normalized === "ALL") {
       return new Set(Array.from({ length: total }, (_, index) => index + 1));
@@ -1157,6 +1147,11 @@ export default function QuotationEditorPage() {
       if (Number.isFinite(page) && page >= 1 && page <= total) pages.add(page);
     });
     return pages;
+  };
+
+  const resolveLiveNestedPrintPlan = (plan) => {
+    if (!plan?.planId) return plan;
+    return brochureNestedPrintPlans.find((candidate) => candidate.planId === plan.planId) ?? plan;
   };
 
   const brochureColorPageSet = parseBrochureColorPages(brochureColorPagesInput, brochurePagesPerBrochure);
@@ -1454,15 +1449,18 @@ export default function QuotationEditorPage() {
     const repeatCopies =
       Math.max(1, signature.repeatOnPortion?.across ?? 1) * Math.max(1, signature.repeatOnPortion?.down ?? 1);
     const metrics = nestedPreviewMetrics(signature, displayRows);
-    const { rowCount, colCount, isNormalImposition, impositionFootprint, previewWidth, previewBreadth } = metrics;
+    const { rowCount, colCount, previewWidth, previewBreadth } = metrics;
     const previewBox = nestedImpositionPreviewBox(signature, metrics, planPreviewScale);
     const { widthPx, fontClass, dense, baseRows, repeatDown } = previewBox;
-    const isShortEdgePair = impositionFootprint === "ROTATED";
-    const numberRotation = (cell, rowIndex, colIndex) => {
+    const readerOrientation = signature?.imposition?.orientation ?? brochureOrientation;
+    const previewFootprint = metrics.impositionFootprint;
+    const isRotatedReader = readerOrientation === "ROTATED";
+    const isLongEdgePair = previewFootprint === "NORMAL";
+    const numberRotation = (cell) => {
       if (typeof cell.previewRotationDeg === "number") {
         return `rotate(${cell.previewRotationDeg}deg)`;
       }
-      if (colCount === 1 && !isShortEdgePair) {
+      if (colCount === 1 && isLongEdgePair) {
         return "rotate(90deg)";
       }
       return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
@@ -1471,11 +1469,11 @@ export default function QuotationEditorPage() {
     return (
       <div className="overflow-x-auto pb-1 w-full">
         <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
-          {isShortEdgePair ? "Rotated imposition" : "Normal imposition"}
+          {isRotatedReader ? "Rotated imposition" : "Normal imposition"}
           {repeatCopies > 1 ? ` · full sheet ×${repeatCopies}` : ""}
           <span className="text-gray-400 font-normal normal-case">
             {" "}
-            · {isNormalImposition ? "long-edge pair" : "short-edge pair"}
+            · {isLongEdgePair ? "long-edge pair" : "short-edge pair"}
           </span>
         </div>
         <div
@@ -1499,7 +1497,7 @@ export default function QuotationEditorPage() {
               >
                 <span
                   className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
-                  style={{ transform: numberRotation(cell, ri, ci) }}
+                  style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
                 >
                   {cell.pageNumber}
                 </span>
@@ -1520,7 +1518,7 @@ export default function QuotationEditorPage() {
     const { widthPx, heightPx } = impositionPreviewBoxSize(previewWidth, previewBreadth);
     const isNormalImposition = brochureOrientation === "NORMAL";
     const partPages = seg.partPages ?? 0;
-    const numberRotation = (pageNumber, rowIndex, colIndex) => {
+    const numberRotation = (pageNumber, rowIndex) => {
       if (colCount === 1) {
         return "rotate(90deg)";
       }
@@ -1572,7 +1570,7 @@ export default function QuotationEditorPage() {
               >
                 <span
                   className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
-                  style={{ transform: numberRotation(pageNumber, ri, ci) }}
+                  style={{ transform: numberRotation(pageNumber, ri) }}
                 >
                   {pageNumber}
                 </span>
@@ -1740,6 +1738,10 @@ export default function QuotationEditorPage() {
       <div className="w-8 h-8 border-2 border-gov-border border-t-gov-blue animate-spin"></div>
     </div>
   );
+
+  const liveInspectCompositionPlan = previewingCompositionPlan
+    ? resolveLiveNestedPrintPlan(previewingCompositionPlan.plan)
+    : null;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full bg-gov-bg print:bg-white overflow-x-hidden select-none">
@@ -1959,7 +1961,6 @@ export default function QuotationEditorPage() {
                       </thead>
                       <tbody>
                         {lineItems.map((item, idx) => {
-                          const primaryComp = item.chargeComponents?.[0] || {};
                           const lineTotal = item.chargeComponents?.reduce((acc, c) => acc + (c.amount || 0), 0) || 0;
 
                           return (
@@ -2282,7 +2283,7 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Pricing Preview */}
-                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[240px] ${!!editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[240px] ${editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
                        <div className="mb-2 flex items-center justify-between shrink-0">
                           <div className="flex items-center gap-2 min-w-0">
                              <MdOutlineAnalytics className="w-4 h-4 text-gov-blue shrink-0" />
@@ -2290,7 +2291,7 @@ export default function QuotationEditorPage() {
                                 Options
                              </h3>
                              <h3 className={`${OPT_EXPAND} text-[11px] font-semibold text-gov-blue uppercase tracking-wide`}>
-                                {!!editingLineId ? "Editing Line Item" : "Printer Options"}
+                                {editingLineId ? "Editing Line Item" : "Printer Options"}
                              </h3>
                           </div>
                           <span className="hidden lg:block text-[9px] text-gray-400 uppercase tracking-wide shrink-0 ml-1 group-hover/options:hidden">Hover to expand</span>
@@ -2458,16 +2459,16 @@ export default function QuotationEditorPage() {
                                     }
 
                                     await syncLineItems(newList);
-                                    onLineItemSaved(newLineItem.title || itemTitle, !!editingLineId);
+                                    onLineItemSaved(newLineItem.title || itemTitle, Boolean(editingLineId));
                                   }}
                                   className="flex-1 flex items-center justify-center gap-1.5 text-xs lg:group-hover/options:text-sm py-2"
                                 >
-                                   {!!editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
+                                   {editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
                                    <span className={`truncate ${OPT_COMPACT}`}>
-                                     {!!editingLineId ? "Update" : "Add"} · ₹{selectedLaserOption.pricing.total.toLocaleString()}
+                                     {editingLineId ? "Update" : "Add"} · ₹{selectedLaserOption.pricing.total.toLocaleString()}
                                    </span>
                                    <span className={`truncate ${OPT_EXPAND}`}>
-                                     {!!editingLineId ? "Update Line Item" : "Add to Quotation"}
+                                     {editingLineId ? "Update Line Item" : "Add to Quotation"}
                                    </span>
                                 </PrimaryButton>
                              </div>
@@ -2627,7 +2628,7 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Brochure Composition \u0026 Pricing */}
-                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[280px] ${!!editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[280px] ${editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
                       <div className="mb-2 flex items-center justify-between shrink-0">
                           <div className="flex items-center gap-2 min-w-0">
                              <MdLayers className="w-4 h-4 text-gov-blue shrink-0" />
@@ -2635,7 +2636,7 @@ export default function QuotationEditorPage() {
                                 Options
                              </h3>
                              <h3 className={`${OPT_EXPAND} text-[11px] font-semibold text-gov-blue uppercase tracking-wide`}>
-                                {!!editingLineId ? "Editing Booklet" : "Composition Options"}
+                                {editingLineId ? "Editing Booklet" : "Composition Options"}
                              </h3>
                           </div>
                           <span className="hidden lg:block text-[9px] text-gray-400 uppercase tracking-wide shrink-0 ml-1 group-hover/options:hidden">Hover to expand</span>
@@ -2803,16 +2804,16 @@ export default function QuotationEditorPage() {
                                            newList = [...lineItems, newLineItem];
                                          }
                                          await syncLineItems(newList);
-                                         onLineItemSaved(newLineItem.title || itemTitle, !!editingLineId);
+                                         onLineItemSaved(newLineItem.title || itemTitle, Boolean(editingLineId));
                                        }}
                                        className="flex-1 flex items-center justify-center gap-1.5 text-xs lg:group-hover/options:text-sm py-2 lg:group-hover/options:py-2.5"
                                      >
-                                       {!!editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
+                                       {editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
                                        <span className={`truncate ${OPT_COMPACT}`}>
-                                         {!!editingLineId ? "Update" : "Add"} · ₹{selectedNestedPrintPlan.totals?.price != null ? Number(selectedNestedPrintPlan.totals.price).toLocaleString() : "—"}
+                                         {editingLineId ? "Update" : "Add"} · ₹{selectedNestedPrintPlan.totals?.price != null ? Number(selectedNestedPrintPlan.totals.price).toLocaleString() : "—"}
                                        </span>
                                        <span className={`truncate ${OPT_EXPAND}`}>
-                                         {!!editingLineId ? "Update Booklet" : "Add Booklet to Quotation"}
+                                         {editingLineId ? "Update Booklet" : "Add Booklet to Quotation"}
                                        </span>
                                      </PrimaryButton>
                                    </div>
@@ -3032,12 +3033,12 @@ export default function QuotationEditorPage() {
                                             newList = [...lineItems, newLineItem];
                                           }
                                           await syncLineItems(newList);
-                                          onLineItemSaved(newLineItem.title || itemTitle, !!editingLineId);
+                                          onLineItemSaved(newLineItem.title || itemTitle, Boolean(editingLineId));
                                        }}
                                        className="flex-1 flex items-center justify-center gap-2"
                                      >
-                                        {!!editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
-                                        {!!editingLineId ? "Update Booklet" : "Add Booklet to Quotation"}
+                                        {editingLineId ? <MdCheckCircle className="w-4 h-4 ml-[-8px]" /> : <MdAdd className="w-4 h-4 ml-[-8px]" />}
+                                        {editingLineId ? "Update Booklet" : "Add Booklet to Quotation"}
                                      </PrimaryButton>
                                   </div>
                                 )}
@@ -3146,7 +3147,7 @@ export default function QuotationEditorPage() {
                   </div>
 
                   {/* Right: Results Mirror Laser pattern */}
-                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[280px] ${!!editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[280px] ${editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
                        <div className="mb-2 flex items-center justify-between shrink-0">
                           <div className="flex items-center gap-2 min-w-0">
                              <MdOutlineAnalytics className="w-4 h-4 text-gov-blue shrink-0" />
@@ -3154,7 +3155,7 @@ export default function QuotationEditorPage() {
                                 Options
                              </h3>
                              <h3 className={`${OPT_EXPAND} text-[11px] font-semibold text-gov-blue uppercase tracking-wide`}>
-                                {!!editingLineId ? "Editing Offset Item" : "Offset Options"}
+                                {editingLineId ? "Editing Offset Item" : "Offset Options"}
                              </h3>
                               <button 
                                   onClick={() => setShowOffsetHelp(true)}
@@ -3338,16 +3339,16 @@ export default function QuotationEditorPage() {
                                      }
 
                                      await syncLineItems(newList);
-                                     onLineItemSaved(newLineItem.title || itemTitle, !!editingLineId);
+                                     onLineItemSaved(newLineItem.title || itemTitle, Boolean(editingLineId));
                                    }}
                                    className="flex-1 flex items-center justify-center gap-1.5 text-xs lg:group-hover/options:text-sm py-2"
                                  >
-                                    {!!editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
+                                    {editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
                                     <span className={`truncate ${OPT_COMPACT}`}>
-                                      {!!editingLineId ? "Update" : "Add"} · ₹{selectedOffsetOption.pricing.total.toLocaleString()}
+                                      {editingLineId ? "Update" : "Add"} · ₹{selectedOffsetOption.pricing.total.toLocaleString()}
                                     </span>
                                     <span className={`truncate ${OPT_EXPAND}`}>
-                                      {!!editingLineId ? "Update Line Item" : "Add to Quotation"}
+                                      {editingLineId ? "Update Line Item" : "Add to Quotation"}
                                     </span>
                                  </PrimaryButton>
                               </div>
@@ -3440,7 +3441,14 @@ export default function QuotationEditorPage() {
 
               <div className="flex-1 overflow-y-auto p-3 min-h-0">
                  {previewingCompositionPlan ? (
-                   renderCompositionPlanInspect(previewingCompositionPlan.plan, previewingCompositionPlan.planIdx)
+                   <div className="space-y-3">
+                     {brochureLoading && (
+                       <div className="border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold text-amber-800 uppercase tracking-wide">
+                         Updating pricing for color pages...
+                       </div>
+                     )}
+                     {renderCompositionPlanInspect(liveInspectCompositionPlan, previewingCompositionPlan.planIdx)}
+                   </div>
                  ) : (
                    <PaperLayoutPreview
                      layout={previewingLayoutOption.layout}
