@@ -166,7 +166,7 @@ export function buildPlainProductionSpecs(item, options = {}) {
     }
 
     if (workType === "offset" && meta.offsetWaste != null) {
-      specs.push({ label: "Waste sheets allowed", value: meta.offsetWaste });
+      specs.push({ label: "Colour adjustment sheets", value: meta.offsetWaste });
     }
   }
 

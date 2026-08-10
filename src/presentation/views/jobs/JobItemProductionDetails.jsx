@@ -3,7 +3,7 @@ import { buildBrochureDisplaySpecs, workTypeLabel } from "./productionPlainLangu
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
 import BrochureCompositionInspectPanel from "../../components/quotes/BrochureCompositionInspectPanel.jsx";
 import { BrochureOrientationGlyph } from "../../components/quotes/BrochureOrientationPreview.jsx";
-import { layoutPreviewPropsFromItem } from "../../components/quotes/layoutPreviewProps.js";
+import { layoutPreviewPropsFromItem, resolvePressSizeLabel } from "../../components/quotes/layoutPreviewProps.js";
 import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import { PrimaryButton } from "../../components/auth/AuthFormPrimitives.jsx";
 import { MdOutlineAnalytics, MdLayers } from "react-icons/md";
@@ -142,6 +142,11 @@ export default function JobItemProductionDetails({
     [item, meta, hidePricing],
   );
 
+  const pressSizeLabel = useMemo(
+    () => resolvePressSizeLabel({ meta, layout: meta.layout }),
+    [meta],
+  );
+
   const productionSpecs = useMemo(
     () => buildProductionSpecs(item, meta, { hidePricing, layoutPreview, plan, workType }),
     [item, meta, hidePricing, layoutPreview, plan, workType],
@@ -193,6 +198,8 @@ export default function JobItemProductionDetails({
           totalPrice={layoutPreview.totalPrice}
           currency={currency}
           hidePricing={hidePricing}
+          pressSizeLabel={pressSizeLabel}
+          chargeComponents={item?.chargeComponents}
         />
       </FormDrawer>
 
@@ -261,6 +268,8 @@ export default function JobItemProductionDetails({
               totalPrice={layoutPreview.totalPrice}
               currency={currency}
               hidePricing={hidePricing}
+              pressSizeLabel={pressSizeLabel}
+              chargeComponents={item?.chargeComponents}
             />
           )}
 

@@ -5,7 +5,15 @@ import {
   impositionSpreadOnPortion,
   isLongEdgePairing,
   shortEdgeFourPagePreviewRotation,
+  formatPaperSize,
 } from "./layoutPaperFrame.js";
+
+function trimPageLabel(trimPage) {
+  const w = Number(trimPage?.width);
+  const b = Number(trimPage?.breadth);
+  if (!w || !b) return null;
+  return formatPaperSize(w, b, trimPage?.unit ?? "cm");
+}
 
 function nestedRoleLabel(role) {
   if (role === "ONLY") return "Single folded signature";
@@ -394,6 +402,11 @@ export default function BrochureCompositionInspectPanel({
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-3 py-2 bg-gray-50 border border-gov-border text-[10px]">
+        {trimPageLabel(trimPage) && (
+          <span className="text-gray-500">
+            Page size: <strong className="text-gov-blue">{trimPageLabel(trimPage)}</strong>
+          </span>
+        )}
         <span className="text-gray-500">
           Printer: <strong className="text-gov-blue">{nestedPlanPrinterSummary(plan, 4)}</strong>
         </span>
@@ -444,8 +457,9 @@ export default function BrochureCompositionInspectPanel({
                     <div className="text-gray-500 truncate">{signature.printerModelName || "Printer TBD"}</div>
                   </div>
                   <div className="text-right shrink-0 text-gray-500">
+                    {trimPageLabel(trimPage) && <div>Page {trimPageLabel(trimPage)}</div>}
                     <div>
-                      {signature.portion.width}×{signature.portion.breadth}
+                      Paper {signature.portion.width}×{signature.portion.breadth}
                       {signature.portion.unit}
                     </div>
                     <div>

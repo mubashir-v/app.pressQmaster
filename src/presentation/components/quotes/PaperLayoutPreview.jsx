@@ -12,6 +12,47 @@ import {
   WASTE_STROKE_BOTTOM,
 } from "./layoutPaperFrame.js";
 import { LayoutLegend } from "./PaperLayoutFrame.jsx";
+import { resolvePressSizeLabel, layoutPriceBreakdownRows } from "./layoutPreviewProps.js";
+
+function SummaryTable({ rows }) {
+  const visible = rows.filter((row) => row?.value != null && row.value !== "");
+  if (!visible.length) return null;
+
+  const pairs = [];
+  for (let i = 0; i < visible.length; i += 2) {
+    pairs.push([visible[i], visible[i + 1] ?? null]);
+  }
+
+  const labelClass =
+    "px-2 py-1.5 text-left font-medium text-gray-500 bg-gray-50 align-top w-[22%] border-r border-gov-border/60";
+  const valueClass =
+    "px-2 py-1.5 font-semibold text-gov-blue tabular-nums align-top wrap-break-word w-[28%]";
+
+  return (
+    <table className="w-full border border-gov-border border-collapse text-[11px] table-fixed">
+      <tbody>
+        {pairs.map(([left, right], idx) => (
+          <tr key={`${left.label}-${right?.label ?? idx}`} className="border-b border-gov-border last:border-b-0">
+            <th scope="row" className={labelClass}>
+              {left.label}
+            </th>
+            <td className={`${valueClass} border-r border-gov-border`}>{left.value}</td>
+            {right ? (
+              <>
+                <th scope="row" className={labelClass}>
+                  {right.label}
+                </th>
+                <td className={valueClass}>{right.value}</td>
+              </>
+            ) : (
+              <td colSpan={2} className="bg-gray-50" aria-hidden="true" />
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 export default function PaperLayoutPreview({
   layout,
@@ -24,12 +65,15 @@ export default function PaperLayoutPreview({
   totalPrice,
   currency = "INR",
   hidePricing = false,
+  pressSizeLabel,
+  chargeComponents,
+  pricing,
 }) {
   if (!layout || !layout.paper || !layout.placements) {
     return (
       <div className="flex flex-col items-center justify-center p-6 text-center bg-gray-50 border border-dashed border-gov-border">
         <MdWarningAmber className="w-8 h-8 text-gov-blue/20 mb-2" />
-        <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide max-w-[240px]">
+        <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide max-w-60">
           No paper dimensions available to render layout preview.
         </p>
       </div>
@@ -37,6 +81,8 @@ export default function PaperLayoutPreview({
   }
 
   const { sourcePaper, paper, placements, waste, paperFeed } = layout;
+  const resolvedPressSize =
+    pressSizeLabel ?? resolvePressSizeLabel({ layout });
 
   const canvas = sourcePaper || paper;
   const viewBox = `0 0 ${canvas.width} ${canvas.breadth}`;
@@ -54,76 +100,63 @@ export default function PaperLayoutPreview({
   const thinStroke = canvas.width * 0.001;
   const dashStroke = canvas.width * 0.002;
 
-  const stats = [
+  const sheetsDiffer =
+    parentSheets != null && sheets != null && parentSheets !== sheets;
+
+  const stockPaperLabel = formatPaperSize(canvas.width, canvas.breadth, canvas.unit);
+  const printSheetLabel = formatPaperSize(paper.width, paper.breadth, paper.unit);
+
+  const summaryRows = [
+    resolvedPressSize && { label: "Press size", value: resolvedPressSize },
+    { label: "Stock paper", value: stockPaperLabel },
+    isPortioned && { label: "Print sheet", value: printSheetLabel },
     {
-      label: "Feed",
-      value: isPortioned ? `${grid.cols}×${grid.rows} portion` : "Full sheet",
-      sub: isPortioned ? `${paperFeed.portionsPerParent} per stock` : "Direct",
+      label: "Paper feed",
+      value: isPortioned
+        ? `${feedLabel} · ${paperFeed.portionsPerParent} cuts per sheet`
+        : "Full sheet",
     },
-    {
-      label: "Yield",
-      value: piecesPerSheet ?? "—",
-      sub: "per portion",
+    { label: "Pages per sheet", value: piecesPerSheet ?? "—" },
+    piecesRequested != null && {
+      label: "Copies needed",
+      value: piecesRequested.toLocaleString(),
     },
-    {
-      label: "Usage",
-      value: `${sheets ?? "—"} / ${parentSheets ?? "—"}`,
-      sub: "portion / stock",
+    sheets != null && { label: "Print sheets", value: sheets.toLocaleString() },
+    sheetsDiffer && {
+      label: "Full paper sheets",
+      value: parentSheets.toLocaleString(),
     },
-    ...(hidePricing
-      ? []
-      : [
-          {
-            label: "Total",
-            value: `${currency} ${totalPrice?.toLocaleString() ?? "—"}`,
-            sub: `${prints ?? 0} imps`,
-          },
-        ]),
+    prints != null && { label: "Impressions", value: prints.toLocaleString() },
+    ...layoutPriceBreakdownRows({
+      chargeComponents,
+      pricing,
+      totalPrice,
+      currency,
+      hidePricing,
+    }),
+    waste && {
+      label: "Side waste",
+      value: `${waste.remainingWidth}${canvas.unit}`,
+    },
+    waste && {
+      label: "Bottom waste",
+      value: `${waste.remainingBreadth}${canvas.unit}`,
+    },
+    waste && {
+      label: "Paper used",
+      value: `${(waste.utilization * 100).toFixed(1)}%`,
+    },
+    printerName && { label: "Printer", value: printerName },
   ];
 
   return (
     <div className="space-y-3 outline-none select-none">
-      {/* Compact metrics bar */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px border border-gov-border bg-gov-border">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-white px-2.5 py-2 min-w-0">
-            <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide truncate">{stat.label}</div>
-            <div className="text-sm font-bold text-gov-blue truncate tabular-nums">{stat.value}</div>
-            <div className="text-[9px] text-gray-400 truncate">{stat.sub}</div>
-          </div>
-        ))}
-      </div>
+      <SummaryTable rows={summaryRows} />
 
-      {/* SVG visualization */}
-      <div className="relative bg-gray-100 border border-gov-border p-3 flex items-center justify-center min-h-[240px] max-h-[420px]">
-        <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1">
-          {isPortioned ? (
-            <>
-              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-gov-blue text-white border border-gov-blue">
-                Paper: {canvas.width}×{canvas.breadth}{canvas.unit}
-              </span>
-              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-white text-gov-blue border border-gov-border">
-                {feedLabel}
-              </span>
-              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-white text-gov-blue border border-gov-border">
-                Portion: {formatPaperSize(paper.width, paper.breadth, paper.unit)}
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-gov-blue text-white border border-gov-blue">
-                Paper: {formatPaperSize(canvas.width, canvas.breadth, canvas.unit)}
-              </span>
-              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-white text-gov-blue border border-gov-border">
-                {feedLabel}
-              </span>
-            </>
-          )}
-        </div>
-
+      <div className="relative bg-gray-100 border border-gov-border p-2 flex items-center justify-center min-h-52 max-h-90">
         <svg
           viewBox={viewBox}
-          className="max-w-full max-h-[360px]"
+          className="max-w-full max-h-80"
           preserveAspectRatio="xMidYMid meet"
         >
           <rect
@@ -184,7 +217,7 @@ export default function PaperLayoutPreview({
                           fontSize={labelSize * 0.9}
                           fontWeight="600"
                         >
-                          {formatPaperSize(paper.width, paper.breadth, paper.unit)}
+                          {printSheetLabel}
                         </text>
                       </>
                     )}
@@ -307,26 +340,9 @@ export default function PaperLayoutPreview({
             })}
           </g>
         </svg>
-
-        <div className="absolute bottom-2 left-2 text-[9px] font-medium text-gray-400 uppercase tracking-wide">
-          {canvas.width}×{canvas.breadth} {canvas.unit}
-          {printerName && <span className="ml-2 text-gov-blue/60">{printerName}</span>}
-        </div>
       </div>
 
-      <LayoutLegend />
-
-      {/* Waste / utilization — compact row */}
-      {waste && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 px-2 py-1.5 bg-gray-50 border border-gov-border text-[10px]">
-          <span className="text-gray-500">Waste W: <strong className="text-gov-blue tabular-nums">{waste.remainingWidth}{canvas.unit}</strong></span>
-          <span className="text-gray-500">Waste B: <strong className="text-gov-blue tabular-nums">{waste.remainingBreadth}{canvas.unit}</strong></span>
-          <span className="text-gray-500">Utilization: <strong className="text-gov-blue tabular-nums">{(waste.utilization * 100).toFixed(1)}%</strong></span>
-          {piecesRequested != null && (
-            <span className="text-gray-500">Requested: <strong className="text-gov-blue tabular-nums">{piecesRequested}</strong></span>
-          )}
-        </div>
-      )}
+      <LayoutLegend plainLanguage />
     </div>
   );
 }

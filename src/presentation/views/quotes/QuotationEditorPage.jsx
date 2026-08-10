@@ -22,8 +22,9 @@ import {
   impositionSpreadOnPortion,
   isLongEdgePairing,
   shortEdgeFourPagePreviewRotation,
+  formatPaperSize,
 } from "../../components/quotes/layoutPaperFrame.js";
-import { layoutPreviewSnapshotFromOption } from "../../components/quotes/layoutPreviewProps.js";
+import { layoutPreviewSnapshotFromOption, layoutPreviewPropsFromOption } from "../../components/quotes/layoutPreviewProps.js";
 
 
 
@@ -37,6 +38,13 @@ function formatPaperStockOptionLabel(stock) {
     return `${stock.name} (${dims.length}x${dims.breadth}${unit})`;
   }
   return stock?.name ?? "";
+}
+
+function parsePositiveInt(value) {
+  if (value === "" || value == null) return null;
+  const parsed = Number.parseInt(String(value).trim(), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
 }
 
 const LASER_SUB_TABS = [
@@ -129,7 +137,7 @@ export default function QuotationEditorPage() {
   const [laserStockItemId, setLaserStockItemId] = useState("");
   const [laserColorMode, setLaserColorMode] = useState("COLOR");
   const [laserSides, setLaserSides] = useState("SINGLE");
-  const [laserCopies, setLaserCopies] = useState("10");  // String for input, cast to number for API
+  const [laserCopies, setLaserCopies] = useState("");
   const [isOnlyClipCharge, setIsOnlyClipCharge] = useState(false);
 
   const [laserSizeOptions, setLaserSizeOptions] = useState([]);
@@ -148,7 +156,7 @@ export default function QuotationEditorPage() {
   const [offsetColorMode, setOffsetColorMode] = useState("Single");
   const [offsetSides, setOffsetSides] = useState("SINGLE");
   const [offsetIsBackSideDifferent, setOffsetIsBackSideDifferent] = useState(false);
-  const [offsetCopies, setOffsetCopies] = useState("1000"); 
+  const [offsetCopies, setOffsetCopies] = useState("");
   const [offsetWaste, setOffsetWaste] = useState("0");
   const [itemTitle, setItemTitle] = useState("");
 
@@ -163,8 +171,8 @@ export default function QuotationEditorPage() {
   // --- Brochure Calculator State ---
   const [brochureSizeId, setBrochureSizeId] = useState("");
   const [brochureStockItemId, setBrochureStockItemId] = useState("");
-  const [brochurePagesPerBrochure, setBrochurePagesPerBrochure] = useState("8");
-  const [brochureCopies, setBrochureCopies] = useState("100");
+  const [brochurePagesPerBrochure, setBrochurePagesPerBrochure] = useState("");
+  const [brochureCopies, setBrochureCopies] = useState("");
   const [brochureColorPagesInput, setBrochureColorPagesInput] = useState("");
   const [brochureIsOnlyClipCharge, setBrochureIsOnlyClipCharge] = useState(false);
   const [brochureOrientation, setBrochureOrientation] = useState("NORMAL");
@@ -493,8 +501,8 @@ export default function QuotationEditorPage() {
 
      setBrochureSizeId("");
      setBrochureStockItemId("");
-     setBrochurePagesPerBrochure("8");
-     setBrochureCopies("100");
+     setBrochurePagesPerBrochure("");
+     setBrochureCopies("");
      setBrochureColorPagesInput("");
      setBrochureIsOnlyClipCharge(false);
      setBrochureOrientation("NORMAL");
@@ -505,12 +513,12 @@ export default function QuotationEditorPage() {
      
      setLaserColorMode("COLOR");
      setLaserSides("SINGLE");
-     setLaserCopies("10");
+     setLaserCopies("");
 
      setOffsetColorMode("Single");
      setOffsetSides("SINGLE");
      setOffsetIsBackSideDifferent(false);
-     setOffsetCopies("1000");
+     setOffsetCopies("");
 
      setIsOnlyClipCharge(false);
      
@@ -580,7 +588,7 @@ export default function QuotationEditorPage() {
          setCustomUnit(m.customUnit || user.settings?.defaultLengthUnit || "mm");
          setLaserSides(m.laserSides || "SINGLE");
          setLaserColorMode(m.laserColorMode || "COLOR");
-         setLaserCopies(m.laserCopies?.toString() || "10");
+         setLaserCopies(m.laserCopies?.toString() ?? "");
          setIsOnlyClipCharge(m.isOnlyClipCharge ?? false);
        } else if (m.offsetStockItemId !== undefined) {
          setActiveTab("offset");
@@ -592,7 +600,7 @@ export default function QuotationEditorPage() {
          setOffsetSides(m.offsetSides || "SINGLE");
          setOffsetIsBackSideDifferent(m.offsetIsBackSideDifferent ?? false);
          setOffsetColorMode(m.offsetColorMode || "Single");
-         setOffsetCopies(m.offsetCopies?.toString() || "1000");
+         setOffsetCopies(m.offsetCopies?.toString() ?? "");
          setOffsetWaste(m.offsetWaste?.toString() || "0");
        } else if (m.brochureStockItemId !== undefined) {
          setActiveTab("brochure");
@@ -601,8 +609,8 @@ export default function QuotationEditorPage() {
          setCustomWidth(m.customWidth || "");
          setCustomBreadth(m.customBreadth || "");
          setCustomUnit(m.customUnit || user.settings?.defaultLengthUnit || "mm");
-         setBrochurePagesPerBrochure(m.brochurePagesPerBrochure?.toString() || "8");
-         setBrochureCopies(m.brochureCopies?.toString() || "100");
+         setBrochurePagesPerBrochure(m.brochurePagesPerBrochure?.toString() ?? "");
+         setBrochureCopies(m.brochureCopies?.toString() ?? "");
          setBrochureColorPagesInput(m.brochureColorPagesInput || "");
          setBrochureIsOnlyClipCharge(m.brochureIsOnlyClipCharge ?? false);
          setBrochureOrientation(m.brochureOrientation || "NORMAL");
@@ -816,7 +824,8 @@ export default function QuotationEditorPage() {
   }, [activeTab, fetchLaserSizes, fetchLaserStocks, fetchOffsetSizes, fetchOffsetStocks]);
 
   const recalculateLaserPricing = useCallback(async () => {
-    if (!laserSizeId || !laserStockItemId || !laserCopies) return;
+    const copies = parsePositiveInt(laserCopies);
+    if (!laserSizeId || !laserStockItemId || copies == null) return;
 
     let sizePayload;
     if (laserSizeId === 'custom') {
@@ -845,7 +854,7 @@ export default function QuotationEditorPage() {
         colorMode: laserColorMode,
         sides: laserSides,
         stockItemId: laserStockItemId,
-        copies: parseInt(laserCopies) || 0,
+        copies,
         isOnlyClipCharge
       };
 
@@ -864,7 +873,8 @@ export default function QuotationEditorPage() {
   }, [laserSizeId, laserStockItemId, laserCopies, customWidth, customBreadth, customUnit, sizeList, laserColorMode, laserSides, isOnlyClipCharge]);
 
   const recalculateOffsetPricing = useCallback(async () => {
-    if (!offsetSizeId || !offsetStockItemId || !offsetCopies) return;
+    const copies = parsePositiveInt(offsetCopies);
+    if (!offsetSizeId || !offsetStockItemId || copies == null) return;
 
     let sizePayload;
     if (offsetSizeId === 'custom') {
@@ -894,7 +904,7 @@ export default function QuotationEditorPage() {
         sides: offsetSides,
         isBackSideDifferent: offsetIsBackSideDifferent,
         stockItemId: offsetStockItemId,
-        copies: parseInt(offsetCopies) || 0,
+        copies,
         wasteImpressions: parseInt(offsetWaste) || 0
       };
 
@@ -912,7 +922,9 @@ export default function QuotationEditorPage() {
   }, [offsetSizeId, offsetStockItemId, offsetCopies, customWidth, customBreadth, customUnit, sizeList, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetWaste]);
 
   const recalculateBrochurePricing = useCallback(async (overrides = {}) => {
-    if (!brochureSizeId || !brochureStockItemId || !brochureCopies || !brochurePagesPerBrochure) return;
+    const copies = parsePositiveInt(brochureCopies);
+    const pagesPerBrochure = parsePositiveInt(brochurePagesPerBrochure);
+    if (!brochureSizeId || !brochureStockItemId || copies == null || pagesPerBrochure == null) return;
 
     let sizePayload;
     if (brochureSizeId === 'custom') {
@@ -930,8 +942,8 @@ export default function QuotationEditorPage() {
     try {
       const payload = {
         pageSize: sizePayload,
-        pagesPerBrochure: parseInt(brochurePagesPerBrochure) || 0,
-        brochureCopies: parseInt(brochureCopies) || 0,
+        pagesPerBrochure,
+        brochureCopies: copies,
         stockItemId: brochureStockItemId,
         colorMode: brochureColorPagesInput.trim() ? "COLOR" : "BW",
         colorPages: brochureColorPagesInput.trim(),
@@ -991,7 +1003,13 @@ export default function QuotationEditorPage() {
     if (brochureOrientation === nextOrientation) return;
     setBrochureOrientation(nextOrientation);
 
-    if (activeTab === "brochure" && brochureSizeId && brochureStockItemId && brochureCopies && brochurePagesPerBrochure) {
+    if (
+      activeTab === "brochure" &&
+      brochureSizeId &&
+      brochureStockItemId &&
+      parsePositiveInt(brochureCopies) != null &&
+      parsePositiveInt(brochurePagesPerBrochure) != null
+    ) {
       skipNextBrochureAutoRecalcRef.current = true;
       window.setTimeout(() => {
         recalculateBrochurePricing({ brochureOrientation: nextOrientation });
@@ -1009,21 +1027,31 @@ export default function QuotationEditorPage() {
 
   // Effect to trigger calculation
   useEffect(() => {
-    if (activeTab === "laser" && laserSizeId && laserStockItemId && laserCopies) {
+    if (activeTab !== "laser") return;
+    if (laserSizeId && laserStockItemId && parsePositiveInt(laserCopies) != null) {
       const timer = setTimeout(recalculateLaserPricing, 500);
       return () => clearTimeout(timer);
     }
+    clearLaserQuoteOptions();
   }, [laserSizeId, laserStockItemId, laserColorMode, laserSides, laserCopies, isOnlyClipCharge, activeTab, customWidth, customBreadth, customUnit, recalculateLaserPricing]);
 
   useEffect(() => {
-    if (activeTab === "offset" && offsetSizeId && offsetStockItemId && offsetCopies) {
+    if (activeTab !== "offset") return;
+    if (offsetSizeId && offsetStockItemId && parsePositiveInt(offsetCopies) != null) {
       const timer = setTimeout(recalculateOffsetPricing, 500);
       return () => clearTimeout(timer);
     }
+    clearOffsetQuoteOptions();
   }, [offsetSizeId, offsetStockItemId, offsetColorMode, offsetSides, offsetIsBackSideDifferent, offsetCopies, offsetWaste, activeTab, customWidth, customBreadth, customUnit, recalculateOffsetPricing]);
 
   useEffect(() => {
-    if (activeTab === "brochure" && brochureSizeId && brochureStockItemId && brochureCopies && brochurePagesPerBrochure) {
+    if (activeTab !== "brochure") return;
+    if (
+      brochureSizeId &&
+      brochureStockItemId &&
+      parsePositiveInt(brochureCopies) != null &&
+      parsePositiveInt(brochurePagesPerBrochure) != null
+    ) {
       if (skipNextBrochureAutoRecalcRef.current) {
         skipNextBrochureAutoRecalcRef.current = false;
         return;
@@ -1031,6 +1059,7 @@ export default function QuotationEditorPage() {
       const timer = setTimeout(recalculateBrochurePricing, 500);
       return () => clearTimeout(timer);
     }
+    clearBrochureQuoteOptions();
   }, [brochureSizeId, brochureStockItemId, brochureColorPagesInput, brochureCopies, brochurePagesPerBrochure, brochureIsOnlyClipCharge, brochureOrientation, bookletBindingType, activeTab, customWidth, customBreadth, customUnit, recalculateBrochurePricing]);
 
   const nestedRoleLabel = (role) => {
@@ -1674,6 +1703,30 @@ export default function QuotationEditorPage() {
     return scale;
   };
 
+  const getBrochureTrimPageLabel = () => {
+    const trim = getBrochureTrimPageSize();
+    if (!trim?.width || !trim?.breadth) return null;
+    return formatPaperSize(trim.width, trim.breadth, trim.unit ?? "cm");
+  };
+
+  const getActivePressSizeLabel = () => {
+    const sizeId = activeTab === "offset" ? offsetSizeId : laserSizeId;
+    if (sizeId === "custom") {
+      if (customWidth && customBreadth) {
+        return `Custom (${formatPaperSize(customWidth, customBreadth, customUnit)})`;
+      }
+      return "Custom size";
+    }
+    const options = activeTab === "offset" ? offsetSizeOptions : laserSizeOptions;
+    const selected = options.find((o) => o.value === sizeId);
+    if (selected?.label) return selected.label;
+    const selSize = sizeList.find((s) => s.id === sizeId);
+    if (selSize) {
+      return `${selSize.name} (${selSize.width}x${selSize.breadth}${selSize.unit})`;
+    }
+    return null;
+  };
+
   const renderCompositionPlanInspect = (plan, planIdx) => {
     if (!plan) return null;
     const groups = nestedSignatureGroupsForPlan(plan);
@@ -1723,6 +1776,11 @@ export default function QuotationEditorPage() {
         </div>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-3 py-2 bg-gray-50 border border-gov-border text-[10px]">
+          {getBrochureTrimPageLabel() && (
+            <span className="text-gray-500">
+              Page size: <strong className="text-gov-blue">{getBrochureTrimPageLabel()}</strong>
+            </span>
+          )}
           <span className="text-gray-500">Printer: <strong className="text-gov-blue">{nestedPlanPrinterSummary(plan, 4)}</strong></span>
           <span className="text-gray-500">Paper used: <strong className="text-gov-blue">{wasteStats.usedPercent}%</strong></span>
           {plan.totals?.price != null && (
@@ -1764,7 +1822,8 @@ export default function QuotationEditorPage() {
                       <div className="text-gray-500 truncate">{signature.printerModelName || "Printer TBD"}</div>
                     </div>
                     <div className="text-right shrink-0 text-gray-500">
-                      <div>{signature.portion.width}×{signature.portion.breadth}{signature.portion.unit}</div>
+                      {getBrochureTrimPageLabel() && <div>Page {getBrochureTrimPageLabel()}</div>}
+                      <div>Paper {signature.portion.width}×{signature.portion.breadth}{signature.portion.unit}</div>
                       <div>{signature.gridOnPortion.across}×{signature.gridOnPortion.down}</div>
                       <div className="text-amber-700">Waste {paperWasteStatsForSignature(signature).wastePercent}%</div>
                     </div>
@@ -2329,7 +2388,8 @@ export default function QuotationEditorPage() {
                            <TextField 
                               label="No of Copies" 
                               type="number" 
-                              value={laserCopies} 
+                              placeholder="Enter copies"
+                              value={laserCopies}
                               onChange={e => setLaserCopies(e.target.value)} 
                               ref={laserCopiesRef}
                               onKeyDown={e => {
@@ -2418,11 +2478,11 @@ export default function QuotationEditorPage() {
                         </div>
                       ) : laserPricingOptions.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
-                           <MdComputer className={`w-12 h-12 ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${laserSizeId && laserStockItemId && laserCopies ? 'text-red-400' : 'text-gov-blue/65'}`}>
-                             {laserSizeId && laserStockItemId && laserCopies 
+                           <MdComputer className={`w-12 h-12 ${laserSizeId && laserStockItemId && parsePositiveInt(laserCopies) != null ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${laserSizeId && laserStockItemId && parsePositiveInt(laserCopies) != null ? 'text-red-400' : 'text-gov-blue/65'}`}>
+                             {laserSizeId && laserStockItemId && parsePositiveInt(laserCopies) != null
                                ? "No printer available to print this configuration" 
-                               : "Select dimensions and stock to see machine comparisons"}
+                               : "Select size, stock, and copies to see options"}
                            </p>
                         </div>
                       ) : (
@@ -2481,7 +2541,10 @@ export default function QuotationEditorPage() {
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               if (quoteOptionsBusy) return;
-                                              setPreviewingLayoutOption(opt);
+                                              setPreviewingLayoutOption({
+                                                ...opt,
+                                                pressSizeLabel: getActivePressSizeLabel(),
+                                              });
                                             }}
                                             className={inspectButtonClass(isPrintable && !!opt.layout)}
                                            >
@@ -2700,13 +2763,15 @@ export default function QuotationEditorPage() {
                            <TextField 
                               label="Pages per Booklet" 
                               type="number" 
+                              placeholder="e.g. 8"
                               value={brochurePagesPerBrochure} 
                               onChange={e => setBrochurePagesPerBrochure(e.target.value)} 
                            />
                            <TextField 
                               label="No of Copies" 
                               type="number" 
-                              value={brochureCopies} 
+                              placeholder="Enter copies"
+                              value={brochureCopies}
                               onChange={e => setBrochureCopies(e.target.value)} 
                            />
                       </div>
@@ -2780,11 +2845,11 @@ export default function QuotationEditorPage() {
                         </div>
                       ) : brochureViews.length === 0 && brochureNestedPrintPlans.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
-                           <MdLayers className={`w-12 h-12 ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${brochureSizeId && brochureStockItemId && brochureCopies ? 'text-red-400' : 'text-gov-blue/65'}`}>
-                             {brochureSizeId && brochureStockItemId && brochureCopies 
+                           <MdLayers className={`w-12 h-12 ${brochureSizeId && brochureStockItemId && parsePositiveInt(brochureCopies) != null && parsePositiveInt(brochurePagesPerBrochure) != null ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${brochureSizeId && brochureStockItemId && parsePositiveInt(brochureCopies) != null && parsePositiveInt(brochurePagesPerBrochure) != null ? 'text-red-400' : 'text-gov-blue/65'}`}>
+                             {brochureSizeId && brochureStockItemId && parsePositiveInt(brochureCopies) != null && parsePositiveInt(brochurePagesPerBrochure) != null
                                ? "No booklet composition possible for this page count" 
-                               : "Configure booklet details to see options"}
+                               : "Enter size, stock, pages, and copies to see options"}
                            </p>
                         </div>
                       ) : (
@@ -3222,8 +3287,20 @@ export default function QuotationEditorPage() {
                       </div>
 
                       <div className="grid grid-cols-4 gap-4">
-                          <TextField label="Copies" type="number" value={offsetCopies} onChange={e => setOffsetCopies(e.target.value)} />
-                          <TextField label="Waste Imp." type="number" value={offsetWaste} onChange={e => setOffsetWaste(e.target.value)} />
+                          <TextField label="Copies" type="number" placeholder="Enter copies" value={offsetCopies} onChange={e => setOffsetCopies(e.target.value)} />
+                          <div className="min-w-0">
+                            <TextField
+                              label="Waste impressions"
+                              type="number"
+                              placeholder="0"
+                              value={offsetWaste}
+                              onChange={(e) => setOffsetWaste(e.target.value)}
+                              info="Extra print sheets for ink and colour adjustment on the press before the job run. These are added to your job sheet count for billing."
+                            />
+                            <p className="mt-1 text-[9px] text-gray-500 leading-snug">
+                              Extra sheets for colour / ink adjustment on press. Use 0 if none needed.
+                            </p>
+                          </div>
                           <div className="flex flex-col gap-2">
                              <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Sides</label>
                              <div className="flex bg-zinc-50 p-1 rounded-xl border border-gov-blue/5 h-11">
@@ -3300,11 +3377,11 @@ export default function QuotationEditorPage() {
                         </div>
                       ) : offsetPricingOptions.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
-                           <MdPrint className={`w-12 h-12 ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
-                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${offsetSizeId && offsetStockItemId && offsetCopies ? 'text-red-400' : 'text-gov-blue/65'}`}>
-                              {offsetSizeId && offsetStockItemId && offsetCopies 
+                           <MdPrint className={`w-12 h-12 ${offsetSizeId && offsetStockItemId && parsePositiveInt(offsetCopies) != null ? 'text-red-400 opacity-20' : 'opacity-30 grayscale'}`} />
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${offsetSizeId && offsetStockItemId && parsePositiveInt(offsetCopies) != null ? 'text-red-400' : 'text-gov-blue/65'}`}>
+                              {offsetSizeId && offsetStockItemId && parsePositiveInt(offsetCopies) != null
                                 ? "No printer available to print this configuration" 
-                                : "Select dimensions and offset stock to see machine comparisons"}
+                                : "Select size, stock, and copies to see options"}
                            </p>
                         </div>
                       ) : (
@@ -3372,7 +3449,10 @@ export default function QuotationEditorPage() {
                                              onClick={(e) => {
                                                e.stopPropagation();
                                                if (quoteOptionsBusy) return;
-                                               setPreviewingLayoutOption(opt);
+                                               setPreviewingLayoutOption({
+                                                ...opt,
+                                                pressSizeLabel: getActivePressSizeLabel(),
+                                              });
                                              }}
                                              className={inspectButtonClass(isPrintable && !!opt.layout)}
                                             >
@@ -3573,17 +3653,25 @@ export default function QuotationEditorPage() {
                      {renderCompositionPlanInspect(liveInspectCompositionPlan, previewingCompositionPlan.planIdx)}
                    </div>
                  ) : (
+                   (() => {
+                     const previewStats = layoutPreviewPropsFromOption(previewingLayoutOption);
+                     return (
                    <PaperLayoutPreview
                      layout={previewingLayoutOption.layout}
-                     piecesRequested={previewingLayoutOption.piecesRequested}
-                     sheets={previewingLayoutOption.sheets}
-                     parentSheets={previewingLayoutOption.parentSheets}
-                     prints={previewingLayoutOption.prints}
-                     piecesPerSheet={previewingLayoutOption.piecesPerSheet}
+                     piecesRequested={previewStats.piecesRequested}
+                     sheets={previewStats.sheets}
+                     parentSheets={previewStats.parentSheets}
+                     prints={previewStats.prints}
+                     piecesPerSheet={previewStats.piecesPerSheet}
                      printerName={previewingLayoutOption.printerModelName}
                      totalPrice={previewingLayoutOption.pricing?.total}
                      currency={currency}
+                     pressSizeLabel={previewingLayoutOption.pressSizeLabel ?? getActivePressSizeLabel()}
+                     chargeComponents={previewingLayoutOption.pricing?.chargeComponents}
+                     pricing={previewingLayoutOption.pricing}
                    />
+                     );
+                   })()
                  )}
               </div>
 
@@ -3655,9 +3743,9 @@ export default function QuotationEditorPage() {
                             <div className="flex items-start gap-3">
                                <div className="w-6 h-6 rounded-lg bg-gov-blue/10 text-gov-blue flex items-center justify-center text-[10px] font-black flex-shrink-0">B</div>
                                <div className="space-y-1">
-                                  <div className="text-[10px] font-black text-gov-blue uppercase tracking-tighter">Waste Sheets</div>
+                                  <div className="text-[10px] font-black text-gov-blue uppercase tracking-tighter">Waste impressions</div>
                                   <p className="text-[11px] text-gov-blue/60 font-medium leading-normal">
-                                     Setup impressions added for ink balancing (Example: 25 pieces + 2 waste = 27 sheets).
+                                     Extra print sheets for colour and ink adjustment on press before the job run. Added to job sheets for billing (Example: 25 job sheets + 2 adjustment = 27 sheets).
                                   </p>
                                </div>
                             </div>

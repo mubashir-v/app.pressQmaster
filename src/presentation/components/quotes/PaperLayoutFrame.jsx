@@ -27,7 +27,7 @@ function WasteDimensionLabel({ label, className = "" }) {
   );
 }
 
-function LayoutLegend() {
+function LayoutLegend({ plainLanguage = false }) {
   return (
     <div className="flex flex-wrap items-center gap-3 text-[9px] text-gray-500 mt-1.5">
       <span className="inline-flex items-center gap-1">
@@ -35,18 +35,18 @@ function LayoutLegend() {
           className="inline-block w-2.5 h-2.5 border"
           style={{ backgroundColor: WASTE_FILL_RIGHT, borderColor: WASTE_STROKE_RIGHT }}
         />
-        Side trim (width)
+        {plainLanguage ? "Extra paper on the side" : "Side trim (width)"}
       </span>
       <span className="inline-flex items-center gap-1">
         <span
           className="inline-block w-2.5 h-2.5 border"
           style={{ backgroundColor: WASTE_FILL_BOTTOM, borderColor: WASTE_STROKE_BOTTOM }}
         />
-        Foot trim (breadth)
+        {plainLanguage ? "Extra paper at the bottom" : "Foot trim (breadth)"}
       </span>
       <span className="inline-flex items-center gap-1">
         <span className="inline-block w-2.5 h-2.5 border border-gov-blue/30 bg-gov-blue/10" />
-        Print area
+        {plainLanguage ? "Your print pages" : "Print area"}
       </span>
     </div>
   );

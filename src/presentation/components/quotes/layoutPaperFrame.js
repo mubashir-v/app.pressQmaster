@@ -31,9 +31,9 @@ export function portionFeedLabel(portion) {
 
 export function unusedPortionLabel(portion) {
   const portionsPerParent = Math.max(1, Number(portion?.portionsPerParent) || 1);
-  if (portionsPerParent === 2) return "Half sheet · not used";
-  if (portionsPerParent === 4) return "Quarter · not used";
-  return "Not used";
+  if (portionsPerParent === 2) return "Half sheet";
+  if (portionsPerParent === 4) return "Quarter sheet";
+  return "Unused portion";
 }
 
 export function stockDimensionsFromPortion(portion) {
