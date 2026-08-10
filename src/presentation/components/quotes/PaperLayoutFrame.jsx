@@ -63,7 +63,7 @@ function PortionPrintArea({ portion, usedWidth, usedHeight, children, className 
 
   return (
     <div
-      className={`relative max-w-full mx-auto border border-gray-300 bg-white overflow-hidden ${fillContainer ? "w-full h-full" : "w-full"} ${className}`}
+      className={`group relative max-w-full mx-auto border border-gray-300 bg-white overflow-hidden ${fillContainer ? "w-full h-full" : "w-full"} ${className}`}
       style={fillContainer ? undefined : { aspectRatio: `${pw} / ${pb}` }}
     >
       <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: WASTE_FILL_SOFT }} aria-hidden />
@@ -103,13 +103,13 @@ function PortionPrintArea({ portion, usedWidth, usedHeight, children, className 
       >
         {children}
         {hasPrintArea && (
-          <div className="absolute bottom-0.5 right-0.5 z-10 px-1 py-0.5 text-[7px] font-semibold uppercase tracking-wide bg-white/90 text-gov-blue border border-gov-blue/20 pointer-events-none">
+          <div className="absolute bottom-0.5 right-0.5 z-10 px-1 py-0.5 text-[7px] font-semibold uppercase tracking-wide bg-white/90 text-gov-blue border border-gov-blue/20 pointer-events-none transition-opacity duration-150 group-hover:opacity-0">
             Print {formatPaperSize(usedWidth, usedHeight, unit)}
           </div>
         )}
       </div>
 
-      <div className="absolute top-1 left-1 z-10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide bg-white/90 text-gray-700 border border-gov-border pointer-events-none">
+      <div className="absolute top-1 left-1 z-10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide bg-white/90 text-gray-700 border border-gov-border pointer-events-none transition-opacity duration-150 group-hover:opacity-0">
         {outerLabelPrefix} {formatPaperSize(pw, pb, unit)}
       </div>
     </div>

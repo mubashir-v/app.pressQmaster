@@ -1,5 +1,6 @@
 import React from "react";
 import PaperLayoutFrame, { LayoutLegend } from "./PaperLayoutFrame.jsx";
+import { impositionCellFootprint } from "./layoutPaperFrame.js";
 
 function nestedRoleLabel(role) {
   if (role === "ONLY") return "Single folded signature";
@@ -91,34 +92,11 @@ function nestedSignatureGroupsForPlan(plan) {
   ).sort((a, b) => b.signaturePages - a.signaturePages);
 }
 
-function normalizeTrimPage(trimPage) {
-  if (!trimPage?.width || !trimPage?.breadth) return null;
-  const w = Number(trimPage.width);
-  const b = Number(trimPage.breadth);
-  if (!w || !b) return null;
-  return w <= b ? { width: w, breadth: b, unit: trimPage.unit } : { width: b, breadth: w, unit: trimPage.unit };
-}
-
-function trimEdgesForPreview(trimPage) {
-  const page = normalizeTrimPage(trimPage);
-  if (page) {
-    return { short: Math.min(page.width, page.breadth), long: Math.max(page.width, page.breadth) };
-  }
-  return { short: 14.8, long: 21 };
-}
-
-function impositionCellFootprint(trimPage, footprintOrientation) {
-  const { short, long } = trimEdgesForPreview(trimPage);
-  if (footprintOrientation === "ROTATED") {
-    return { cellWidth: long, cellBreadth: short, cellAspectRatio: `${long} / ${short}` };
-  }
-  return { cellWidth: short, cellBreadth: long, cellAspectRatio: `${short} / ${long}` };
-}
-
 function canonicalBaseGrid(signaturePages) {
   if (signaturePages === 2) return { rows: 1, cols: 1 };
   if (signaturePages === 4) return { rows: 1, cols: 2 };
   if (signaturePages === 8) return { rows: 2, cols: 2 };
+  if (signaturePages === 12) return { rows: 2, cols: 3 };
   if (signaturePages === 16) return { rows: 2, cols: 4 };
   if (signaturePages === 32) return { rows: 4, cols: 4 };
   const perSide = Math.max(1, signaturePages / 2);

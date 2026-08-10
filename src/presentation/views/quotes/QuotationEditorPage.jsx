@@ -17,6 +17,7 @@ import { TextField, PrimaryButton, SearchableSelect, SelectField } from "../../c
 import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
 import PaperLayoutFrame, { LayoutLegend } from "../../components/quotes/PaperLayoutFrame.jsx";
+import { impositionCellFootprint } from "../../components/quotes/layoutPaperFrame.js";
 import { layoutPreviewSnapshotFromOption } from "../../components/quotes/layoutPreviewProps.js";
 
 
@@ -1295,44 +1296,15 @@ export default function QuotationEditorPage() {
     return { width: selectedSize.width, breadth: selectedSize.breadth, unit: selectedSize.unit };
   };
 
-  /** Portrait trim page with width as the shorter edge. */
-  const normalizeTrimPage = (trimPage) => {
-    if (!trimPage?.width || !trimPage?.breadth) return null;
-    const w = Number(trimPage.width);
-    const b = Number(trimPage.breadth);
-    if (!w || !b) return null;
-    return w <= b ? { width: w, breadth: b, unit: trimPage.unit } : { width: b, breadth: w, unit: trimPage.unit };
-  };
-
-  /**
-   * UI Normal  → long-edge pair   → portrait imposition cells.
-   * UI Rotated → short-edge pair  → landscape cells (page turned on sheet).
-   */
+  /** UI Normal → long-edge pair; UI Rotated → short-edge pair (landscape cells on sheet). */
   const previewFootprintForUi = (uiOrientation = brochureOrientation) => uiOrientation;
-
-  /** Trim short/long edges in cm-ish numbers; falls back to A5 when size chart unavailable. */
-  const trimEdgesForPreview = (trimPage = getBrochureTrimPageSize()) => {
-    const page = normalizeTrimPage(trimPage);
-    if (page) {
-      return { short: Math.min(page.width, page.breadth), long: Math.max(page.width, page.breadth) };
-    }
-    return { short: 14.8, long: 21 };
-  };
-
-  /** Cell footprint for imposition preview (ROTATED footprint = landscape cell on grid). */
-  const impositionCellFootprint = (trimPage, footprintOrientation) => {
-    const { short, long } = trimEdgesForPreview(trimPage);
-    if (footprintOrientation === "ROTATED") {
-      return { cellWidth: long, cellBreadth: short, cellAspectRatio: `${long} / ${short}` };
-    }
-    return { cellWidth: short, cellBreadth: long, cellAspectRatio: `${short} / ${long}` };
-  };
 
   /** One signature tile (canonical imposition), not the full repeated printer sheet. */
   const canonicalBaseGrid = (signaturePages) => {
     if (signaturePages === 2) return { rows: 1, cols: 1 };
     if (signaturePages === 4) return { rows: 1, cols: 2 };
     if (signaturePages === 8) return { rows: 2, cols: 2 };
+    if (signaturePages === 12) return { rows: 2, cols: 3 };
     if (signaturePages === 16) return { rows: 2, cols: 4 };
     if (signaturePages === 32) return { rows: 4, cols: 4 };
     const perSide = Math.max(1, signaturePages / 2);

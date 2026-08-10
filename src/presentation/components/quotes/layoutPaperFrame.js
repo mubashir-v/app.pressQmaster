@@ -128,3 +128,30 @@ export function wastePercentFromUtilization(utilization) {
     : 0;
   return Math.max(0, 100 - Math.round(usedRatio * 100));
 }
+
+/**
+ * Physical trim cell on press for imposition preview (matches API imposedPageMmForReader).
+ * NORMAL → width × breadth as entered; ROTATED → swapped (short-edge pair).
+ */
+export function impositionCellFootprint(trimPage, footprintOrientation = "NORMAL") {
+  const w = Number(trimPage?.width) || 0;
+  const b = Number(trimPage?.breadth) || 0;
+  if (!w || !b) {
+    const cellWidth = footprintOrientation === "ROTATED" ? 21 : 14.8;
+    const cellBreadth = footprintOrientation === "ROTATED" ? 14.8 : 21;
+    return { cellWidth, cellBreadth, cellAspectRatio: `${cellWidth} / ${cellBreadth}` };
+  }
+  const cellWidth = footprintOrientation === "ROTATED" ? b : w;
+  const cellBreadth = footprintOrientation === "ROTATED" ? w : b;
+  return { cellWidth, cellBreadth, cellAspectRatio: `${cellWidth} / ${cellBreadth}` };
+}
+
+/** Full spread size occupied by an imposition grid on the printable portion. */
+export function impositionSpreadSize(trimPage, footprintOrientation, colCount, rowCount) {
+  const footprint = impositionCellFootprint(trimPage, footprintOrientation);
+  return {
+    ...footprint,
+    width: footprint.cellWidth * Math.max(1, colCount),
+    breadth: footprint.cellBreadth * Math.max(1, rowCount),
+  };
+}
