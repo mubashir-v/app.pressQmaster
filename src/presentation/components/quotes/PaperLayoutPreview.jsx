@@ -1,5 +1,17 @@
 import React from "react";
 import { MdWarningAmber } from "react-icons/md";
+import {
+  portionFeedLabel,
+  trimWasteRectsOnPaper,
+  unusedPortionLabel,
+  formatPaperSize,
+  WASTE_FILL_SOFT,
+  WASTE_FILL_RIGHT,
+  WASTE_FILL_BOTTOM,
+  WASTE_STROKE_RIGHT,
+  WASTE_STROKE_BOTTOM,
+} from "./layoutPaperFrame.js";
+import { LayoutLegend } from "./PaperLayoutFrame.jsx";
 
 export default function PaperLayoutPreview({
   layout,
@@ -33,6 +45,14 @@ export default function PaperLayoutPreview({
   const grid = paperFeed?.grid || { cols: 1, rows: 1 };
   const cellWidth = canvas.width / grid.cols;
   const cellHeight = canvas.breadth / grid.rows;
+  const portionPaper = paper;
+  const wasteRects = trimWasteRectsOnPaper(portionPaper, waste, 0, 0);
+  const feedLabel = isPortioned
+    ? portionFeedLabel({ cols: grid.cols, rows: grid.rows, portionsPerParent: paperFeed.portionsPerParent })
+    : portionFeedLabel({ cols: 1, rows: 1, portionsPerParent: 1 });
+  const labelSize = Math.max(canvas.width, canvas.breadth) * 0.028;
+  const thinStroke = canvas.width * 0.001;
+  const dashStroke = canvas.width * 0.002;
 
   const stats = [
     {
@@ -77,13 +97,27 @@ export default function PaperLayoutPreview({
       {/* SVG visualization */}
       <div className="relative bg-gray-100 border border-gov-border p-3 flex items-center justify-center min-h-[240px] max-h-[420px]">
         <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1">
-          <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-gov-blue text-white border border-gov-blue">
-            Stock: {canvas.width}×{canvas.breadth}{canvas.unit}
-          </span>
-          {isPortioned && (
-            <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-white text-gov-blue border border-gov-border">
-              Portion: {paper.width}×{paper.breadth}{paper.unit}
-            </span>
+          {isPortioned ? (
+            <>
+              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-gov-blue text-white border border-gov-blue">
+                Paper: {canvas.width}×{canvas.breadth}{canvas.unit}
+              </span>
+              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-white text-gov-blue border border-gov-border">
+                {feedLabel}
+              </span>
+              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-white text-gov-blue border border-gov-border">
+                Portion: {formatPaperSize(paper.width, paper.breadth, paper.unit)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-gov-blue text-white border border-gov-blue">
+                Paper: {formatPaperSize(canvas.width, canvas.breadth, canvas.unit)}
+              </span>
+              <span className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-white text-gov-blue border border-gov-border">
+                {feedLabel}
+              </span>
+            </>
           )}
         </div>
 
@@ -99,11 +133,64 @@ export default function PaperLayoutPreview({
             height={canvas.breadth}
             fill="white"
             stroke="#d1d5db"
-            strokeWidth={canvas.width * 0.001}
+            strokeWidth={thinStroke}
           />
 
           {isPortioned && (
             <g>
+              {Array.from({ length: grid.cols * grid.rows }).map((_, index) => {
+                const col = index % grid.cols;
+                const row = Math.floor(index / grid.cols);
+                const isActive = col === 0 && row === 0;
+                const x = col * cellWidth;
+                const y = row * cellHeight;
+                return (
+                  <g key={`portion-${col}-${row}`}>
+                    {!isActive && (
+                      <>
+                        <rect
+                          x={x}
+                          y={y}
+                          width={cellWidth}
+                          height={cellHeight}
+                          fill={WASTE_FILL_SOFT}
+                          stroke={WASTE_STROKE_RIGHT}
+                          strokeWidth={dashStroke}
+                          strokeDasharray={`${canvas.width * 0.008} ${canvas.width * 0.008}`}
+                        />
+                        <text
+                          x={x + cellWidth / 2}
+                          y={y + cellHeight / 2 - labelSize * 0.35}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fill="#b91c1c"
+                          fillOpacity="0.75"
+                          fontSize={labelSize}
+                          fontWeight="600"
+                        >
+                          {unusedPortionLabel({
+                            cols: grid.cols,
+                            rows: grid.rows,
+                            portionsPerParent: paperFeed.portionsPerParent,
+                          })}
+                        </text>
+                        <text
+                          x={x + cellWidth / 2}
+                          y={y + cellHeight / 2 + labelSize * 0.85}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fill="#991b1b"
+                          fillOpacity="0.85"
+                          fontSize={labelSize * 0.9}
+                          fontWeight="600"
+                        >
+                          {formatPaperSize(paper.width, paper.breadth, paper.unit)}
+                        </text>
+                      </>
+                    )}
+                  </g>
+                );
+              })}
               {Array.from({ length: grid.cols - 1 }).map((_, i) => (
                 <line
                   key={`v-${i}`}
@@ -112,7 +199,7 @@ export default function PaperLayoutPreview({
                   x2={(i + 1) * cellWidth}
                   y2={canvas.breadth}
                   stroke="#e5e7eb"
-                  strokeWidth={canvas.width * 0.002}
+                  strokeWidth={dashStroke}
                   strokeDasharray={`${canvas.width * 0.005} ${canvas.width * 0.005}`}
                 />
               ))}
@@ -124,7 +211,7 @@ export default function PaperLayoutPreview({
                   x2={canvas.width}
                   y2={(i + 1) * cellHeight}
                   stroke="#e5e7eb"
-                  strokeWidth={canvas.width * 0.002}
+                  strokeWidth={dashStroke}
                   strokeDasharray={`${canvas.width * 0.005} ${canvas.width * 0.005}`}
                 />
               ))}
@@ -133,14 +220,47 @@ export default function PaperLayoutPreview({
                 y="0"
                 width={cellWidth}
                 height={cellHeight}
-                fill="#1a3a6b"
-                fillOpacity="0.04"
+                fill="none"
                 stroke="#1a3a6b"
-                strokeOpacity="0.25"
+                strokeOpacity="0.35"
                 strokeWidth={canvas.width * 0.003}
               />
             </g>
           )}
+
+          {wasteRects.map((rect, idx) => {
+            const isBottom = rect.kind === "bottom";
+            const fill = isBottom ? WASTE_FILL_BOTTOM : WASTE_FILL_RIGHT;
+            const stroke = isBottom ? WASTE_STROKE_BOTTOM : WASTE_STROKE_RIGHT;
+            return (
+            <g key={`waste-${idx}`}>
+              <rect
+                x={rect.x}
+                y={rect.y}
+                width={rect.width}
+                height={rect.height}
+                fill={fill}
+                fillOpacity="0.65"
+                stroke={stroke}
+                strokeWidth={thinStroke}
+              />
+              {rect.width > 0 && rect.height > 0 && (
+                <text
+                  x={rect.x + rect.width / 2}
+                  y={rect.y + rect.height / 2}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#991b1b"
+                  fillOpacity="0.9"
+                  fontSize={labelSize * 0.85}
+                  fontWeight="600"
+                >
+                  {formatPaperSize(rect.width, rect.height, canvas.unit)}
+                </text>
+              )}
+            </g>
+            );
+          })}
 
           <g>
             {placements.map((block, bIdx) => {
@@ -193,6 +313,8 @@ export default function PaperLayoutPreview({
           {printerName && <span className="ml-2 text-gov-blue/60">{printerName}</span>}
         </div>
       </div>
+
+      <LayoutLegend />
 
       {/* Waste / utilization — compact row */}
       {waste && (

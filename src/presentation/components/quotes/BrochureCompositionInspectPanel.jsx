@@ -1,4 +1,5 @@
 import React from "react";
+import PaperLayoutFrame, { LayoutLegend } from "./PaperLayoutFrame.jsx";
 
 function nestedRoleLabel(role) {
   if (role === "ONLY") return "Single folded signature";
@@ -249,7 +250,15 @@ function parseBrochureColorPages(value, totalPages) {
   return pages;
 }
 
-function NestedImpositionSide({ signature, sideRows, tone = "teal", planPreviewScale, trimPage, colorPageSet }) {
+function NestedImpositionSide({
+  signature,
+  sideRows,
+  tone = "teal",
+  planPreviewScale,
+  trimPage,
+  colorPageSet,
+  showPaperFrame = true,
+}) {
   const displayRows = impositionSideRowsForDisplay(sideRows, signature.repeatOnPortion, signature.signaturePages);
   const repeatCopies =
     Math.max(1, signature.repeatOnPortion?.across ?? 1) * Math.max(1, signature.repeatOnPortion?.down ?? 1);
@@ -271,6 +280,38 @@ function NestedImpositionSide({ signature, sideRows, tone = "teal", planPreviewS
       ? "border-amber-300 bg-amber-50 text-amber-900"
       : "border-gov-blue/20 bg-white text-gov-blue";
 
+  const impositionGrid = (
+    <div
+      className={`grid gap-1 mx-auto border w-full h-full max-w-full ${dense ? "gap-0.5 p-1" : "p-2"} ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
+      style={{
+        width: showPaperFrame ? "100%" : widthPx,
+        maxWidth: "100%",
+        aspectRatio: showPaperFrame ? undefined : `${previewWidth} / ${previewBreadth}`,
+        gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
+      }}
+    >
+      {displayRows.flatMap((row, ri) =>
+        row.map((cell, ci) => (
+          <div
+            key={`${ri}-${ci}-${cell.pageNumber}`}
+            title={`${cell.designOrientation?.toLowerCase?.() || "normal"} page design${colorPageSet?.has(cell.pageNumber) ? " • color page" : ""}`}
+            className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${pageClass(cell.pageNumber)} ${
+              repeatDown > 1 && ri > 0 && ri % baseRows === 0 ? "border-t-2 border-dashed border-gov-blue/25" : ""
+            }`}
+          >
+            <span
+              className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
+              style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
+            >
+              {cell.pageNumber}
+            </span>
+          </div>
+        )),
+      )}
+    </div>
+  );
+
   return (
     <div className="overflow-x-auto pb-1 w-full">
       <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
@@ -281,35 +322,19 @@ function NestedImpositionSide({ signature, sideRows, tone = "teal", planPreviewS
           · {isLongEdgePair ? "long-edge pair" : "short-edge pair"}
         </span>
       </div>
-      <div
-        className={`grid gap-1 mx-auto border w-full max-w-full ${dense ? "gap-0.5 p-1" : "p-2"} ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
-        style={{
-          width: widthPx,
-          maxWidth: "100%",
-          aspectRatio: `${previewWidth} / ${previewBreadth}`,
-          gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
-        }}
-      >
-        {displayRows.flatMap((row, ri) =>
-          row.map((cell, ci) => (
-            <div
-              key={`${ri}-${ci}-${cell.pageNumber}`}
-              title={`${cell.designOrientation?.toLowerCase?.() || "normal"} page design${colorPageSet?.has(cell.pageNumber) ? " • color page" : ""}`}
-              className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${pageClass(cell.pageNumber)} ${
-                repeatDown > 1 && ri > 0 && ri % baseRows === 0 ? "border-t-2 border-dashed border-gov-blue/25" : ""
-              }`}
-            >
-              <span
-                className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
-                style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
-              >
-                {cell.pageNumber}
-              </span>
-            </div>
-          )),
-        )}
-      </div>
+      {showPaperFrame ? (
+        <PaperLayoutFrame
+          portion={signature.portion}
+          usedWidth={previewWidth}
+          usedHeight={previewBreadth}
+          showLegend={false}
+          maxWidthPx={widthPx}
+        >
+          {impositionGrid}
+        </PaperLayoutFrame>
+      ) : (
+        impositionGrid
+      )}
     </div>
   );
 }
@@ -458,6 +483,7 @@ export default function BrochureCompositionInspectPanel({
                     />
                   </div>
                 </div>
+                <LayoutLegend />
               </div>
             ))}
           </div>

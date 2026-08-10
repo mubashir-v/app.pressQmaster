@@ -16,6 +16,7 @@ import { canEditQuotes } from "../../../application/auth/orgScopes.js";
 import { TextField, PrimaryButton, SearchableSelect, SelectField } from "../../components/auth/AuthFormPrimitives.jsx";
 import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
+import PaperLayoutFrame, { LayoutLegend } from "../../components/quotes/PaperLayoutFrame.jsx";
 import { layoutPreviewSnapshotFromOption } from "../../components/quotes/layoutPreviewProps.js";
 
 
@@ -1515,6 +1516,39 @@ export default function QuotationEditorPage() {
       return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
     };
 
+    const pageCells = displayRows.flatMap((row, ri) =>
+      row.map((cell, ci) => (
+        <div
+          key={`${ri}-${ci}-${cell.pageNumber}`}
+          title={`${cell.designOrientation.toLowerCase()} page design${isBrochureColorPage(cell.pageNumber) ? " • color page" : ""}`}
+          className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${brochurePreviewPageClass(cell.pageNumber)} ${
+            repeatDown > 1 && ri > 0 && ri % baseRows === 0 ? "border-t-2 border-dashed border-gov-blue/25" : ""
+          }`}
+        >
+          <span
+            className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
+            style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
+          >
+            {cell.pageNumber}
+          </span>
+        </div>
+      ))
+    );
+
+    const impositionGrid = (
+      <div
+        className={`grid gap-1 mx-auto border w-full h-full max-w-full ${dense ? "gap-0.5 p-1" : "p-2"} ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
+        }}
+      >
+        {pageCells}
+      </div>
+    );
+
     return (
       <div className="overflow-x-auto pb-1 w-full">
         <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
@@ -1525,35 +1559,15 @@ export default function QuotationEditorPage() {
             · {isLongEdgePair ? "long-edge pair" : "short-edge pair"}
           </span>
         </div>
-        <div
-          className={`grid gap-1 mx-auto border w-full max-w-full ${dense ? "gap-0.5 p-1" : "p-2"} ${tone === "teal" ? "border-gov-blue/20 bg-gov-blue/3" : "border-gov-border bg-white"}`}
-          style={{
-            width: widthPx,
-            maxWidth: "100%",
-            aspectRatio: `${previewWidth} / ${previewBreadth}`,
-            gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))`,
-          }}
+        <PaperLayoutFrame
+          portion={signature.portion}
+          usedWidth={previewWidth}
+          usedHeight={previewBreadth}
+          showLegend={false}
+          maxWidthPx={widthPx}
         >
-          {displayRows.flatMap((row, ri) =>
-            row.map((cell, ci) => (
-              <div
-                key={`${ri}-${ci}-${cell.pageNumber}`}
-                title={`${cell.designOrientation.toLowerCase()} page design${isBrochureColorPage(cell.pageNumber) ? " • color page" : ""}`}
-                className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${brochurePreviewPageClass(cell.pageNumber)} ${
-                  repeatDown > 1 && ri > 0 && ri % baseRows === 0 ? "border-t-2 border-dashed border-gov-blue/25" : ""
-                }`}
-              >
-                <span
-                  className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
-                  style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
-                >
-                  {cell.pageNumber}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
+          {impositionGrid}
+        </PaperLayoutFrame>
       </div>
     );
   };
@@ -1773,6 +1787,7 @@ export default function QuotationEditorPage() {
                       {renderNestedImpositionSide(signature, signature.imposition.back, "navy", previewScale)}
                     </div>
                   </div>
+                  <LayoutLegend />
                 </div>
               ))}
             </div>
