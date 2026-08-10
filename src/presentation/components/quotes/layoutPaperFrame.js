@@ -146,12 +146,42 @@ export function impositionCellFootprint(trimPage, footprintOrientation = "NORMAL
   return { cellWidth, cellBreadth, cellAspectRatio: `${cellWidth} / ${cellBreadth}` };
 }
 
-/** Full spread size occupied by an imposition grid on the printable portion. */
+/** Reader orientation → press footprint (matches imposedPageMmForReader). */
+export function readerFootprintOrientation(readerOrientation = "NORMAL") {
+  return readerOrientation === "ROTATED" ? "ROTATED" : "NORMAL";
+}
+
+/**
+ * Logical spread from preview cell footprint × grid (before portion placement).
+ * Pass previewFootprintOrientation from the API imposition, not reader orientation alone.
+ */
 export function impositionSpreadSize(trimPage, footprintOrientation, colCount, rowCount) {
   const footprint = impositionCellFootprint(trimPage, footprintOrientation);
   return {
-    ...footprint,
     width: footprint.cellWidth * Math.max(1, colCount),
     breadth: footprint.cellBreadth * Math.max(1, rowCount),
   };
+}
+
+/**
+ * Physical print area on the portion. When ROTATED reader uses portrait preview cells
+ * (8/12/16 pp), the spread is turned on the sheet — swap width/breadth for the frame.
+ */
+export function impositionSpreadOnPortion(trimPage, previewFootprint, readerOrientation, colCount, rowCount) {
+  const spread = impositionSpreadSize(trimPage, previewFootprint, colCount, rowCount);
+  const readerFoot = readerFootprintOrientation(readerOrientation);
+  if (previewFootprint === "NORMAL" && readerFoot === "ROTATED") {
+    return { width: spread.breadth, breadth: spread.width };
+  }
+  return spread;
+}
+
+/** long-edge = portrait preview cells; short-edge = landscape preview cells. */
+export function isLongEdgePairing(previewFootprintOrientation = "NORMAL") {
+  return previewFootprintOrientation === "NORMAL";
+}
+
+/** Preview rotation for short-edge 4pp horizontal pairs (landscape cells, reader ROTATED). */
+export function shortEdgeFourPagePreviewRotation(colIndex) {
+  return colIndex % 2 === 0 ? "rotate(-90deg)" : "rotate(90deg)";
 }

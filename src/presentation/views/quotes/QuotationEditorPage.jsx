@@ -17,7 +17,12 @@ import { TextField, PrimaryButton, SearchableSelect, SelectField } from "../../c
 import FormDrawer from "../../components/layout/FormDrawer.jsx";
 import PaperLayoutPreview from "../../components/quotes/PaperLayoutPreview.jsx";
 import PaperLayoutFrame, { LayoutLegend } from "../../components/quotes/PaperLayoutFrame.jsx";
-import { impositionCellFootprint } from "../../components/quotes/layoutPaperFrame.js";
+import {
+  impositionCellFootprint,
+  impositionSpreadOnPortion,
+  isLongEdgePairing,
+  shortEdgeFourPagePreviewRotation,
+} from "../../components/quotes/layoutPaperFrame.js";
 import { layoutPreviewSnapshotFromOption } from "../../components/quotes/layoutPreviewProps.js";
 
 
@@ -1129,13 +1134,23 @@ export default function QuotationEditorPage() {
   };
 
   const paperWasteStatsForSignature = (signature) => {
-    const utilization = Number(signature?.fit?.utilization);
-    const usedRatio = Number.isFinite(utilization) ? Math.max(0, Math.min(1, utilization)) : 0;
+    const portion = signature?.portion;
+    if (!portion) return { usedPercent: 0, wastePercent: 0 };
+
+    const displayRows = impositionSideRowsForDisplay(
+      signature.imposition?.front ?? [[]],
+      signature.repeatOnPortion,
+      signature.signaturePages,
+    );
+    const metrics = nestedPreviewMetrics(signature, displayRows);
+    const pw = Math.max(0.01, Number(portion.width) || 1);
+    const pb = Math.max(0.01, Number(portion.breadth) || 1);
+    const usedRatio = Math.max(
+      0,
+      Math.min(1, (metrics.previewWidth * metrics.previewBreadth) / (pw * pb)),
+    );
     const usedPercent = Math.round(usedRatio * 100);
-    return {
-      usedPercent,
-      wastePercent: Math.max(0, 100 - usedPercent),
-    };
+    return { usedPercent, wastePercent: Math.max(0, 100 - usedPercent) };
   };
 
   const paperWasteStatsForPlan = (plan) => {
@@ -1340,23 +1355,23 @@ export default function QuotationEditorPage() {
   const nestedPreviewMetrics = (signature, sideRows) => {
     const rowCount = Math.max(1, sideRows?.length || 1);
     const colCount = Math.max(1, sideRows?.[0]?.length || 1);
-    const impositionFootprint =
-      signature?.imposition?.previewFootprintOrientation ??
-      signature?.imposition?.orientation ??
-      brochureOrientation;
-    const footprint = impositionCellFootprint(getBrochureTrimPageSize(), impositionFootprint);
-    const previewWidth = footprint.cellWidth * colCount;
-    const previewBreadth = footprint.cellBreadth * rowCount;
+    const trimPage = getBrochureTrimPageSize();
+    const readerOrientation = signature?.imposition?.orientation ?? brochureOrientation;
+    const previewFootprint =
+      signature?.imposition?.previewFootprintOrientation ?? readerOrientation;
+    const cellFootprint = impositionCellFootprint(trimPage, previewFootprint);
+    const spread = impositionSpreadOnPortion(trimPage, previewFootprint, readerOrientation, colCount, rowCount);
 
     return {
       rowCount,
       colCount,
-      previewWidth,
-      previewBreadth,
-      cellAspectRatio: footprint.cellAspectRatio,
-      isLandscapeSpread: previewWidth >= previewBreadth,
-      isNormalImposition: impositionFootprint === "NORMAL",
-      impositionFootprint,
+      previewWidth: spread.width,
+      previewBreadth: spread.breadth,
+      cellAspectRatio: cellFootprint.cellAspectRatio,
+      isLandscapeSpread: spread.width >= spread.breadth,
+      isNormalImposition: previewFootprint === "NORMAL",
+      impositionFootprint: previewFootprint,
+      readerOrientation,
     };
   };
 
@@ -1476,14 +1491,21 @@ export default function QuotationEditorPage() {
     const { widthPx, fontClass, dense, baseRows, repeatDown } = previewBox;
     const readerOrientation = signature?.imposition?.orientation ?? brochureOrientation;
     const previewFootprint = metrics.impositionFootprint;
-    const isRotatedReader = readerOrientation === "ROTATED";
-    const isLongEdgePair = !isRotatedReader;
-    const numberRotation = (cell) => {
+    const isLongEdgePair = isLongEdgePairing(previewFootprint);
+    const numberRotation = (cell, colIndex) => {
       if (typeof cell.previewRotationDeg === "number") {
         return `rotate(${cell.previewRotationDeg}deg)`;
       }
       if (colCount === 1 && isLongEdgePair) {
         return "rotate(90deg)";
+      }
+      if (
+        !isLongEdgePair &&
+        signature.signaturePages === 4 &&
+        colCount >= 2 &&
+        cell.designOrientation === "NORMAL"
+      ) {
+        return shortEdgeFourPagePreviewRotation(colIndex);
       }
       return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
     };
@@ -1499,7 +1521,7 @@ export default function QuotationEditorPage() {
         >
           <span
             className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
-            style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
+            style={{ transform: numberRotation(cell, ci), transformOrigin: "center center" }}
           >
             {cell.pageNumber}
           </span>
@@ -1524,7 +1546,7 @@ export default function QuotationEditorPage() {
     return (
       <div className="overflow-x-auto pb-1 w-full">
         <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
-          {isRotatedReader ? "Rotated imposition" : "Normal imposition"}
+          {readerOrientation === "ROTATED" ? "Rotated imposition" : "Normal imposition"}
           {repeatCopies > 1 ? ` · full sheet ×${repeatCopies}` : ""}
           <span className="text-gray-400 font-normal normal-case">
             {" "}
@@ -1555,7 +1577,7 @@ export default function QuotationEditorPage() {
     const previewBreadth = footprint.cellBreadth * rowCount;
     const { widthPx, heightPx } = impositionPreviewBoxSize(previewWidth, previewBreadth);
     const isRotatedReader = pageNumberingOrientation === "ROTATED";
-    const isLongEdgePair = !isRotatedReader;
+    const isLongEdgePair = isLongEdgePairing(footprintOrientation);
     const partPages = seg.partPages ?? 0;
     const numberRotation = (pageNumber, rowIndex, colIndex) => {
       if (colCount === 1) {
@@ -1565,6 +1587,9 @@ export default function QuotationEditorPage() {
         return colIndex % 2 === 0 ? "rotate(-90deg)" : "rotate(90deg)";
       }
       if (partPages === 4) {
+        if (isRotatedReader && colCount >= 2) {
+          return shortEdgeFourPagePreviewRotation(colIndex);
+        }
         return "rotate(0deg)";
       }
       if (partPages === 8 && rowCount >= 2) {

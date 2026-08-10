@@ -1,6 +1,11 @@
 import React from "react";
 import PaperLayoutFrame, { LayoutLegend } from "./PaperLayoutFrame.jsx";
-import { impositionCellFootprint } from "./layoutPaperFrame.js";
+import {
+  impositionCellFootprint,
+  impositionSpreadOnPortion,
+  isLongEdgePairing,
+  shortEdgeFourPagePreviewRotation,
+} from "./layoutPaperFrame.js";
 
 function nestedRoleLabel(role) {
   if (role === "ONLY") return "Single folded signature";
@@ -54,20 +59,33 @@ function nestedPlanPrinterSummary(plan, maxVisible = 2) {
   return hiddenCount > 0 ? `${visible} +${hiddenCount} more` : visible;
 }
 
-function paperWasteStatsForSignature(signature) {
-  const utilization = Number(signature?.fit?.utilization);
-  const usedRatio = Number.isFinite(utilization) ? Math.max(0, Math.min(1, utilization)) : 0;
+function paperWasteStatsForSignature(signature, trimPage) {
+  const portion = signature?.portion;
+  if (!portion) return { usedPercent: 0, wastePercent: 0 };
+
+  const displayRows = impositionSideRowsForDisplay(
+    signature.imposition?.front ?? [[]],
+    signature.repeatOnPortion,
+    signature.signaturePages,
+  );
+  const metrics = nestedPreviewMetrics(signature, displayRows, trimPage);
+  const pw = Math.max(0.01, Number(portion.width) || 1);
+  const pb = Math.max(0.01, Number(portion.breadth) || 1);
+  const usedRatio = Math.max(
+    0,
+    Math.min(1, (metrics.previewWidth * metrics.previewBreadth) / (pw * pb)),
+  );
   const usedPercent = Math.round(usedRatio * 100);
   return { usedPercent, wastePercent: Math.max(0, 100 - usedPercent) };
 }
 
-function paperWasteStatsForPlan(plan) {
+function paperWasteStatsForPlan(plan, trimPage) {
   const signatures = (plan?.signatures || []).filter((signature) => !signature.piggybackOnRunIndex);
   if (signatures.length === 0) return { usedPercent: 0, wastePercent: 0 };
   const weighted = signatures.reduce(
     (acc, signature) => {
       const weight = Math.max(1, Number(signature.printedSheetsForCopies) || 1);
-      const stats = paperWasteStatsForSignature(signature);
+      const stats = paperWasteStatsForSignature(signature, trimPage);
       return { used: acc.used + stats.usedPercent * weight, weight: acc.weight + weight };
     },
     { used: 0, weight: 0 },
@@ -127,20 +145,19 @@ function impositionSideRowsForDisplay(sideRows, repeatOnPortion = { across: 1, d
 function nestedPreviewMetrics(signature, sideRows, trimPage) {
   const rowCount = Math.max(1, sideRows?.length || 1);
   const colCount = Math.max(1, sideRows?.[0]?.length || 1);
-  const impositionFootprint =
-    signature?.imposition?.previewFootprintOrientation ??
-    signature?.imposition?.orientation ??
-    "NORMAL";
-  const footprint = impositionCellFootprint(trimPage, impositionFootprint);
-  const previewWidth = footprint.cellWidth * colCount;
-  const previewBreadth = footprint.cellBreadth * rowCount;
+  const readerOrientation = signature?.imposition?.orientation ?? "NORMAL";
+  const previewFootprint =
+    signature?.imposition?.previewFootprintOrientation ?? readerOrientation;
+  const cellFootprint = impositionCellFootprint(trimPage, previewFootprint);
+  const spread = impositionSpreadOnPortion(trimPage, previewFootprint, readerOrientation, colCount, rowCount);
   return {
     rowCount,
     colCount,
-    previewWidth,
-    previewBreadth,
-    cellAspectRatio: footprint.cellAspectRatio,
-    impositionFootprint,
+    previewWidth: spread.width,
+    previewBreadth: spread.breadth,
+    cellAspectRatio: cellFootprint.cellAspectRatio,
+    impositionFootprint: previewFootprint,
+    readerOrientation,
   };
 }
 
@@ -244,12 +261,19 @@ function NestedImpositionSide({
   const { rowCount, colCount, previewWidth, previewBreadth, impositionFootprint } = metrics;
   const previewBox = nestedImpositionPreviewBox(signature, metrics, planPreviewScale);
   const { widthPx, fontClass, dense, baseRows, repeatDown } = previewBox;
-  const isRotatedReader = (signature?.imposition?.orientation ?? impositionFootprint) === "ROTATED";
-  const isLongEdgePair = !isRotatedReader;
+  const isLongEdgePair = isLongEdgePairing(impositionFootprint);
 
-  const numberRotation = (cell) => {
+  const numberRotation = (cell, colIndex) => {
     if (typeof cell.previewRotationDeg === "number") return `rotate(${cell.previewRotationDeg}deg)`;
     if (colCount === 1 && isLongEdgePair) return "rotate(90deg)";
+    if (
+      !isLongEdgePair &&
+      signature.signaturePages === 4 &&
+      colCount >= 2 &&
+      cell.designOrientation === "NORMAL"
+    ) {
+      return shortEdgeFourPagePreviewRotation(colIndex);
+    }
     return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
   };
 
@@ -280,7 +304,7 @@ function NestedImpositionSide({
           >
             <span
               className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
-              style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
+              style={{ transform: numberRotation(cell, ci), transformOrigin: "center center" }}
             >
               {cell.pageNumber}
             </span>
@@ -293,7 +317,7 @@ function NestedImpositionSide({
   return (
     <div className="overflow-x-auto pb-1 w-full">
       <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
-        {isRotatedReader ? "Rotated imposition" : "Normal imposition"}
+        {signature?.imposition?.orientation === "ROTATED" ? "Rotated imposition" : "Normal imposition"}
         {repeatCopies > 1 ? ` · full sheet ×${repeatCopies}` : ""}
         <span className="text-gray-400 font-normal normal-case">
           {" "}
@@ -332,7 +356,7 @@ export default function BrochureCompositionInspectPanel({
   const isCenterClipBinding = bookletBindingType === "CENTER_CLIP";
   const groups = nestedSignatureGroupsForPlan(plan);
   const previewScale = nestedPlanPreviewScaleForPlan(plan, trimPage);
-  const wasteStats = paperWasteStatsForPlan(plan);
+  const wasteStats = paperWasteStatsForPlan(plan, trimPage);
   const sigSummary = plan.signatures.map((sig) => `${sig.signaturePages}pp`).join(" + ");
   const colorPageSet = parseBrochureColorPages(brochureColorPagesInput, brochurePagesPerBrochure);
 
@@ -427,7 +451,7 @@ export default function BrochureCompositionInspectPanel({
                     <div>
                       {signature.gridOnPortion.across}×{signature.gridOnPortion.down}
                     </div>
-                    <div className="text-amber-700">Waste {paperWasteStatsForSignature(signature).wastePercent}%</div>
+                    <div className="text-amber-700">Waste {paperWasteStatsForSignature(signature, trimPage).wastePercent}%</div>
                   </div>
                 </div>
 
