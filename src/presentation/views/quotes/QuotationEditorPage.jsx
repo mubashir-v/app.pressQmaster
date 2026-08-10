@@ -949,7 +949,10 @@ export default function QuotationEditorPage() {
       const nestedPlans = data.nestedPrintPlans || [];
       setBrochureNestedPrintPlans(nestedPlans);
       setSelectedNestedPrintPlan((current) =>
-        nestedPlans.find((plan) => plan.planId === current?.planId) || nestedPlans[0] || null
+        nestedPlans.find((plan) => plan.planId === current?.planId) ||
+        nestedPlans.find((plan) => plan.primaryWorkflowTag === "PRINTING_FRIENDLY") ||
+        nestedPlans[0] ||
+        null,
       );
       setBrochureViews(data.views || []);
       
@@ -1501,7 +1504,7 @@ export default function QuotationEditorPage() {
     const readerOrientation = signature?.imposition?.orientation ?? brochureOrientation;
     const previewFootprint = metrics.impositionFootprint;
     const isRotatedReader = readerOrientation === "ROTATED";
-    const isLongEdgePair = previewFootprint === "NORMAL";
+    const isLongEdgePair = !isRotatedReader;
     const numberRotation = (cell) => {
       if (typeof cell.previewRotationDeg === "number") {
         return `rotate(${cell.previewRotationDeg}deg)`;
@@ -1558,24 +1561,22 @@ export default function QuotationEditorPage() {
   const renderBrochureImpositionSide = (seg, sideRows, tone = "teal") => {
     const rowCount = Math.max(1, sideRows.length);
     const colCount = Math.max(1, sideRows[0]?.length || 1);
-    const footprint = impositionCellFootprint(getBrochureTrimPageSize(), previewFootprintForUi(brochureOrientation));
+    const pageNumberingOrientation = seg.pageNumbering?.orientation ?? brochureOrientation;
+    const footprintOrientation =
+      seg.pageNumbering?.previewFootprintOrientation ?? previewFootprintForUi(pageNumberingOrientation);
+    const footprint = impositionCellFootprint(getBrochureTrimPageSize(), footprintOrientation);
     const previewWidth = footprint.cellWidth * colCount;
     const previewBreadth = footprint.cellBreadth * rowCount;
     const { widthPx, heightPx } = impositionPreviewBoxSize(previewWidth, previewBreadth);
-    const isNormalImposition = brochureOrientation === "NORMAL";
+    const isRotatedReader = pageNumberingOrientation === "ROTATED";
+    const isLongEdgePair = !isRotatedReader;
     const partPages = seg.partPages ?? 0;
-    const numberRotation = (pageNumber, rowIndex) => {
+    const numberRotation = (pageNumber, rowIndex, colIndex) => {
       if (colCount === 1) {
         return "rotate(90deg)";
       }
-      if (brochureOrientation === "ROTATED") {
-        if (partPages === 8 && rowCount >= 2) {
-          return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
-        }
-        if (partPages === 4) {
-          return "rotate(0deg)";
-        }
-        return "rotate(0deg)";
+      if (isRotatedReader && (partPages === 8 || partPages === 16) && colCount > 1) {
+        return colIndex % 2 === 0 ? "rotate(-90deg)" : "rotate(90deg)";
       }
       if (partPages === 4) {
         return "rotate(0deg)";
@@ -1592,10 +1593,10 @@ export default function QuotationEditorPage() {
     return (
       <div className="overflow-x-auto pb-1">
         <div className="text-[8px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
-          {brochureOrientation === "ROTATED" ? "Rotated imposition" : "Normal imposition"}
+          {isRotatedReader ? "Rotated imposition" : "Normal imposition"}
           <span className="text-gray-400 font-normal normal-case">
             {" "}
-            · {isNormalImposition ? "long-edge pair" : "short-edge pair"}
+            · {isLongEdgePair ? "long-edge pair" : "short-edge pair"}
           </span>
         </div>
         <div
@@ -1616,7 +1617,7 @@ export default function QuotationEditorPage() {
               >
                 <span
                   className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
-                  style={{ transform: numberRotation(pageNumber, ri) }}
+                  style={{ transform: numberRotation(pageNumber, ri, ci) }}
                 >
                   {pageNumber}
                 </span>

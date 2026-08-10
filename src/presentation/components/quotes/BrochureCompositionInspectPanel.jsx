@@ -258,7 +258,7 @@ function NestedImpositionSide({ signature, sideRows, tone = "teal", planPreviewS
   const previewBox = nestedImpositionPreviewBox(signature, metrics, planPreviewScale);
   const { widthPx, fontClass, dense, baseRows, repeatDown } = previewBox;
   const isRotatedReader = (signature?.imposition?.orientation ?? impositionFootprint) === "ROTATED";
-  const isLongEdgePair = impositionFootprint === "NORMAL";
+  const isLongEdgePair = !isRotatedReader;
 
   const numberRotation = (cell) => {
     if (typeof cell.previewRotationDeg === "number") return `rotate(${cell.previewRotationDeg}deg)`;
