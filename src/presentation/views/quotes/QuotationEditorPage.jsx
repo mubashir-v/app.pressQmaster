@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getQuotation, createQuotation, updateQuotation, getCustomers, createCustomer,
   getLaserQuoteOptions, getSizeCharts, getLaserPaperStocks,
-  getOffsetQuoteOptions, getOffsetPaperStocks, getBrochureLaserQuoteOptions
+  getOffsetQuoteOptions, getOffsetPaperStocks, getBrochureLaserQuoteOptions, getBrochureOffsetQuoteOptions
 } from "../../../infrastructure/api/backendService.js";
 
 
@@ -20,8 +20,9 @@ import PaperLayoutFrame, { LayoutLegend } from "../../components/quotes/PaperLay
 import {
   impositionCellFootprint,
   impositionSpreadOnPortion,
-  isLongEdgePairing,
-  shortEdgeFourPagePreviewRotation,
+  isLongEdgePairingFromReader,
+  isPortraitPreviewCells,
+  impositionNumberTransform,
   formatPaperSize,
 } from "../../components/quotes/layoutPaperFrame.js";
 import { layoutPreviewSnapshotFromOption, layoutPreviewPropsFromOption } from "../../components/quotes/layoutPreviewProps.js";
@@ -187,11 +188,27 @@ export default function QuotationEditorPage() {
   const [brochureError, setBrochureError] = useState("");
   const [brochureNotice, setBrochureNotice] = useState("");
 
+  // --- Offset Book / Booklet Calculator State ---
+  const [offsetBookSizeId, setOffsetBookSizeId] = useState("");
+  const [offsetBookStockItemId, setOffsetBookStockItemId] = useState("");
+  const [offsetBookPagesPerBrochure, setOffsetBookPagesPerBrochure] = useState("");
+  const [offsetBookCopies, setOffsetBookCopies] = useState("");
+  const [offsetBookWastePerSet, setOffsetBookWastePerSet] = useState("0");
+  const [offsetBookOrientation, setOffsetBookOrientation] = useState("NORMAL");
+  const [offsetBookletBindingType, setOffsetBookletBindingType] = useState("CENTER_CLIP");
+  const [offsetBookNestedPrintPlans, setOffsetBookNestedPrintPlans] = useState([]);
+  const [selectedOffsetBookNestedPrintPlan, setSelectedOffsetBookNestedPrintPlan] = useState(null);
+  const [offsetBookLoading, setOffsetBookLoading] = useState(false);
+  const [offsetBookError, setOffsetBookError] = useState("");
+  const [offsetBookNotice, setOffsetBookNotice] = useState("");
+
   const activeOrg = user?.organizations?.find(o => (o.organizationId || o.id) === user.activeOrganizationId);
   const activeOrgName = activeOrg?.name || "PrintQ Client";
   const effectiveBrochureColorMode = brochureColorPagesInput.trim() ? "COLOR" : "BW";
-  const isCenterClipBinding = bookletBindingType === "CENTER_CLIP";
-  const isPerfectBinding = bookletBindingType === "PERFECT_BINDING";
+  const effectiveBookletBindingType =
+    activeTab === "offset-book" ? offsetBookletBindingType : bookletBindingType;
+  const isCenterClipBinding = effectiveBookletBindingType === "CENTER_CLIP";
+  const isPerfectBinding = effectiveBookletBindingType === "PERFECT_BINDING";
 
   // Navigation Refs
   const phoneInputRef = useRef(null);
@@ -218,10 +235,11 @@ export default function QuotationEditorPage() {
   const [activeEditValue, setActiveEditValue] = useState("");
   const syncDebounceRef = useRef(null);
   const skipNextBrochureAutoRecalcRef = useRef(false);
+  const skipNextOffsetBookAutoRecalcRef = useRef(false);
   const [selectedLaserOption, setSelectedLaserOption] = useState(null);
   const [shareError, setShareError] = useState("");
 
-  const quoteOptionsBusy = laserLoading || brochureLoading || offsetLoading;
+  const quoteOptionsBusy = laserLoading || brochureLoading || offsetLoading || offsetBookLoading;
 
   const closeOptionInspection = () => {
     setPreviewingLayoutOption(null);
@@ -246,6 +264,12 @@ export default function QuotationEditorPage() {
     setSelectedBrochureView(null);
     setSelectedBrochureOption(null);
     setSelectedNestedPrintPlan(null);
+    closeOptionInspection();
+  };
+
+  const clearOffsetBookQuoteOptions = () => {
+    setOffsetBookNestedPrintPlans([]);
+    setSelectedOffsetBookNestedPrintPlan(null);
     closeOptionInspection();
   };
 
@@ -537,6 +561,12 @@ export default function QuotationEditorPage() {
      setBrochureNotice("");
      setBrochureLoading(false);
 
+     setOffsetBookNestedPrintPlans([]);
+     setSelectedOffsetBookNestedPrintPlan(null);
+     setOffsetBookError("");
+     setOffsetBookNotice("");
+     setOffsetBookLoading(false);
+
      setLaserError("");
      setLaserLoading(false);
      setOffsetError("");
@@ -590,6 +620,25 @@ export default function QuotationEditorPage() {
          setLaserColorMode(m.laserColorMode || "COLOR");
          setLaserCopies(m.laserCopies?.toString() ?? "");
          setIsOnlyClipCharge(m.isOnlyClipCharge ?? false);
+       } else if (m.offsetBookStockItemId !== undefined) {
+         setActiveTab("offset-book");
+         setOffsetBookStockItemId(m.offsetBookStockItemId || "");
+         setOffsetBookSizeId(m.offsetBookSizeId || "");
+         setCustomWidth(m.customWidth || "");
+         setCustomBreadth(m.customBreadth || "");
+         setCustomUnit(m.customUnit || user.settings?.defaultLengthUnit || "mm");
+         setOffsetBookPagesPerBrochure(m.offsetBookPagesPerBrochure?.toString() ?? "");
+         setOffsetBookCopies(m.offsetBookCopies?.toString() ?? "");
+         setOffsetBookWastePerSet(m.offsetBookWastePerSet?.toString() ?? "0");
+         setOffsetBookOrientation(m.offsetBookOrientation || "NORMAL");
+         setOffsetBookletBindingType(m.offsetBookletBindingType || "CENTER_CLIP");
+         setOffsetColorMode(m.offsetColorMode || "Single");
+         setOffsetSides(m.offsetSides || "DOUBLE");
+         setOffsetIsBackSideDifferent(m.offsetIsBackSideDifferent ?? false);
+         if (m.nestedPrintPlan) {
+           setSelectedOffsetBookNestedPrintPlan(m.nestedPrintPlan);
+           setOffsetBookNestedPrintPlans([m.nestedPrintPlan]);
+         }
        } else if (m.offsetStockItemId !== undefined) {
          setActiveTab("offset");
          setOffsetStockItemId(m.offsetStockItemId || "");
@@ -819,6 +868,9 @@ export default function QuotationEditorPage() {
       } else if (activeTab === "brochure") {
         fetchLaserSizes(); // Brochures use laser stocks and sizes
         fetchLaserStocks();
+      } else if (activeTab === "offset-book") {
+        fetchOffsetSizes();
+        fetchOffsetStocks();
       }
     });
   }, [activeTab, fetchLaserSizes, fetchLaserStocks, fetchOffsetSizes, fetchOffsetStocks]);
@@ -999,6 +1051,105 @@ export default function QuotationEditorPage() {
     }
   }, [brochureSizeId, brochureStockItemId, brochureCopies, brochurePagesPerBrochure, customWidth, customBreadth, customUnit, sizeList, brochureColorPagesInput, brochureIsOnlyClipCharge, brochureOrientation, bookletBindingType]);
 
+  const recalculateOffsetBrochurePricing = useCallback(async (overrides = {}) => {
+    const copies = parsePositiveInt(offsetBookCopies);
+    const pagesPerBrochure = parsePositiveInt(offsetBookPagesPerBrochure);
+    if (!offsetBookSizeId || !offsetBookStockItemId || copies == null || pagesPerBrochure == null) return;
+
+    let sizePayload;
+    if (offsetBookSizeId === "custom") {
+      if (!customWidth || !customBreadth) return;
+      sizePayload = { width: Number(customWidth), breadth: Number(customBreadth), unit: customUnit };
+    } else {
+      const selectedSize = sizeList.find((s) => s.id === offsetBookSizeId);
+      if (!selectedSize) return;
+      sizePayload = { width: selectedSize.width, breadth: selectedSize.breadth, unit: selectedSize.unit };
+    }
+
+    setOffsetBookLoading(true);
+    setOffsetBookError("");
+    clearOffsetBookQuoteOptions();
+    try {
+      const bindingType = overrides.offsetBookletBindingType ?? offsetBookletBindingType;
+      const payload = {
+        pageSize: sizePayload,
+        pagesPerBrochure,
+        brochureCopies: copies,
+        stockItemId: offsetBookStockItemId,
+        colourMode: offsetColorMode,
+        sides: "DOUBLE",
+        isBackSideDifferent: true,
+        wasteImpressionsPerSet: Math.max(0, parseInt(offsetBookWastePerSet, 10) || 0),
+        pageNumberingOrientation: overrides.offsetBookOrientation ?? offsetBookOrientation,
+        bindingType,
+      };
+
+      const data = await getBrochureOffsetQuoteOptions(payload);
+      if (data.recommendation?.code === "CENTER_CLIP_NO_FIT_USE_PERFECT_BINDING" && bindingType === "CENTER_CLIP") {
+        setOffsetBookNotice(data.recommendation.message);
+        setOffsetBookletBindingType("PERFECT_BINDING");
+        return;
+      }
+      if (bindingType === "CENTER_CLIP") {
+        setOffsetBookNotice("");
+      }
+
+      const nestedPlans = data.nestedPrintPlans || [];
+      setOffsetBookNestedPrintPlans(nestedPlans);
+      setSelectedOffsetBookNestedPrintPlan((current) =>
+        nestedPlans.find((plan) => plan.planId === current?.planId) ||
+        nestedPlans.find((plan) => plan.primaryWorkflowTag === "PRINTING_FRIENDLY") ||
+        nestedPlans[0] ||
+        null,
+      );
+    } catch (e) {
+      setOffsetBookError(e.response?.data?.message || "Composition not available for this configuration.");
+      setOffsetBookNestedPrintPlans([]);
+      setSelectedOffsetBookNestedPrintPlan(null);
+    } finally {
+      setOffsetBookLoading(false);
+    }
+  }, [
+    offsetBookSizeId,
+    offsetBookStockItemId,
+    offsetBookCopies,
+    offsetBookPagesPerBrochure,
+    customWidth,
+    customBreadth,
+    customUnit,
+    sizeList,
+    offsetColorMode,
+    offsetBookWastePerSet,
+    offsetBookOrientation,
+    offsetBookletBindingType,
+  ]);
+
+  const handleOffsetBookOrientationChange = useCallback((nextOrientation) => {
+    if (offsetBookOrientation === nextOrientation) return;
+    setOffsetBookOrientation(nextOrientation);
+
+    if (
+      activeTab === "offset-book" &&
+      offsetBookSizeId &&
+      offsetBookStockItemId &&
+      parsePositiveInt(offsetBookCopies) != null &&
+      parsePositiveInt(offsetBookPagesPerBrochure) != null
+    ) {
+      skipNextOffsetBookAutoRecalcRef.current = true;
+      window.setTimeout(() => {
+        recalculateOffsetBrochurePricing({ offsetBookOrientation: nextOrientation });
+      }, 0);
+    }
+  }, [
+    activeTab,
+    offsetBookCopies,
+    offsetBookOrientation,
+    offsetBookPagesPerBrochure,
+    offsetBookSizeId,
+    offsetBookStockItemId,
+    recalculateOffsetBrochurePricing,
+  ]);
+
   const handleBrochureOrientationChange = useCallback((nextOrientation) => {
     if (brochureOrientation === nextOrientation) return;
     setBrochureOrientation(nextOrientation);
@@ -1061,6 +1212,38 @@ export default function QuotationEditorPage() {
     }
     clearBrochureQuoteOptions();
   }, [brochureSizeId, brochureStockItemId, brochureColorPagesInput, brochureCopies, brochurePagesPerBrochure, brochureIsOnlyClipCharge, brochureOrientation, bookletBindingType, activeTab, customWidth, customBreadth, customUnit, recalculateBrochurePricing]);
+
+  useEffect(() => {
+    if (activeTab !== "offset-book") return;
+    if (
+      offsetBookSizeId &&
+      offsetBookStockItemId &&
+      parsePositiveInt(offsetBookCopies) != null &&
+      parsePositiveInt(offsetBookPagesPerBrochure) != null
+    ) {
+      if (skipNextOffsetBookAutoRecalcRef.current) {
+        skipNextOffsetBookAutoRecalcRef.current = false;
+        return;
+      }
+      const timer = setTimeout(recalculateOffsetBrochurePricing, 500);
+      return () => clearTimeout(timer);
+    }
+    clearOffsetBookQuoteOptions();
+  }, [
+    offsetBookSizeId,
+    offsetBookStockItemId,
+    offsetBookCopies,
+    offsetBookPagesPerBrochure,
+    offsetBookWastePerSet,
+    offsetBookOrientation,
+    offsetBookletBindingType,
+    offsetColorMode,
+    activeTab,
+    customWidth,
+    customBreadth,
+    customUnit,
+    recalculateOffsetBrochurePricing,
+  ]);
 
   const nestedRoleLabel = (role) => {
     if (role === "ONLY") return "Single folded signature";
@@ -1246,7 +1429,9 @@ export default function QuotationEditorPage() {
 
   const resolveLiveNestedPrintPlan = (plan) => {
     if (!plan?.planId) return plan;
-    return brochureNestedPrintPlans.find((candidate) => candidate.planId === plan.planId) ?? plan;
+    const pool =
+      activeTab === "offset-book" ? offsetBookNestedPrintPlans : brochureNestedPrintPlans;
+    return pool.find((candidate) => candidate.planId === plan.planId) ?? plan;
   };
 
   const brochureColorPageSet = parseBrochureColorPages(brochureColorPagesInput, brochurePagesPerBrochure);
@@ -1328,20 +1513,75 @@ export default function QuotationEditorPage() {
       return parts;
     });
 
+  const buildOffsetBrochureChargeComponents = (plan) =>
+    (plan?.chargeComponents || []).map((component) => ({
+      role: component.role,
+      label: component.label,
+      amount: component.amount,
+      meta: component.meta,
+    }));
+
+  const renderOffsetBrochurePricingBreakdown = (chargeComponents = [], totals = null) => {
+    if (!chargeComponents?.length) return null;
+    const printing = chargeComponents.find((c) => c.role === "printing");
+    const paper = chargeComponents.find((c) => c.role === "paper");
+    const total =
+      totals?.price ??
+      chargeComponents.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h4 className="text-[10px] font-black text-gov-blue/65 uppercase tracking-[0.2em]">Pricing Breakdown</h4>
+          {total != null && (
+            <div className="text-lg font-black text-gov-blue">₹{Number(total).toLocaleString()}</div>
+          )}
+        </div>
+        {totals?.impressions != null && (
+          <div className="text-[10px] font-bold text-gov-blue/70 uppercase tracking-tight px-1">
+            {Number(totals.impressions).toLocaleString()} impression{totals.impressions === 1 ? "" : "s"} billed
+            {totals.printCharge != null && totals.paperCharge != null
+              ? ` • print ₹${Number(totals.printCharge).toLocaleString()} + paper ₹${Number(totals.paperCharge).toLocaleString()}`
+              : ""}
+          </div>
+        )}
+        <div className="space-y-2">
+          {printing?.amount != null && (
+            <div className="rounded-xl border border-gov-blue/5 bg-white p-3 flex justify-between gap-3">
+              <div className="text-xs font-black text-gov-blue">{printing.label || "Print charge"}</div>
+              <div className="text-sm font-black text-gov-blue">₹{Number(printing.amount).toLocaleString()}</div>
+            </div>
+          )}
+          {paper?.amount != null && (
+            <div className="rounded-xl border border-gov-blue/5 bg-white p-3 flex justify-between gap-3">
+              <div className="text-xs font-black text-gov-blue">{paper.label || "Paper cost"}</div>
+              <div className="text-sm font-black text-gov-blue">₹{Number(paper.amount).toLocaleString()}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const getBrochureTrimPageSize = () => {
-    if (brochureSizeId === "custom") {
+    const sizeId =
+      activeTab === "offset-book" ? offsetBookSizeId : brochureSizeId;
+    if (sizeId === "custom") {
       const width = Number(customWidth);
       const breadth = Number(customBreadth);
       if (!width || !breadth) return null;
       return { width, breadth, unit: customUnit };
     }
-    const selectedSize = sizeList.find((s) => s.id === brochureSizeId);
+    const selectedSize = sizeList.find((s) => s.id === sizeId);
     if (!selectedSize) return null;
     return { width: selectedSize.width, breadth: selectedSize.breadth, unit: selectedSize.unit };
   };
 
+  const activeBrochureOrientation =
+    activeTab === "offset-book" ? offsetBookOrientation : brochureOrientation;
+
   /** UI Normal → long-edge pair; UI Rotated → short-edge pair (landscape cells on sheet). */
-  const previewFootprintForUi = (uiOrientation = brochureOrientation) => uiOrientation;
+  const previewFootprintForUi = (uiOrientation = activeBrochureOrientation) => uiOrientation;
 
   /** One signature tile (canonical imposition), not the full repeated printer sheet. */
   const canonicalBaseGrid = (signaturePages) => {
@@ -1385,7 +1625,7 @@ export default function QuotationEditorPage() {
     const rowCount = Math.max(1, sideRows?.length || 1);
     const colCount = Math.max(1, sideRows?.[0]?.length || 1);
     const trimPage = getBrochureTrimPageSize();
-    const readerOrientation = signature?.imposition?.orientation ?? brochureOrientation;
+    const readerOrientation = signature?.imposition?.orientation ?? activeBrochureOrientation;
     const previewFootprint =
       signature?.imposition?.previewFootprintOrientation ?? readerOrientation;
     const cellFootprint = impositionCellFootprint(trimPage, previewFootprint);
@@ -1518,26 +1758,11 @@ export default function QuotationEditorPage() {
     const { rowCount, colCount, previewWidth, previewBreadth } = metrics;
     const previewBox = nestedImpositionPreviewBox(signature, metrics, planPreviewScale);
     const { widthPx, fontClass, dense, baseRows, repeatDown } = previewBox;
-    const readerOrientation = signature?.imposition?.orientation ?? brochureOrientation;
+    const readerOrientation = signature?.imposition?.orientation ?? activeBrochureOrientation;
     const previewFootprint = metrics.impositionFootprint;
-    const isLongEdgePair = isLongEdgePairing(previewFootprint);
-    const numberRotation = (cell, colIndex) => {
-      if (typeof cell.previewRotationDeg === "number") {
-        return `rotate(${cell.previewRotationDeg}deg)`;
-      }
-      if (colCount === 1 && isLongEdgePair) {
-        return "rotate(90deg)";
-      }
-      if (
-        !isLongEdgePair &&
-        signature.signaturePages === 4 &&
-        colCount >= 2 &&
-        cell.designOrientation === "NORMAL"
-      ) {
-        return shortEdgeFourPagePreviewRotation(colIndex);
-      }
-      return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
-    };
+    const isPortraitCells = isPortraitPreviewCells(previewFootprint);
+    const isLongEdgePair = isLongEdgePairingFromReader(readerOrientation);
+    const numberRotation = (cell) => impositionNumberTransform(cell);
 
     const pageCells = displayRows.flatMap((row, ri) =>
       row.map((cell, ci) => (
@@ -1550,7 +1775,7 @@ export default function QuotationEditorPage() {
         >
           <span
             className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
-            style={{ transform: numberRotation(cell, ci), transformOrigin: "center center" }}
+            style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
           >
             {cell.pageNumber}
           </span>
@@ -1598,7 +1823,7 @@ export default function QuotationEditorPage() {
   const renderBrochureImpositionSide = (seg, sideRows, tone = "teal") => {
     const rowCount = Math.max(1, sideRows.length);
     const colCount = Math.max(1, sideRows[0]?.length || 1);
-    const pageNumberingOrientation = seg.pageNumbering?.orientation ?? brochureOrientation;
+    const pageNumberingOrientation = seg.pageNumbering?.orientation ?? activeBrochureOrientation;
     const footprintOrientation =
       seg.pageNumbering?.previewFootprintOrientation ?? previewFootprintForUi(pageNumberingOrientation);
     const footprint = impositionCellFootprint(getBrochureTrimPageSize(), footprintOrientation);
@@ -1606,29 +1831,8 @@ export default function QuotationEditorPage() {
     const previewBreadth = footprint.cellBreadth * rowCount;
     const { widthPx, heightPx } = impositionPreviewBoxSize(previewWidth, previewBreadth);
     const isRotatedReader = pageNumberingOrientation === "ROTATED";
-    const isLongEdgePair = isLongEdgePairing(footprintOrientation);
-    const partPages = seg.partPages ?? 0;
-    const numberRotation = (pageNumber, rowIndex, colIndex) => {
-      if (colCount === 1) {
-        return "rotate(90deg)";
-      }
-      if (isRotatedReader && (partPages === 8 || partPages === 16) && colCount > 1) {
-        return colIndex % 2 === 0 ? "rotate(-90deg)" : "rotate(90deg)";
-      }
-      if (partPages === 4) {
-        if (isRotatedReader && colCount >= 2) {
-          return shortEdgeFourPagePreviewRotation(colIndex);
-        }
-        return "rotate(0deg)";
-      }
-      if (partPages === 8 && rowCount >= 2) {
-        return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
-      }
-      if (rowCount >= 2) {
-        return rowIndex === rowCount - 1 ? "rotate(180deg)" : "rotate(0deg)";
-      }
-      return "rotate(0deg)";
-    };
+    const isLongEdgePair = isLongEdgePairingFromReader(pageNumberingOrientation);
+    const numberRotation = (cell) => impositionNumberTransform(cell);
 
     return (
       <div className="overflow-x-auto pb-1">
@@ -1649,7 +1853,9 @@ export default function QuotationEditorPage() {
           }}
         >
           {sideRows.flatMap((row, ri) =>
-            row.map((pageNumber, ci) => (
+            row.map((cell, ci) => {
+              const pageNumber = typeof cell === "number" ? cell : cell.pageNumber;
+              return (
               <div
                 key={`${ri}-${ci}-${pageNumber}`}
                 title={isBrochureColorPage(pageNumber) ? "Color page" : "Black and white page"}
@@ -1657,12 +1863,16 @@ export default function QuotationEditorPage() {
               >
                 <span
                   className="inline-flex items-center justify-center text-sm font-black leading-none transition-transform"
-                  style={{ transform: numberRotation(pageNumber, ri, ci) }}
+                  style={{
+                    transform: numberRotation(typeof cell === "number" ? { pageNumber: cell } : cell),
+                    transformOrigin: "center center",
+                  }}
                 >
                   {pageNumber}
                 </span>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -1710,14 +1920,22 @@ export default function QuotationEditorPage() {
   };
 
   const getActivePressSizeLabel = () => {
-    const sizeId = activeTab === "offset" ? offsetSizeId : laserSizeId;
+    const sizeId =
+      activeTab === "offset" || activeTab === "offset-book"
+        ? activeTab === "offset-book"
+          ? offsetBookSizeId
+          : offsetSizeId
+        : laserSizeId;
     if (sizeId === "custom") {
       if (customWidth && customBreadth) {
         return `Custom (${formatPaperSize(customWidth, customBreadth, customUnit)})`;
       }
       return "Custom size";
     }
-    const options = activeTab === "offset" ? offsetSizeOptions : laserSizeOptions;
+    const options =
+      activeTab === "offset" || activeTab === "offset-book"
+        ? offsetSizeOptions
+        : laserSizeOptions;
     const selected = options.find((o) => o.value === sizeId);
     if (selected?.label) return selected.label;
     const selSize = sizeList.find((s) => s.id === sizeId);
@@ -1750,9 +1968,11 @@ export default function QuotationEditorPage() {
                 label: "Impressions",
                 value: plan.totals?.prints ?? "—",
                 hint:
-                  plan.totals?.prints != null
-                    ? `${plan.totals.colorPrints ?? 0} color · ${plan.totals.bwPrints ?? 0} B&W`
-                    : null,
+                  plan.offsetPlanTotals?.impressions != null
+                    ? `${Number(plan.offsetPlanTotals.impressions).toLocaleString()} billed (plate + run)`
+                    : plan.totals?.prints != null
+                      ? `${plan.totals.colorPrints ?? 0} color · ${plan.totals.bwPrints ?? 0} B&W`
+                      : null,
               },
               { label: "Trim waste", value: `${wasteStats.wastePercent}%` },
             ].map((stat) => (
@@ -1788,7 +2008,9 @@ export default function QuotationEditorPage() {
           )}
         </div>
 
-        {renderBrochurePricingBreakdown(plan.pricingBreakdown, plan.totals)}
+        {plan.chargeComponents?.length
+          ? renderOffsetBrochurePricingBreakdown(plan.chargeComponents, plan.offsetPlanTotals ?? plan.totals)
+          : renderBrochurePricingBreakdown(plan.pricingBreakdown, plan.totals)}
 
         <div className="space-y-3">
           {groups.map((group) => (
@@ -3238,21 +3460,332 @@ export default function QuotationEditorPage() {
             ) : activeTab === "offset-book" ? (
               <div className={`${QUOTE_CALC_ROW_CLASS} animate-fade-in`}>
                   <div className={QUOTE_FORM_COLUMN_CLASS}>
-                    <div className="gov-panel min-h-[320px] flex flex-col">
-                      <div className="gov-panel-header">
-                        <h3 className="text-sm font-semibold text-gov-blue">Offset Book / Booklet Printing</h3>
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-gray-700">Binding Type</label>
+                          <div className="flex border border-gov-border">
+                            {[
+                              { id: "CENTER_CLIP", label: "Center Clip" },
+                              { id: "PERFECT_BINDING", label: "Perfect Binding" },
+                            ].map((mode) => (
+                              <button
+                                key={mode.id}
+                                type="button"
+                                onClick={() => setOffsetBookletBindingType(mode.id)}
+                                className={`flex-1 py-2 text-xs font-semibold border-r border-gov-border last:border-r-0 transition-colors ${offsetBookletBindingType === mode.id ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                              >
+                                {mode.label}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-gray-500 leading-snug">
+                            {isCenterClipBinding
+                              ? "Nested center-pin folded signatures priced per offset print set (plates + run + paper)."
+                              : "Sequential folded stack signatures for perfect binding."}
+                          </p>
+                        </div>
+
+                      <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <TextField
+                            label="Job Title"
+                            placeholder="e.g. Annual Report, Booklet..."
+                            value={itemTitle}
+                            onChange={(e) => setItemTitle(e.target.value)}
+                          />
+                          <SearchableSelect
+                             label="Finished Page Size"
+                             options={offsetSizeOptions}
+                             value={offsetBookSizeId}
+                             placeholder="Search Size Chart..."
+                             onChange={(e) => {
+                               const next = e.target.value;
+                               if (!next) return;
+                               if (next === "custom") {
+                                 setOffsetBookSizeId("custom");
+                                 setCustomWidth("");
+                                 setCustomBreadth("");
+                                 setTimeout(() => customWidthRef.current?.focus(), 100);
+                                 return;
+                               }
+                               setOffsetBookSizeId(next);
+                             }}
+                           />
+                          </div>
+
+                          {offsetBookSizeId === "custom" && renderCustomSizeFields()}
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <SearchableSelect
+                             label="Paper / Stock"
+                             options={offsetStockOptions}
+                             value={offsetBookStockItemId}
+                             placeholder="Search Inventory..."
+                             onChange={(e) => setOffsetBookStockItemId(e.target.value)}
+                             onSearch={fetchOffsetStocks}
+                           />
+
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 block mb-1">Orientation</label>
+                            <div className="flex border border-gov-border">
+                              <button
+                                type="button"
+                                onClick={() => handleOffsetBookOrientationChange("NORMAL")}
+                                className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 border-r border-gov-border transition-colors min-w-0 ${offsetBookOrientation === "NORMAL" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                              >
+                                <div className="min-w-0 text-left">
+                                  <span className="text-xs font-semibold block truncate">Normal</span>
+                                  <span className={`text-[9px] block truncate ${offsetBookOrientation === "NORMAL" ? "text-white/80" : "text-gray-400"}`}>
+                                    Long edge pair
+                                  </span>
+                                </div>
+                                <div className={`w-5 h-6 border flex items-center justify-center shrink-0 ${offsetBookOrientation === "NORMAL" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
+                                  <span className="text-sm font-bold leading-none">A</span>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOffsetBookOrientationChange("ROTATED")}
+                                className={`flex-1 flex items-center justify-between gap-2 px-2 py-1.5 transition-colors min-w-0 ${offsetBookOrientation === "ROTATED" ? "bg-gov-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                              >
+                                <div className="min-w-0 text-left">
+                                  <span className="text-xs font-semibold block truncate">Rotated</span>
+                                  <span className={`text-[9px] block truncate ${offsetBookOrientation === "ROTATED" ? "text-white/80" : "text-gray-400"}`}>
+                                    Short edge pair
+                                  </span>
+                                </div>
+                                <div className={`w-9 h-4 border flex items-center justify-center shrink-0 ${offsetBookOrientation === "ROTATED" ? "border-white/70" : "border-gov-border bg-gray-50"}`}>
+                                  <span className="text-[10px] font-bold leading-none">A</span>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                          </div>
+
                       </div>
-                      <div className="gov-panel-body flex-1 flex flex-col items-center justify-center text-center py-16 px-6">
-                        <MdLayers className="w-12 h-12 text-gov-blue/20 mb-4" />
-                        <p className="text-sm font-medium text-gray-700">Book printing workspace</p>
-                        <p className="text-xs text-gray-500 mt-2 max-w-md">
-                          Configuration for offset book and booklet jobs will be added here. Use Laser → Booklet / Book for laser booklet quoting in the meantime.
-                        </p>
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                           <TextField
+                              label="Pages per Booklet"
+                              type="number"
+                              placeholder="e.g. 8"
+                              value={offsetBookPagesPerBrochure}
+                              onChange={(e) => setOffsetBookPagesPerBrochure(e.target.value)}
+                           />
+                           <TextField
+                              label="No of Copies"
+                              type="number"
+                              placeholder="Enter copies"
+                              value={offsetBookCopies}
+                              onChange={(e) => setOffsetBookCopies(e.target.value)}
+                           />
+                           <div className="min-w-0 col-span-2 md:col-span-1">
+                             <TextField
+                               label="Waste per print set"
+                               type="number"
+                               placeholder="0"
+                               value={offsetBookWastePerSet}
+                               onChange={(e) => setOffsetBookWastePerSet(e.target.value)}
+                               info="Extra parent sheets added to each signature run for ink and colour adjustment on press."
+                             />
+                             <p className="mt-1 text-[9px] text-gray-500 leading-snug">
+                               Added to each signature set (like normal offset waste impressions).
+                             </p>
+                           </div>
                       </div>
-                    </div>
+
+                      <p className="text-[9px] text-gray-500 leading-snug px-0.5">
+                        Each signature prints front and back on the sheet (duplex). Plate pricing uses two plate sets per run when front and back impositions differ.
+                      </p>
+
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Colour Mode</label>
+                         <div className="flex flex-wrap bg-zinc-50 p-1 rounded-xl border border-gov-blue/5">
+                            {["Single", "Two Colour", "Three Colour", "Multi"].map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setOffsetColorMode(m)}
+                                className={`flex-1 py-2 px-2 text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all whitespace-nowrap ${offsetColorMode === m ? "bg-white text-gov-blue shadow-sm" : "text-gov-blue/60 hover:text-gov-blue/80"}`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                         </div>
+                      </div>
                   </div>
-                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[320px] ${QUOTE_OPTIONS_PANEL_IDLE} flex items-center justify-center`}>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide px-4 text-center">Composition options will appear here</p>
+
+                  <div className={`${QUOTE_OPTIONS_PANEL_CLASS} min-h-[280px] ${editingLineId ? QUOTE_OPTIONS_PANEL_ACTIVE : QUOTE_OPTIONS_PANEL_IDLE}`}>
+                      <div className="mb-2 flex items-center justify-between shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                             <MdLayers className="w-4 h-4 text-gov-blue shrink-0" />
+                             <h3 className={`text-[11px] font-semibold text-gov-blue uppercase tracking-wide truncate ${OPT_COMPACT}`}>
+                                Options
+                             </h3>
+                             <h3 className={`${OPT_EXPAND} text-[11px] font-semibold text-gov-blue uppercase tracking-wide`}>
+                                {editingLineId ? "Editing Offset Booklet" : "Offset Booklet Options"}
+                             </h3>
+                          </div>
+                          <span className="hidden lg:block text-[9px] text-gray-400 uppercase tracking-wide shrink-0 ml-1 group-hover/options:hidden">Hover to expand</span>
+                          {offsetBookLoading && <div className="w-3.5 h-3.5 border border-gov-border border-t-gov-blue animate-spin shrink-0"></div>}
+                      </div>
+
+                      {offsetBookNotice && (
+                        <div className={`${OPT_EXPAND} mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[10px] font-bold text-amber-800 leading-relaxed`}>
+                          {offsetBookNotice}
+                        </div>
+                      )}
+
+                      {offsetBookLoading ? (
+                        renderOptionsLoadingState()
+                      ) : offsetBookError ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+                           <MdWarningAmber className="w-12 h-12 text-red-400 opacity-20" />
+                           <p className="text-xs font-bold text-red-400 uppercase tracking-widest max-w-[200px]">{offsetBookError}</p>
+                        </div>
+                      ) : offsetBookNestedPrintPlans.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+                           <MdLayers className={`w-12 h-12 ${offsetBookSizeId && offsetBookStockItemId && parsePositiveInt(offsetBookCopies) != null && parsePositiveInt(offsetBookPagesPerBrochure) != null ? "text-red-400 opacity-20" : "opacity-30 grayscale"}`} />
+                           <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px] ${offsetBookSizeId && offsetBookStockItemId && parsePositiveInt(offsetBookCopies) != null && parsePositiveInt(offsetBookPagesPerBrochure) != null ? "text-red-400" : "text-gov-blue/65"}`}>
+                             {offsetBookSizeId && offsetBookStockItemId && parsePositiveInt(offsetBookCopies) != null && parsePositiveInt(offsetBookPagesPerBrochure) != null
+                               ? "No offset booklet composition possible for this page count"
+                               : "Enter size, stock, pages, and copies to see options"}
+                           </p>
+                        </div>
+                      ) : (
+                        <div className="flex-1 flex flex-col min-h-0">
+                           <div className="space-y-2 flex-1 flex flex-col min-h-0">
+                             <div className="flex items-center justify-between px-0.5 shrink-0">
+                               <h4 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                                 {isPerfectBinding ? "Perfect binding" : "Center pin"} · {offsetBookNestedPrintPlans.length} plan{offsetBookNestedPrintPlans.length === 1 ? "" : "s"}
+                               </h4>
+                             </div>
+
+                            <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0 pr-0.5">
+                               {offsetBookNestedPrintPlans.map((plan, planIdx) => {
+                                 const isPlanSelected = selectedOffsetBookNestedPrintPlan?.planId === plan.planId;
+                                 const planPrice = plan.totals?.price != null ? Number(plan.totals.price).toLocaleString() : null;
+                                 const sigSummary = plan.signatures.map((sig) => `${sig.signaturePages}pp`).join("+");
+                                 const wasteStats = paperWasteStatsForPlan(plan);
+                                 const printCharge = plan.chargeComponents?.find((c) => c.role === "printing")?.amount;
+                                 const paperCharge = plan.chargeComponents?.find((c) => c.role === "paper")?.amount;
+                                 return (
+                                 <div
+                                   key={plan.planId}
+                                  onClick={() => !quoteOptionsBusy && setSelectedOffsetBookNestedPrintPlan(plan)}
+                                  className={`p-2 border bg-white flex items-center gap-2 transition-all w-full min-w-0 ${quoteOptionsBusy ? "opacity-50 cursor-not-allowed pointer-events-none" : "cursor-pointer"} ${isPlanSelected ? "border-gov-blue ring-1 ring-gov-blue bg-gov-blue/[0.02]" : "border-gov-border hover:border-gov-blue/40"}`}
+                                 >
+                                   <div className="flex-1 min-w-0">
+                                     <div className="flex items-center gap-1.5 flex-wrap">
+                                       <span className="text-[11px] font-bold text-gov-blue">Option {planIdx + 1}</span>
+                                       {brochureWorkflowBadges(plan).slice(0, 2).map((badge) => renderBrochureWorkflowBadge(badge))}
+                                     </div>
+                                     <div className="text-[9px] text-gray-500 truncate mt-0.5">
+                                       {sigSummary} · {nestedPlanPaperUsageLabel(plan)} · waste {wasteStats.wastePercent}%
+                                     </div>
+                                     <div className="text-[9px] text-gray-400 truncate">
+                                       {nestedPlanPrinterSummary(plan, 2)}
+                                       {printCharge != null && paperCharge != null
+                                         ? ` · print ₹${Number(printCharge).toLocaleString()} + paper ₹${Number(paperCharge).toLocaleString()}`
+                                         : ""}
+                                     </div>
+                                   </div>
+                                   <button
+                                     type="button"
+                                     disabled={quoteOptionsBusy}
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       if (quoteOptionsBusy) return;
+                                       setPreviewingCompositionPlan({ plan, planIdx });
+                                     }}
+                                     className={inspectButtonClass()}
+                                   >
+                                     Inspect
+                                   </button>
+                                   {planPrice != null && (
+                                     <div className="text-sm font-bold text-gov-blue shrink-0 tabular-nums">₹{planPrice}</div>
+                                   )}
+                                 </div>
+                               );})}
+                             </div>
+
+                             {selectedOffsetBookNestedPrintPlan && !quoteOptionsBusy && (
+                               <div className="mt-auto pt-2 border-t border-gov-border shrink-0">
+                                 <div className="flex gap-2">
+                                     {editingLineId && (
+                                       <button
+                                         onClick={resetCalculator}
+                                         className={`px-2 text-[10px] font-black uppercase tracking-widest text-gov-blue/65 hover:text-red-400 transition-colors ${OPT_EXPAND}`}
+                                       >
+                                         Cancel
+                                       </button>
+                                     )}
+                                     <PrimaryButton
+                                       onClick={async () => {
+                                         const plan = selectedOffsetBookNestedPrintPlan;
+                                         const selPaper = stockItemList.find((s) => s.id === offsetBookStockItemId);
+                                         let sizeName = "Custom Booklet";
+                                         if (offsetBookSizeId === "custom") {
+                                           sizeName = `Custom (${customWidth}x${customBreadth}${customUnit})`;
+                                         } else {
+                                           const selSize = sizeList.find((s) => s.id === offsetBookSizeId);
+                                           sizeName = selSize ? `${selSize.name}` : "Standard Booklet";
+                                         }
+
+                                         const bindingLabel = isPerfectBinding ? "Perfect Binding" : "Center Clip";
+                                         const newLineItem = {
+                                           id: editingLineId || Date.now(),
+                                           lineKind: "PRINTING",
+                                           title: itemTitle || `${sizeName} Offset Booklet`,
+                                           description: `OBK • ${bindingLabel} • ${offsetBookPagesPerBrochure}pp • ${offsetColorMode} • Duplex • 2 plate sets • waste ${offsetBookWastePerSet || 0}/set • ${selPaper?.name || "Standard"} • ${plan.signatures.map((sig) => `${sig.signaturePages}pp`).join("+")}`,
+                                           quantity: Number(offsetBookCopies),
+                                           meta: {
+                                             itemTitle,
+                                             offsetBookStockItemId,
+                                             offsetBookSizeId,
+                                             customWidth,
+                                             customBreadth,
+                                             customUnit,
+                                             offsetBookPagesPerBrochure,
+                                             offsetBookCopies,
+                                             offsetColorMode,
+                                             offsetSides: "DOUBLE",
+                                             offsetIsBackSideDifferent: true,
+                                             offsetBookWastePerSet,
+                                             offsetBookOrientation,
+                                             offsetBookletBindingType,
+                                             selectedNestedPlanId: plan.planId,
+                                             nestedPrintPlan: plan,
+                                           },
+                                           chargeComponents: buildOffsetBrochureChargeComponents(plan),
+                                         };
+
+                                         let newList;
+                                         if (editingLineId) {
+                                           newList = lineItems.map((item) =>
+                                             String(item.id || item._id) === String(editingLineId) ? newLineItem : item,
+                                           );
+                                         } else {
+                                           newList = [...lineItems, newLineItem];
+                                         }
+                                         await syncLineItems(newList);
+                                         onLineItemSaved(newLineItem.title || itemTitle, Boolean(editingLineId));
+                                       }}
+                                       className="flex-1 flex items-center justify-center gap-1.5 text-xs lg:group-hover/options:text-sm py-2 lg:group-hover/options:py-2.5"
+                                     >
+                                       {editingLineId ? <MdCheckCircle className="w-4 h-4 shrink-0" /> : <MdAdd className="w-4 h-4 shrink-0" />}
+                                       <span className={`truncate ${OPT_COMPACT}`}>
+                                         {editingLineId ? "Update" : "Add"} · ₹{selectedOffsetBookNestedPrintPlan.totals?.price != null ? Number(selectedOffsetBookNestedPrintPlan.totals.price).toLocaleString() : "—"}
+                                       </span>
+                                       <span className={`truncate ${OPT_EXPAND}`}>
+                                         {editingLineId ? "Update Offset Booklet" : "Add Offset Booklet to Quotation"}
+                                       </span>
+                                     </PrimaryButton>
+                                   </div>
+                               </div>
+                             )}
+                           </div>
+                        </div>
+                      )}
                   </div>
               </div>
             ) : activeTab === "offset" ? (

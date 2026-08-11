@@ -176,12 +176,19 @@ export function impositionSpreadOnPortion(trimPage, previewFootprint, readerOrie
   return spread;
 }
 
-/** long-edge = portrait preview cells; short-edge = landscape preview cells. */
-export function isLongEdgePairing(previewFootprintOrientation = "NORMAL") {
+/** Portrait vs landscape preview cells (not the same as long-edge vs short-edge pairing). */
+export function isPortraitPreviewCells(previewFootprintOrientation = "NORMAL") {
   return previewFootprintOrientation === "NORMAL";
 }
 
-/** Preview rotation for short-edge 4pp horizontal pairs (landscape cells, reader ROTATED). */
-export function shortEdgeFourPagePreviewRotation(colIndex) {
-  return colIndex % 2 === 0 ? "rotate(-90deg)" : "rotate(90deg)";
+/** @deprecated Use isPortraitPreviewCells for cell aspect; use isLongEdgePairingFromReader for labels. */
+export function isLongEdgePairing(previewFootprintOrientation = "NORMAL") {
+  return isPortraitPreviewCells(previewFootprintOrientation);
 }
+
+/** User-facing pairing label: NORMAL reader → long-edge; ROTATED reader → short-edge. */
+export function isLongEdgePairingFromReader(readerOrientation = "NORMAL") {
+  return readerOrientation !== "ROTATED";
+}
+
+export { impositionNumberRotationDeg, impositionNumberTransform } from "./impositionNumberRotation.js";

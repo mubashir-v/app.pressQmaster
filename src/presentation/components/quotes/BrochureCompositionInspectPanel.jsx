@@ -3,8 +3,8 @@ import PaperLayoutFrame, { LayoutLegend } from "./PaperLayoutFrame.jsx";
 import {
   impositionCellFootprint,
   impositionSpreadOnPortion,
-  isLongEdgePairing,
-  shortEdgeFourPagePreviewRotation,
+  isLongEdgePairingFromReader,
+  impositionNumberTransform,
   formatPaperSize,
 } from "./layoutPaperFrame.js";
 
@@ -266,24 +266,12 @@ function NestedImpositionSide({
   const repeatCopies =
     Math.max(1, signature.repeatOnPortion?.across ?? 1) * Math.max(1, signature.repeatOnPortion?.down ?? 1);
   const metrics = nestedPreviewMetrics(signature, displayRows, trimPage);
-  const { rowCount, colCount, previewWidth, previewBreadth, impositionFootprint } = metrics;
+  const { rowCount, colCount, previewWidth, previewBreadth, impositionFootprint, readerOrientation } = metrics;
   const previewBox = nestedImpositionPreviewBox(signature, metrics, planPreviewScale);
   const { widthPx, fontClass, dense, baseRows, repeatDown } = previewBox;
-  const isLongEdgePair = isLongEdgePairing(impositionFootprint);
+  const isLongEdgePair = isLongEdgePairingFromReader(readerOrientation);
 
-  const numberRotation = (cell, colIndex) => {
-    if (typeof cell.previewRotationDeg === "number") return `rotate(${cell.previewRotationDeg}deg)`;
-    if (colCount === 1 && isLongEdgePair) return "rotate(90deg)";
-    if (
-      !isLongEdgePair &&
-      signature.signaturePages === 4 &&
-      colCount >= 2 &&
-      cell.designOrientation === "NORMAL"
-    ) {
-      return shortEdgeFourPagePreviewRotation(colIndex);
-    }
-    return cell.designOrientation === "INVERTED" ? "rotate(180deg)" : "rotate(0deg)";
-  };
+  const numberRotation = (cell) => impositionNumberTransform(cell);
 
   const pageClass = (pageNumber) =>
     colorPageSet?.has(Number(pageNumber))
@@ -312,7 +300,7 @@ function NestedImpositionSide({
           >
             <span
               className={`inline-flex items-center justify-center font-black leading-none transition-transform ${fontClass}`}
-              style={{ transform: numberRotation(cell, ci), transformOrigin: "center center" }}
+              style={{ transform: numberRotation(cell), transformOrigin: "center center" }}
             >
               {cell.pageNumber}
             </span>
