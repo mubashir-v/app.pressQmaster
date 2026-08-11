@@ -26,6 +26,11 @@ import {
   formatPaperSize,
 } from "../../components/quotes/layoutPaperFrame.js";
 import { layoutPreviewSnapshotFromOption, layoutPreviewPropsFromOption } from "../../components/quotes/layoutPreviewProps.js";
+import {
+  buildOffsetBookPageColourCodes,
+  offsetBookPageInspectClass,
+  offsetBookPageLegend,
+} from "../../components/quotes/offsetBookColourPages.js";
 
 
 
@@ -196,6 +201,9 @@ export default function QuotationEditorPage() {
   const [offsetBookWastePerSet, setOffsetBookWastePerSet] = useState("0");
   const [offsetBookOrientation, setOffsetBookOrientation] = useState("NORMAL");
   const [offsetBookletBindingType, setOffsetBookletBindingType] = useState("CENTER_CLIP");
+  const [offsetBookTwoColourPages, setOffsetBookTwoColourPages] = useState("");
+  const [offsetBookThreeColourPages, setOffsetBookThreeColourPages] = useState("");
+  const [offsetBookMultiColourPages, setOffsetBookMultiColourPages] = useState("");
   const [offsetBookNestedPrintPlans, setOffsetBookNestedPrintPlans] = useState([]);
   const [selectedOffsetBookNestedPrintPlan, setSelectedOffsetBookNestedPrintPlan] = useState(null);
   const [offsetBookLoading, setOffsetBookLoading] = useState(false);
@@ -632,7 +640,15 @@ export default function QuotationEditorPage() {
          setOffsetBookWastePerSet(m.offsetBookWastePerSet?.toString() ?? "0");
          setOffsetBookOrientation(m.offsetBookOrientation || "NORMAL");
          setOffsetBookletBindingType(m.offsetBookletBindingType || "CENTER_CLIP");
-         setOffsetColorMode(m.offsetColorMode || "Single");
+         setOffsetBookTwoColourPages(m.offsetBookTwoColourPages || "");
+         setOffsetBookThreeColourPages(m.offsetBookThreeColourPages || "");
+         setOffsetBookMultiColourPages(m.offsetBookMultiColourPages || "");
+         if (!m.offsetBookTwoColourPages && !m.offsetBookThreeColourPages && !m.offsetBookMultiColourPages && m.offsetColorMode && m.offsetBookPagesPerBrochure) {
+           const allPages = `1-${m.offsetBookPagesPerBrochure}`;
+           if (m.offsetColorMode === "Two Colour") setOffsetBookTwoColourPages(allPages);
+           else if (m.offsetColorMode === "Three Colour") setOffsetBookThreeColourPages(allPages);
+           else if (m.offsetColorMode === "Multi") setOffsetBookMultiColourPages(allPages);
+         }
          setOffsetSides(m.offsetSides || "DOUBLE");
          setOffsetIsBackSideDifferent(m.offsetIsBackSideDifferent ?? false);
          if (m.nestedPrintPlan) {
@@ -1076,7 +1092,9 @@ export default function QuotationEditorPage() {
         pagesPerBrochure,
         brochureCopies: copies,
         stockItemId: offsetBookStockItemId,
-        colourMode: offsetColorMode,
+        twoColourPages: offsetBookTwoColourPages,
+        threeColourPages: offsetBookThreeColourPages,
+        multiColourPages: offsetBookMultiColourPages,
         sides: "DOUBLE",
         isBackSideDifferent: true,
         wasteImpressionsPerSet: Math.max(0, parseInt(offsetBookWastePerSet, 10) || 0),
@@ -1118,7 +1136,9 @@ export default function QuotationEditorPage() {
     customBreadth,
     customUnit,
     sizeList,
-    offsetColorMode,
+    offsetBookTwoColourPages,
+    offsetBookThreeColourPages,
+    offsetBookMultiColourPages,
     offsetBookWastePerSet,
     offsetBookOrientation,
     offsetBookletBindingType,
@@ -1237,7 +1257,9 @@ export default function QuotationEditorPage() {
     offsetBookWastePerSet,
     offsetBookOrientation,
     offsetBookletBindingType,
-    offsetColorMode,
+    offsetBookTwoColourPages,
+    offsetBookThreeColourPages,
+    offsetBookMultiColourPages,
     activeTab,
     customWidth,
     customBreadth,
@@ -1442,6 +1464,41 @@ export default function QuotationEditorPage() {
       ? "border-amber-300 bg-amber-100 text-amber-900 ring-2 ring-amber-300/50"
       : "border-gov-blue/10 bg-zinc-200/80 text-gov-blue";
 
+  const offsetBookColourCodeForPage = (pageNumber, plan = null) => {
+    const key = String(pageNumber);
+    if (plan?.pageColourCodes?.[key]) return plan.pageColourCodes[key];
+    const total = parsePositiveInt(offsetBookPagesPerBrochure) ?? 0;
+    const map = buildOffsetBookPageColourCodes(
+      total,
+      offsetBookTwoColourPages,
+      offsetBookThreeColourPages,
+      offsetBookMultiColourPages,
+    );
+    return map.get(Number(pageNumber)) ?? "S";
+  };
+
+  const offsetBookPreviewPageClass = (pageNumber, plan = null) => {
+    const isOffsetBookPlan = Boolean(plan?.pageColourCodes || plan?.offsetRunPricing?.length);
+    if (activeTab === "offset-book" || isOffsetBookPlan) {
+      return offsetBookPageInspectClass(offsetBookColourCodeForPage(pageNumber, plan));
+    }
+    return brochurePreviewPageClass(pageNumber);
+  };
+
+  const offsetBookColourSummaryForLine = () => {
+    const total = parsePositiveInt(offsetBookPagesPerBrochure);
+    if (total == null) return "Single";
+    const hasTwo = offsetBookTwoColourPages.trim();
+    const hasThree = offsetBookThreeColourPages.trim();
+    const hasMulti = offsetBookMultiColourPages.trim();
+    if (!hasTwo && !hasThree && !hasMulti) return "Single (all pages)";
+    const parts = ["Single default"];
+    if (hasTwo) parts.push("2C pages");
+    if (hasThree) parts.push("3C pages");
+    if (hasMulti) parts.push("Multi pages");
+    return parts.join(" • ");
+  };
+
   const renderBrochurePricingBreakdown = (pricingBreakdown = [], totals = null) => {
     if (!pricingBreakdown?.length) return null;
     return (
@@ -1520,6 +1577,41 @@ export default function QuotationEditorPage() {
       amount: component.amount,
       meta: component.meta,
     }));
+
+  const renderOffsetRunSideCharge = (sideLabel, runPricing, side = "front") => {
+    if (!runPricing) return null;
+    const isFront = side === "front";
+    const colourMode = isFront ? runPricing.frontColourModeUsed : runPricing.backColourModeUsed;
+    const impressions = isFront ? runPricing.frontImpressionsBilled : runPricing.backImpressionsBilled;
+    const legacyHalfPrint = Number(runPricing.printingTotal || 0) / 2;
+    const plateCharge = isFront ? runPricing.frontPlateCharge : runPricing.backPlateCharge;
+    const runChargeVal = isFront ? runPricing.frontRunCharge : runPricing.backRunCharge;
+    const printingTotal = isFront
+      ? (runPricing.frontPrintingTotal ?? legacyHalfPrint)
+      : (runPricing.backPrintingTotal ?? legacyHalfPrint);
+
+    if (!colourMode && !impressions && !printingTotal) return null;
+
+    return (
+      <div className="mt-2 rounded border border-gov-blue/10 bg-white px-2 py-1.5 space-y-1">
+        <div className="text-[8px] font-semibold text-gray-500 uppercase tracking-wide">{sideLabel} charges</div>
+        <div className="flex justify-between gap-2 text-[9px] text-gray-600">
+          <span>
+            Plate + run
+            {colourMode ? ` · ${colourMode}` : ""}
+            {impressions != null ? ` · ${Number(impressions).toLocaleString()} imp` : ""}
+          </span>
+          <span className="font-bold text-gov-blue tabular-nums shrink-0">₹{Number(printingTotal || 0).toLocaleString()}</span>
+        </div>
+        {(plateCharge != null || runChargeVal != null) && (plateCharge > 0 || runChargeVal > 0) && (
+          <div className="flex justify-between gap-3 text-[8px] text-gray-400 pl-0.5">
+            <span>Plate ₹{Number(plateCharge || 0).toLocaleString()}</span>
+            <span>Run ₹{Number(runChargeVal || 0).toLocaleString()}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderOffsetBrochurePricingBreakdown = (chargeComponents = [], totals = null) => {
     if (!chargeComponents?.length) return null;
@@ -1750,7 +1842,7 @@ export default function QuotationEditorPage() {
     </div>
   );
 
-  const renderNestedImpositionSide = (signature, sideRows, tone = "teal", planPreviewScale = null) => {
+  const renderNestedImpositionSide = (signature, sideRows, tone = "teal", planPreviewScale = null, plan = null) => {
     const displayRows = impositionSideRowsForDisplay(sideRows, signature.repeatOnPortion, signature.signaturePages);
     const repeatCopies =
       Math.max(1, signature.repeatOnPortion?.across ?? 1) * Math.max(1, signature.repeatOnPortion?.down ?? 1);
@@ -1763,13 +1855,24 @@ export default function QuotationEditorPage() {
     const isPortraitCells = isPortraitPreviewCells(previewFootprint);
     const isLongEdgePair = isLongEdgePairingFromReader(readerOrientation);
     const numberRotation = (cell) => impositionNumberTransform(cell);
+    const showOffsetColourCodes = Boolean(
+      activeTab === "offset-book" || plan?.pageColourCodes || plan?.offsetRunPricing?.length,
+    );
 
     const pageCells = displayRows.flatMap((row, ri) =>
-      row.map((cell, ci) => (
+      row.map((cell, ci) => {
+        const colourCode = showOffsetColourCodes ? offsetBookColourCodeForPage(cell.pageNumber, plan) : null;
+        return (
         <div
           key={`${ri}-${ci}-${cell.pageNumber}`}
-          title={`${cell.designOrientation.toLowerCase()} page design${isBrochureColorPage(cell.pageNumber) ? " • color page" : ""}`}
-          className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${brochurePreviewPageClass(cell.pageNumber)} ${
+          title={`${cell.designOrientation.toLowerCase()} page design${
+            showOffsetColourCodes
+              ? ` • ${colourCode === "S" ? "Single" : colourCode === "2C" ? "Two colour" : colourCode === "3C" ? "Three colour" : "Multi"}`
+              : isBrochureColorPage(cell.pageNumber)
+                ? " • color page"
+                : ""
+          }`}
+          className={`flex items-center justify-center rounded-sm border shadow-sm min-h-0 min-w-0 overflow-hidden ${offsetBookPreviewPageClass(cell.pageNumber, plan)} ${
             repeatDown > 1 && ri > 0 && ri % baseRows === 0 ? "border-t-2 border-dashed border-gov-blue/25" : ""
           }`}
         >
@@ -1780,7 +1883,8 @@ export default function QuotationEditorPage() {
             {cell.pageNumber}
           </span>
         </div>
-      ))
+        );
+      })
     );
 
     const impositionGrid = (
@@ -2012,6 +2116,17 @@ export default function QuotationEditorPage() {
           ? renderOffsetBrochurePricingBreakdown(plan.chargeComponents, plan.offsetPlanTotals ?? plan.totals)
           : renderBrochurePricingBreakdown(plan.pricingBreakdown, plan.totals)}
 
+        {Boolean(plan.pageColourCodes || plan.offsetRunPricing?.length || activeTab === "offset-book") && (
+          <div className="flex flex-wrap gap-2 px-3 py-2 border border-gov-border bg-white text-[9px]">
+            {offsetBookPageLegend().map(({ code, label }) => (
+              <span key={code} className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-black ${offsetBookPageInspectClass(code)}`}>
+                {code}
+                <span className="font-semibold normal-case tracking-normal">{label}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-3">
           {groups.map((group) => (
             <div key={`${plan.planId}-${group.signaturePages}`} className="border border-gov-border bg-white">
@@ -2033,7 +2148,9 @@ export default function QuotationEditorPage() {
                 </div>
               </div>
 
-              {group.signatures.map((signature) => (
+              {group.signatures.map((signature) => {
+                const runPricing = plan.offsetRunPricing?.find((run) => run.runIndex === signature.runIndex);
+                return (
                 <div key={`${plan.planId}-${signature.runIndex}`} className="p-2.5 border-b border-gov-border last:border-b-0 space-y-2">
                   <div className="flex justify-between gap-2 text-[10px]">
                     <div className="min-w-0">
@@ -2041,6 +2158,20 @@ export default function QuotationEditorPage() {
                         Set {signature.runIndex}: {isPerfectBinding ? (signature.signaturePages === 2 ? "Loose clip" : "Folded stack") : nestedRoleLabel(signature.nestRole)}
                       </div>
                       <div className="text-gray-500 truncate">Pages {signature.readerPages.join(", ")}</div>
+                      {runPricing && (
+                        <div className="text-[9px] font-bold text-violet-700 uppercase tracking-wide mt-0.5">
+                          {runPricing.frontColourModeUsed && runPricing.backColourModeUsed
+                            && runPricing.frontColourModeUsed !== runPricing.backColourModeUsed ? (
+                              <>
+                                Front: {runPricing.frontColourModeUsed}
+                                {" · "}
+                                Back: {runPricing.backColourModeUsed}
+                              </>
+                            ) : (
+                              <>Pricing tier: {runPricing.colourModeUsed || runPricing.frontColourModeUsed}</>
+                            )}
+                        </div>
+                      )}
                       <div className="text-gray-500 truncate">{signature.printerModelName || "Printer TBD"}</div>
                     </div>
                     <div className="text-right shrink-0 text-gray-500">
@@ -2058,16 +2189,36 @@ export default function QuotationEditorPage() {
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 min-w-0">
                     <div className="border border-gov-border bg-gray-50 p-2 min-w-0">
                       <div className="text-[9px] font-semibold text-gray-500 uppercase mb-1.5">Front side</div>
-                      {renderNestedImpositionSide(signature, signature.imposition.front, "teal", previewScale)}
+                      {renderNestedImpositionSide(signature, signature.imposition.front, "teal", previewScale, plan)}
+                      {plan.offsetRunPricing?.length > 0 && renderOffsetRunSideCharge("Front", runPricing, "front")}
                     </div>
                     <div className="border border-gov-border bg-gray-50 p-2 min-w-0">
                       <div className="text-[9px] font-semibold text-gray-500 uppercase mb-1.5">Back side</div>
-                      {renderNestedImpositionSide(signature, signature.imposition.back, "navy", previewScale)}
+                      {renderNestedImpositionSide(signature, signature.imposition.back, "navy", previewScale, plan)}
+                      {plan.offsetRunPricing?.length > 0 && renderOffsetRunSideCharge("Back", runPricing, "back")}
                     </div>
                   </div>
+                  {runPricing?.paperTotal != null && (
+                    <div className="rounded border border-gov-blue/10 bg-gov-blue/3 px-2.5 py-2 flex justify-between gap-3 text-[9px]">
+                      <span className="text-gray-600">
+                        Paper · {Number(runPricing.parentSheets || 0).toLocaleString()} parent sheet
+                        {runPricing.parentSheets === 1 ? "" : "s"} (one sheet, front + back)
+                      </span>
+                      <span className="font-bold text-gov-blue tabular-nums shrink-0">
+                        ₹{Number(runPricing.paperTotal).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {runPricing?.runTotal != null && (
+                    <div className="flex justify-between gap-3 px-0.5 text-[9px] font-semibold text-gov-blue">
+                      <span>Set total</span>
+                      <span className="tabular-nums">₹{Number(runPricing.runTotal).toLocaleString()}</span>
+                    </div>
+                  )}
                   <LayoutLegend />
                 </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>
@@ -3598,18 +3749,35 @@ export default function QuotationEditorPage() {
                       </p>
 
                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Colour Mode</label>
-                         <div className="flex flex-wrap bg-zinc-50 p-1 rounded-xl border border-gov-blue/5">
-                            {["Single", "Two Colour", "Three Colour", "Multi"].map((m) => (
-                              <button
-                                key={m}
-                                type="button"
-                                onClick={() => setOffsetColorMode(m)}
-                                className={`flex-1 py-2 px-2 text-[10px] font-black uppercase tracking-tighter rounded-lg transition-all whitespace-nowrap ${offsetColorMode === m ? "bg-white text-gov-blue shadow-sm" : "text-gov-blue/60 hover:text-gov-blue/80"}`}
-                              >
-                                {m}
-                              </button>
-                            ))}
+                         <label className="text-[10px] font-black text-gov-blue/65 uppercase tracking-widest pl-1">Page colour tiers</label>
+                         <p className="text-[9px] text-gray-500 leading-snug px-0.5">
+                           All pages default to Single. List page numbers per tier (comma or range, e.g. 1,6,8 or 1-6). Higher tier wins on overlap; each signature set is priced at its highest page tier.
+                         </p>
+                         <TextField
+                           label="Two colour pages"
+                           placeholder="e.g. 2,5-8"
+                           value={offsetBookTwoColourPages}
+                           onChange={(e) => setOffsetBookTwoColourPages(e.target.value)}
+                         />
+                         <TextField
+                           label="Three colour pages"
+                           placeholder="e.g. 3,10-12"
+                           value={offsetBookThreeColourPages}
+                           onChange={(e) => setOffsetBookThreeColourPages(e.target.value)}
+                         />
+                         <TextField
+                           label="Multi colour pages"
+                           placeholder="e.g. 1,16"
+                           value={offsetBookMultiColourPages}
+                           onChange={(e) => setOffsetBookMultiColourPages(e.target.value)}
+                         />
+                         <div className="flex flex-wrap gap-1.5 pt-0.5">
+                           {offsetBookPageLegend().map(({ code, label }) => (
+                             <span key={code} className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[8px] font-black ${offsetBookPageInspectClass(code)}`}>
+                               {code}
+                               <span className="font-semibold normal-case">{label}</span>
+                             </span>
+                           ))}
                          </div>
                       </div>
                   </div>
@@ -3736,7 +3904,7 @@ export default function QuotationEditorPage() {
                                            id: editingLineId || Date.now(),
                                            lineKind: "PRINTING",
                                            title: itemTitle || `${sizeName} Offset Booklet`,
-                                           description: `OBK • ${bindingLabel} • ${offsetBookPagesPerBrochure}pp • ${offsetColorMode} • Duplex • 2 plate sets • waste ${offsetBookWastePerSet || 0}/set • ${selPaper?.name || "Standard"} • ${plan.signatures.map((sig) => `${sig.signaturePages}pp`).join("+")}`,
+                                           description: `OBK • ${bindingLabel} • ${offsetBookPagesPerBrochure}pp • ${offsetBookColourSummaryForLine()} • Duplex • 2 plate sets • waste ${offsetBookWastePerSet || 0}/set • ${selPaper?.name || "Standard"} • ${plan.signatures.map((sig) => `${sig.signaturePages}pp`).join("+")}`,
                                            quantity: Number(offsetBookCopies),
                                            meta: {
                                              itemTitle,
@@ -3747,7 +3915,9 @@ export default function QuotationEditorPage() {
                                              customUnit,
                                              offsetBookPagesPerBrochure,
                                              offsetBookCopies,
-                                             offsetColorMode,
+                                             offsetBookTwoColourPages,
+                                             offsetBookThreeColourPages,
+                                             offsetBookMultiColourPages,
                                              offsetSides: "DOUBLE",
                                              offsetIsBackSideDifferent: true,
                                              offsetBookWastePerSet,
