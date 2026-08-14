@@ -38,6 +38,7 @@ export default function QuotationsManagementPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showOpenModeModal, setShowOpenModeModal] = useState(false);
   const [openModeTarget, setOpenModeTarget] = useState(null);
+  const [openModeAnchor, setOpenModeAnchor] = useState(null);
   const [busy, setBusy] = useState(false);
   const [deleteTargetItem, setDeleteTargetItem] = useState(null);
 
@@ -83,9 +84,10 @@ export default function QuotationsManagementPage() {
     }
   }
 
-  function handleQuoteRowClick(item) {
+  function handleQuoteRowClick(item, event) {
     if (canEdit) {
       setOpenModeTarget(item);
+      setOpenModeAnchor({ x: event.clientX, y: event.clientY });
       setShowOpenModeModal(true);
       return;
     }
@@ -96,6 +98,7 @@ export default function QuotationsManagementPage() {
     if (busy) return;
     setShowOpenModeModal(false);
     setOpenModeTarget(null);
+    setOpenModeAnchor(null);
   }
 
   function openQuoteEditMode() {
@@ -170,7 +173,7 @@ export default function QuotationsManagementPage() {
                               items.map(item => (
                                   <tr
                                     key={item.id}
-                                    onClick={() => handleQuoteRowClick(item)}
+                                    onClick={(event) => handleQuoteRowClick(item, event)}
                                     className="cursor-pointer hover:bg-gray-50/80 transition-colors"
                                   >
                                       <td>
@@ -266,6 +269,7 @@ export default function QuotationsManagementPage() {
       {/* Open mode picker */}
       <QuotationOpenModeModal
         open={showOpenModeModal && Boolean(openModeTarget)}
+        anchor={openModeAnchor}
         quoteLabel={openModeTarget?.quoteNumber || openModeTarget?.title || "Quotation"}
         canEdit={canEdit}
         busy={busy}
