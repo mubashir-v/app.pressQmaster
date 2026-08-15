@@ -15,6 +15,7 @@ export default function QuotationLineItemsTable({
 }) {
   const lines = quotation?.lineItems || [];
   const currency = quotation?.currency || "INR";
+  const grandTotal = lines.reduce((acc, line) => acc + lineTotal(line), 0);
 
   if (!lines.length) {
     return (
@@ -92,6 +93,15 @@ export default function QuotationLineItemsTable({
           </tbody>
         </table>
       </div>
+
+      {!hidePricing && (
+        <div className="px-3 py-2 bg-gray-50 border-t border-gov-border flex items-center justify-end gap-2 shrink-0">
+          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Grand Total</span>
+          <span className="text-base font-bold text-gov-blue tabular-nums">
+            {currency} {grandTotal.toLocaleString()}
+          </span>
+        </div>
+      )}
     </section>
   );
 }
